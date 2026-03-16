@@ -77,13 +77,15 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'logiplan_db',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
+        'NAME': os.getenv('MYSQLDATABASE', 'logiplan_db'),
+        'USER': os.getenv('MYSQLUSER', 'root'),
+        'PASSWORD': os.getenv('MYSQLPASSWORD', 'root'),
+        'HOST': os.getenv('MYSQLHOST', '127.0.0.1'),
+        'PORT': os.getenv('MYSQLPORT', '3306'),
     }
 }
+
+
 
 
 # Password validation
