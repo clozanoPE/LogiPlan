@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Cabecera y Filtros Optimizados -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col gap-6">
+            <!-- Título -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <i class="fas fa-arrow-left text-sm"></i>
+                    </a>
+                    <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Historial de Planificación</h1>
+                </div>
+                <p class="text-slate-500 font-bold text-sm tracking-tight">Gestiona y filtra todos los registros históricos del sistema.</p>
+            </div>
+
+            <!-- Formulario de Filtros con Rango de Fechas -->
+            <form method="get" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+                
+                <!-- Cliente -->
+                <div class="flex flex-col gap-1.5 lg:col-span-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i class="fas fa-user text-[10px]"></i>
+                        </span>
+                        <input type="text" name="cliente" value="{{ request.GET.cliente }}" placeholder="Buscar cliente..." 
+                               class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green focus:ring-4 focus:ring-daryza-green/5 transition-all">
+                    </div>
+                </div>
+
+                <!-- Placa -->
+                <div class="flex flex-col gap-1.5 lg:col-span-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Placa</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                            <i class="fas fa-truck text-[10px]"></i>
+                        </span>
+                        <input type="text" name="placa" value="{{ request.GET.placa }}" placeholder="ABC-123" 
+                               class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green focus:ring-4 focus:ring-daryza-green/5 transition-all uppercase">
+                    </div>
+                </div>
+
+                <!-- Fecha Desde -->
+                <div class="flex flex-col gap-1.5 lg:col-span-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Desde</label>
+                    <div class="relative">
+                        <input type="date" name="fecha_desde" value="{{ request.GET.fecha_desde }}" 
+                               class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+                    </div>
+                </div>
+
+                <!-- Fecha Hasta -->
+                <div class="flex flex-col gap-1.5 lg:col-span-1">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hasta</label>
+                    <div class="relative">
+                        <input type="date" name="fecha_hasta" value="{{ request.GET.fecha_hasta }}" 
+                               class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex gap-2 lg:col-span-2">
+                    <button type="submit" class="flex-1 bg-daryza-dark hover:bg-black text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <a href="{% url 'lista_busqueda' %}" class="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-500 px-4 rounded-xl transition-all" title="Limpiar Filtros">
+                        <i class="fas fa-undo-alt text-xs"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Resultados -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100">
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha Despacho</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidad/Placa</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Conductor</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">O. Compra</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pallets</th>
+                        <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for reg in registros %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700">{{ reg.fecha_despacho|date:"d/m/Y" }}</span>                                                              
+                                <span class="text-[10px] font-black text-emerald-600 uppercase">{{ reg.dia_semana_es }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-black tracking-wider border border-emerald-100 uppercase">
+                                {{ reg.unidad_placa }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-xs font-black text-slate-800 uppercase tracking-tight leading-tight">{{ reg.cliente }}</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase">{{ reg.sede }}</p>
+                        </td>
+                        <td class="px-6 py-4 text-xs font-bold text-slate-600 italic">{{ reg.conductor|default:"-" }}</td>
+                        <td class="px-6 py-4 text-xs font-bold text-slate-600">{{ reg.orden_compra|default:"-" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-black text-slate-700">{{ reg.pallets }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
+                                <div class="flex justify-end items-center gap-4">
+                                    <!-- Botón Editar (Se mantiene igual) -->
+                                    <a href="{% url 'editar_planificacion' reg.pk %}" 
+                                       class="text-slate-400 hover:text-daryza-green transition-all" 
+                                       title="Editar">
+                                        <i class="fas fa-edit text-sm"></i>
+                                    </a>
+
+                                    <!-- Botón Eliminar (Nuevo, alineado con el de editar) -->
+                                    <button type="button" 
+                                            onclick="confirmarEliminacion('{{ reg.pk }}', '{{ reg.unidad_placa }}', '{{ reg.fecha_despacho|date:'d/m/Y' }}')"
+                                            class="text-slate-400 hover:text-rose-500 transition-all" 
+                                            title="Eliminar">
+                                        <i class="fas fa-trash-alt text-sm"></i>
+                                    </button>
+                                </div>
+                            {% else %}
+                                <span class="text-slate-300 text-[9px] font-black uppercase italic tracking-widest">Lectura</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-20 text-center">
+                            <div class="max-w-xs mx-auto text-slate-300">
+                                <div class="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <i class="fas fa-calendar-times text-2xl opacity-40"></i>
+                                </div>
+                                <p class="text-xs font-black uppercase tracking-widest mb-1">Sin registros</p>
+                                <p class="text-[10px] font-bold">No hay planificación para los filtros seleccionados.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Indicador de total -->
+    <div class="flex justify-between items-center px-2 pb-6">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Total de registros: <span class="text-slate-800 font-black">{{ registros|length }}</span>
+        </p>
+    </div>
+</div>
+
+<!-- Modal de Eliminación Estilizado -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm p-4">
+        <div class="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl border border-slate-100 relative overflow-hidden">
+            <!-- Icono de Advertencia -->
+            <div class="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-exclamation-triangle text-rose-500 text-xl"></i>
+            </div>
+
+            <h3 class="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">¿Confirmar eliminación?</h3>
+            <p class="text-[11px] font-bold text-slate-400 mb-8 px-4 leading-relaxed uppercase tracking-wide">
+                Estás a punto de eliminar la programación de <span id="modalPlaca" class="text-rose-600 font-black"></span> para el <span id="modalFecha" class="text-slate-900 font-black"></span>.
+            </p>
+            
+            <form id="deleteForm" method="post" class="flex gap-3">
+                {% csrf_token %}
+                <button type="button" onclick="cerrarModal()" 
+                        class="flex-1 px-4 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
+                    Cancelar
+                </button>
+                <button type="submit" 
+                        class="flex-1 px-4 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200 transition-all">
+                    Eliminar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function confirmarEliminacion(id, placa, fecha) {
+        const modal = document.getElementById('deleteModal');
+        const form = document.getElementById('deleteForm');
+        
+        // Actualizar textos informativos en el modal
+        document.getElementById('modalPlaca').innerText = placa;
+        document.getElementById('modalFecha').innerText = fecha;
+        
+        // Configurar la URL de destino (esto asume la estructura /eliminar-planificacion/ID/)
+        form.action = `/eliminar-planificacion/${id}/`;
+        
+        // Mostrar modal y bloquear scroll del cuerpo
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; 
+    }
+
+    function cerrarModal() {
+        const modal = document.getElementById('deleteModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Cerrar modal al presionar ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') cerrarModal();
+    });
+</script>
+{% endblock %}

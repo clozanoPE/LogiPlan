@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogiPlan Web | Sistema de Gestión Logística</title>
+    
+    <!-- Tailwind CSS para diseño profesional -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para Iconografía -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts: Inter para un look moderno y legible -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        daryza: {
+                            green: '#2bb673',
+                            dark: '#1a1a1a',
+                            light: '#f4fbf7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar estilizada con el verde Daryza */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2bb673;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #23945d;
+        }
+        /* Animación para mensajes */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        /* Dropdown transition */
+        .dropdown-menu {
+            display: none;
+        }
+        .dropdown-menu.show {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-900">
+
+    <!-- PUNTO 2: CONTENEDOR DE MENSAJES FLOTANTES -->
+    <div id="toast-container" class="fixed top-24 right-5 z-[100] flex flex-col gap-3 w-80 pointer-events-none">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message-toast pointer-events-auto flex items-center p-4 rounded-lg shadow-xl border-l-4 animate-slide-in 
+                    {% if message.tags == 'success' %}bg-white border-emerald-500 text-emerald-800
+                    {% elif message.tags == 'error' %}bg-white border-rose-500 text-rose-800
+                    {% elif message.tags == 'warning' %}bg-white border-amber-500 text-amber-800
+                    {% else %}bg-white border-blue-500 text-blue-800{% endif %}">
+                    
+                    <div class="mr-3 text-lg">
+                        {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+                        {% elif message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>
+                        {% elif message.tags == 'warning' %}<i class="fas fa-triangle-exclamation"></i>
+                        {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+                    </div>
+                    <div class="text-sm font-semibold">{{ message }}</div>
+                    <button onclick="this.parentElement.remove()" class="ml-auto text-slate-400 hover:text-slate-600 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Navegación Principal Estilo Daryza -->
+    <nav class="bg-white text-slate-800 sticky top-0 z-50 shadow-sm border-b-4 border-daryza-green">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <!-- Logotipo y Branding -->
+                <div class="flex items-center gap-3">
+                    <div class="bg-daryza-green p-2.5 rounded-full flex items-center justify-center shadow-md shadow-daryza-green/20">
+                        <i class="fas fa-truck-fast text-white text-xl"></i>
+                    </div>
+                    <div class="flex flex-col leading-none">
+                        <span class="text-xl font-black tracking-tighter text-daryza-dark">LOGI<span class="text-daryza-green uppercase italic">plan</span></span>
+                        <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Daryza S.A.C.</span>
+                    </div>
+                </div>
+
+                <!-- Enlaces de Navegación -->
+                <div class="hidden md:flex items-center space-x-2">
+                    <a href="{% url 'dashboard' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </a>
+
+                    <a href="{% url 'registrar_planificacion' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-file-circle-plus"></i> Programar
+                    </a>
+                    
+                    <a href="{% url 'lista_busqueda' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-magnifying-glass"></i> Consultar
+                    </a>
+
+                    <div class="h-6 w-px bg-slate-200 mx-2"></div>
+                    <a href="/admin" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-gears opacity-40"></i> Admin
+                    </a>
+                </div>
+
+                <!-- Perfil / Usuario con Dropdown para Cerrar Sesión -->
+                <div class="relative flex items-center gap-4 border-l border-slate-100 pl-4">
+                    <div class="hidden sm:flex flex-col items-end leading-tight">
+                        <span class="text-xs font-bold text-daryza-dark">{{ user.username|default:"Invitado" }}</span>
+                        <span class="text-[10px] text-daryza-green font-extrabold uppercase tracking-tighter">Operaciones Lurín</span>
+                    </div>
+                    
+                    <!-- Botón del Perfil -->
+                    <button id="userMenuButton" class="w-10 h-10 rounded-full border-2 border-daryza-green bg-white flex items-center justify-center font-bold text-daryza-green text-sm shadow-sm hover:bg-daryza-light transition-colors focus:outline-none">
+                        {{ user.username|slice:":1"|upper|default:"D" }}
+                    </button>
+
+                    <!-- Menú Desplegable de Usuario -->
+                    <div id="userDropdown" class="dropdown-menu absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+                        <div class="p-3 border-b border-slate-50 bg-slate-50/50">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sesión activa</p>
+                            <p class="text-xs font-bold text-slate-700 truncate">{{ user.email|default:user.username }}</p>
+                        </div>
+                        
+                        <!-- FORMULARIO DE CIERRE DE SESIÓN PARA EVITAR ERROR 405 -->                        
+                        <form action="{% url 'logout' %}" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'login' %}">
+                            <button type="submit" class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                                <i class="fas fa-power-off"></i> Cerrar Sesión
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenedor Principal de Contenido -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}
+        <!-- El contenido se inyecta aquí -->
+        {% endblock %}
+    </main>
+
+    <!-- Pie de Página Estilo Daryza Dark -->
+    <footer class="bg-daryza-dark text-white py-10">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-daryza-green rounded-full flex items-center justify-center shadow-lg shadow-daryza-green/20">
+                        <i class="fas fa-leaf text-white text-sm"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-bold tracking-tight text-lg">LOGIPLAN <span class="text-daryza-green">WEB</span></span>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Efficiency in Motion</span>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <p class="text-xs text-slate-400 font-medium leading-relaxed">
+                        Sistema integral para la gestión de capacidad y transporte.<br>
+                        &copy; 2026 <span class="text-white font-bold">Daryza S.A.C.</span> - Todos los derechos reservados.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-3">
+                    <span class="inline-flex items-center rounded-md bg-white/5 px-3 py-1.5 text-[10px] font-bold text-daryza-green ring-1 ring-inset ring-white/10 uppercase tracking-widest">Soporte Logística</span>
+                    <span class="inline-flex items-center rounded-md bg-daryza-green px-3 py-1.5 text-[10px] font-bold text-white uppercase tracking-widest">Sede Lurín</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Lógica para los Toasts
+            const toasts = document.querySelectorAll('.message-toast');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(20px)';
+                    toast.style.transition = 'all 0.5s ease';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            });
+
+            // 2. Lógica para el Dropdown de Usuario
+            const menuBtn = document.getElementById('userMenuButton');
+            const dropdown = document.getElementById('userDropdown');
+
+            if (menuBtn && dropdown) {
+                menuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('show');
+                });
+
+                // Cerrar al hacer clic fuera
+                document.addEventListener('click', (e) => {
+                    if (!dropdown.contains(e.target)) {
+                        dropdown.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

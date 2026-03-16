@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Encabezado con Navegación y Resumen -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-2xl font-black text-slate-800 uppercase">Detalle de Planificación</h1>
+            </div>
+            <p class="text-slate-500 font-bold tracking-tight">
+                {{ nombre_dia }} {{ fecha|date:"d" }} de {{ fecha|date:"F, Y" }}
+            </p>
+        </div>
+        
+        <div class="flex gap-3">
+            <!-- Indicador de Capacidad basado en Placas Únicas -->
+            <div class="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 text-center">
+                <span class="block text-[10px] font-black text-slate-400 uppercase">Utilización Flota</span>
+                <span class="text-xl font-black {% if conteo_placas > capacidad_limite %}text-rose-600{% else %}text-emerald-600{% endif %}">
+                    {{ conteo_placas }} / {{ capacidad_limite }}
+                </span>
+            </div>
+            
+            {# AJUSTE DE SEGURIDAD: Solo Planeamiento puede añadir carga #}
+            {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
+                {% if es_editable %}
+                <a href="{% url 'registrar_planificacion' %}?fecha={{ fecha|date:'Y-m-d' }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full font-bold transition-all flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Añadir Carga
+                </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabla de Registros -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                        <th class="px-6 py-4">Cliente / Sede</th>
+                        <th class="px-6 py-4">Unidad / Placa</th>
+                        <th class="px-6 py-4">Conductor</th>
+                        <th class="px-6 py-4">O. Compra</th>
+                        <th class="px-6 py-4">Origen</th>
+                        <th class="px-6 py-4 text-center">Pallets</th>
+                        <th class="px-6 py-4 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for r in despachos %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <p class="text-xs font-black text-slate-800 uppercase">{{ r.cliente }}</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">{{ r.sede }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black">{{ r.unidad_placa }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-[10px] font-bold text-slate-600 uppercase">{{ r.conductor }}</td>
+                        <td class="px-6 py-4 text-[10px] font-mono font-bold text-emerald-600">{{ r.orden_compra }}</td>
+                        <td class="px-6 py-4 text-[10px] text-slate-500 font-bold uppercase">{{ r.carga_origen }}</td>
+                        <td class="px-6 py-4 text-center font-black text-slate-700">{{ r.pallets }}</td>
+                        <td class="px-6 py-4 text-right">
+                            {# AJUSTE DE SEGURIDAD: Solo Planeamiento puede ver el botón Editar #}
+                            {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
+                                {% if es_editable %}
+                                <a href="{% url 'editar_planificacion' r.id %}" class="text-emerald-600 hover:text-emerald-700 font-black text-[10px] uppercase flex items-center justify-end gap-1">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                {% else %}
+                                <span class="text-slate-300 text-[9px] font-black uppercase italic">Día Cerrado</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-300 text-[9px] font-black uppercase italic">Lectura</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center">
+                            <div class="text-slate-300">
+                                <i class="fas fa-folder-open text-4xl mb-2 opacity-20"></i>
+                                <p class="text-xs font-bold uppercase tracking-widest">No hay programaciones para este día</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

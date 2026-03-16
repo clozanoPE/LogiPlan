@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-10">
+    <!-- Header Principal Estilo Daryza -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard de Operaciones</h1>
+            <p class="text-slate-500 font-medium">Planificación semanal de unidades y despacho de carga - <span class="text-emerald-600 font-bold text-xs uppercase tracking-widest">Sede Lurín</span></p>
+        </div>
+        <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="text-center px-2">
+                    <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Capacidad</span>
+                    <span class="text-3xl font-black text-emerald-600">{{ capacidad_limite }}</span>
+                </div>
+                
+                {# Botón para activar el ajuste de capacidad #}
+                {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
+                <button onclick="document.getElementById('panelAjusteCapacidad').classList.toggle('hidden')" 
+                        class="p-2 bg-white border border-slate-200 rounded-lg hover:bg-emerald-50 hover:border-emerald-200 transition-colors text-slate-400 hover:text-emerald-600"
+                        title="Configurar Límite">
+                    <i class="fas fa-edit text-xs"></i>
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="w-px h-10 bg-slate-200"></div>
+            <div class="flex flex-col gap-2">
+                <a href="{% url 'lista_busqueda' %}" class="bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                    <i class="fas fa-search"></i> Gestión / Filtros
+                </a>
+                
+                {# Solo Planeamiento ve el botón de Nuevo Registro #}
+                {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
+                <a href="{% url 'registrar_planificacion' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 uppercase tracking-wider">
+                    <i class="fas fa-plus-circle"></i> Nuevo Registro
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE KPIs ESTRATÉGICOS -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- KPI 1: Tendencia de Utilización (CORREGIDO) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tendencia</p>
+                    <p class="text-lg font-bold text-slate-800 leading-none">Ocupación</p>
+                </div>
+                <div class="text-emerald-500 bg-emerald-50 p-2 rounded-lg text-xs"><i class="fas fa-chart-line"></i></div>
+            </div>
+            <!-- Contenedor con altura h-16 para que las barras se visualicen -->
+            <div class="flex items-end justify-between h-16 gap-1 px-1">
+                {% for punto in kpis.tendencia %}
+                <div class="flex-1 group relative flex flex-col items-center h-full justify-end">
+                    <!-- Barra Dinámica -->
+                    <div class="w-full {% if punto.real >= 100 %}bg-rose-500{% elif punto.real >= 80 %}bg-amber-500{% else %}bg-slate-200 group-hover:bg-emerald-400{% endif %} rounded-t-sm transition-all cursor-pointer" 
+                         style="height: {{ punto.valor }}%"
+                         title="{{ punto.dia }}: {{ punto.real|floatformat:1 }}%"></div>
+                    <span class="text-[7px] font-bold text-slate-400 mt-1 uppercase">{{ punto.dia }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- KPI 2: Eficiencia de Flota -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Eficiencia</p>
+            <div class="mt-4 flex items-end gap-2">
+                <span class="text-4xl font-black text-slate-900 leading-none">{{ kpis.eficiencia }}%</span>
+            </div>
+            <div class="mt-4 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-emerald-500 h-full transition-all" style="width: {{ kpis.eficiencia }}%"></div>
+            </div>
+        </div>
+
+        <!-- KPI 3: Día Crítico -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+            <div class="relative z-10">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Día Crítico</p>
+                <p class="mt-4 text-2xl font-black text-slate-800 uppercase">{{ kpis.dia_pico }}</p>
+                <p class="text-[10px] font-medium text-rose-500 mt-1">Máximo volumen detectado</p>
+            </div>
+            <i class="fas fa-exclamation-triangle absolute -right-4 -bottom-4 text-slate-50 text-7xl"></i>
+        </div>
+
+        <!-- KPI 4: Balance (Alertas) -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div class="w-14 h-14 rounded-full border-4 {% if kpis.alertas > 0 %}border-rose-100{% else %}border-emerald-100{% endif %} flex items-center justify-center flex-shrink-0">
+                <span class="text-2xl font-black {% if kpis.alertas > 0 %}text-rose-600{% else %}text-emerald-600{% endif %}">{{ kpis.alertas }}</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saturación</p>
+                <p class="text-[11px] font-bold text-slate-800 leading-tight">Días sobre 80% capacidad</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Oculto para Ajustar Capacidad -->
+    <div id="panelAjusteCapacidad" class="hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div class="bg-white p-4 rounded-xl border-2 border-emerald-500 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4 max-w-2xl mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600">
+                    <i class="fas fa-truck-moving"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Configuración Global</p>
+                    <p class="text-sm font-bold text-slate-800">Límite de Unidades Diarias</p>
+                </div>
+            </div>
+            <form method="POST" action="{% url 'actualizar_capacidad' %}" class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                {% csrf_token %}
+                <input type="number" name="nuevo_limite" value="{{ capacidad_limite }}" min="1" max="50" 
+                       class="w-16 bg-transparent border-none text-center font-black text-slate-900 focus:ring-0">
+                <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all">
+                    Actualizar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Referencia de Colores -->
+    <div class="flex flex-wrap items-center gap-6 text-[10px] font-black text-slate-400 px-2 tracking-widest uppercase">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span> BAJA OCUPACIÓN</span>
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-200"></span> MEDIA (+80%)</span>
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-200 animate-pulse"></span> CRÍTICO / SOBRESATURADO</span>
+    </div>
+
+    <!-- Calendario Semanal -->
+    {% for num_semana, dias in agenda.items %}
+    <div class="space-y-4">
+        <div class="flex items-center gap-3">
+            <span class="bg-slate-800 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">Semana {{ num_semana }}</span>
+            <div class="flex-grow h-px bg-slate-200"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            {% for dia in dias %}
+            <div class="bg-white rounded-2xl border flex flex-col overflow-hidden transition-all duration-300 group hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 {{ dia.estilo_card }}">
+                
+                <a href="{% url 'detalle_dia' dia.fecha|date:'Y-m-d' %}" class="p-4 border-b border-slate-100 {{ dia.estilo_header }} transition-opacity hover:opacity-90 block">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-[9px] font-black uppercase tracking-tighter opacity-70">{{ dia.nombre_dia }}</p>
+                            <h3 class="text-2xl font-black leading-none">{{ dia.fecha|date:"d" }}</h3>
+                            <p class="text-[9px] font-bold opacity-70 italic">{{ dia.mes }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-black uppercase opacity-60">Placas</p>
+                            <p class="text-2xl font-black leading-none">{{ dia.conteo_placas }}</p>
+                            <span class="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-sm mt-1 inline-block uppercase">VER MÁS <i class="fas fa-chevron-right ml-0.5"></i></span>
+                        </div>
+                    </div>
+                </a>
+
+                <div class="flex-grow p-4 space-y-4 bg-slate-50/30">
+                    <div>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Clientes en Ruta:</p>
+                        <div class="space-y-2">
+                            {% if dia.empresas %}
+                                {% for empresa in dia.empresas %}
+                                <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
+                                    <div class="flex items-start gap-2 overflow-hidden">
+                                        <div class="mt-1 w-1.5 h-1.5 rounded-full 
+                                            {% if dia.color_class == 'rose' %}bg-rose-500
+                                            {% elif dia.color_class == 'amber' %}bg-amber-500
+                                            {% else %}bg-emerald-500{% endif %} flex-shrink-0"></div>
+                                        <div class="overflow-hidden">
+                                            <p class="text-[10px] font-black text-slate-800 leading-tight uppercase truncate">{{ empresa.nombre }}</p>
+                                            <p class="text-[8px] font-bold text-slate-400 tracking-tighter italic uppercase">Programado</p>
+                                        </div>
+                                    </div>
+                                    <a href="{% url 'detalle_dia' dia.fecha|date:'Y-m-d' %}" class="ml-2 text-slate-300 hover:text-emerald-600 transition-colors p-1">
+                                        <i class="fas fa-search-plus text-[10px]"></i>
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="py-6 flex flex-col items-center justify-center text-slate-300">
+                                    <i class="fas fa-truck-loading text-xl mb-1 opacity-20"></i>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest italic">Sin Carga</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra de Progreso Inferior -->
+                <div class="p-4 bg-white border-t border-slate-100 space-y-3">
+                    <div class="relative w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-1000 
+                                    {% if dia.color_class == 'emerald' %}bg-emerald-500
+                                    {% elif dia.color_class == 'amber' %}bg-amber-500
+                                    {% else %}bg-rose-600{% endif %}" 
+                             style="width: {% if dia.porcentaje > 100 %}100{% else %}{{ dia.porcentaje|default:0 }}{% endif %}%">
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        {% if dia.estado == "SOBRESATURADO" or dia.conteo_placas > capacidad_limite %}
+                            <p class="text-[9px] font-black text-rose-600 uppercase tracking-tighter animate-pulse">¡Capacidad Excedida!</p>
+                        {% elif dia.estado == "CRÍTICO" %}
+                            <p class="text-[9px] font-black text-amber-600 uppercase tracking-tighter">Ocupación Crítica</p>
+                        {% else %}
+                            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                {% if dia.porcentaje %}{{ dia.porcentaje|floatformat:0 }}{% else %}0{% endif %}% de ocupación
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- SCRIPT DE ACTUALIZACIÓN AUTOMÁTICA -->
+<script>
+    // Configuración: 7 segundos (7000ms)
+    const REFRESH_SECONDS = 7000;
+
+    function startAutoRefresh() {
+        setTimeout(() => {
+            const panelCapacidad = document.getElementById('panelAjusteCapacidad');
+            
+            // Verificamos si el panel de ajuste está visible (el usuario está configurando)
+            // Si está oculto (tiene la clase 'hidden'), procedemos al refresh.
+            if (panelCapacidad && panelCapacidad.classList.contains('hidden')) {
+                window.location.reload();
+            } else {
+                // Si el usuario está ajustando la capacidad, reintentamos en el siguiente ciclo
+                startAutoRefresh();
+            }
+        }, REFRESH_SECONDS);
+    }
+
+    // Iniciar el temporizador al cargar la página
+    startAutoRefresh();
+</script>
+{% endblock %}
