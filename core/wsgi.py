@@ -30,7 +30,7 @@ def setup_initial_data():
         # asegúrate de que este sea el primer usuario creado.
         if not User.objects.filter(username='admin').exists():
             User.objects.create_superuser(
-                'admin_daryza', 
+                'admin', 
                 'clozano@daryza.com', 
                 'daryzA26%'
             )
