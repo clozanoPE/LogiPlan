@@ -26,7 +26,18 @@ SECRET_KEY = 'django-insecure-enxw*txghw9s_+%c)tc6!$e(s$1be)!=ua2^12qw_jon^wi&w-
 DEBUG = True
 
 #ALLOWED_HOSTS = ['logiplan-production.up.railway.app', 'localhost', '127.0.0.1']
-ALLOWED_HOSTS = ['*']
+#ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    'logiplan.daryza.pe',
+    'logiplan-production.up.railway.app',
+    'localhost',
+    '127.0.0.1'
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://logiplan.daryza.pe',
+    'https://logiplan-production.up.railway.app'
+]
 
 
 # Application definition
@@ -131,7 +142,7 @@ LOGIN_REDIRECT_URL = 'dashboard'  # Debe coincidir con el 'name' en tu urls.py
 LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
 LOGOUT_ON_GET = True
-CSRF_TRUSTED_ORIGINS = ['https://logiplan-production.up.railway.app']
+#CSRF_TRUSTED_ORIGINS = ['https://logiplan-production.up.railway.app']
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
