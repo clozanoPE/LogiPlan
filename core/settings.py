@@ -130,3 +130,4 @@ LOGIN_REDIRECT_URL = 'dashboard'  # Debe coincidir con el 'name' en tu urls.py
 LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
 LOGOUT_ON_GET = True
+CSRF_TRUSTED_ORIGINS = ['https://logiplan-production.up.railway.app']
