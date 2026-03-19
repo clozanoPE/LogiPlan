@@ -144,6 +144,8 @@ LOGOUT_REDIRECT_URL = 'login'
 LOGOUT_ON_GET = True
 #CSRF_TRUSTED_ORIGINS = ['https://logiplan-production.up.railway.app']
 
-STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATIC_URL = 'static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

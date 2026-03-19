@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -172,34 +173,34 @@
         {% endblock %}
     </main>
 
-    <!-- Pie de Página Estilo Daryza Dark -->
-    <footer class="bg-daryza-dark text-white py-10">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-daryza-green rounded-full flex items-center justify-center shadow-lg shadow-daryza-green/20">
-                        <i class="fas fa-leaf text-white text-sm"></i>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="font-bold tracking-tight text-lg">LOGIPLAN <span class="text-daryza-green">WEB</span></span>
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Efficiency in Motion</span>
-                    </div>
+   <footer class="bg-daryza-dark text-white py-10">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-3">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg shadow-daryza-green/20 overflow-hidden p-1">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo Daryza" class="w-11 h-11 object-contain">
                 </div>
                 
-                <div class="text-center">
-                    <p class="text-xs text-slate-400 font-medium leading-relaxed">
-                        Sistema integral para la gestión de capacidad y transporte.<br>
-                        &copy; 2026 <span class="text-white font-bold">Daryza S.A.C.</span> - Todos los derechos reservados.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap justify-center gap-3">
-                    <span class="inline-flex items-center rounded-md bg-white/5 px-3 py-1.5 text-[10px] font-bold text-daryza-green ring-1 ring-inset ring-white/10 uppercase tracking-widest">Soporte Logística</span>
-                    <span class="inline-flex items-center rounded-md bg-daryza-green px-3 py-1.5 text-[10px] font-bold text-white uppercase tracking-widest">Sede Lurín</span>
+                <div class="flex flex-col">
+                    <span class="font-bold tracking-tight text-lg">LOGIPLAN <span class="text-daryza-green">WEB</span></span>
+                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Efficiency in Motion</span>
                 </div>
             </div>
+            
+            <div class="text-center">
+                <p class="text-xs text-slate-400 font-medium leading-relaxed">
+                    Sistema integral para la gestión de capacidad y transporte.<br>
+                    &copy; 2026 <span class="text-white font-bold">Daryza S.A.C.</span> - Todos los derechos reservados.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-3">
+                <span class="inline-flex items-center rounded-md bg-white/5 px-3 py-1.5 text-[10px] font-bold text-daryza-green ring-1 ring-inset ring-white/10 uppercase tracking-widest">Soporte Logística</span>
+                <span class="inline-flex items-center rounded-md bg-daryza-green px-3 py-1.5 text-[10px] font-bold text-white uppercase tracking-widest">Sede Lurín</span>
+            </div>
         </div>
-    </footer>
+    </div>
+</footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
