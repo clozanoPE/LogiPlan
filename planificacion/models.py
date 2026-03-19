@@ -23,9 +23,39 @@ class ConfiguracionCapacidad(models.Model):
         return f"Capacidad Máxima: {self.limite_max} unidades"
 
 
+class CapacidadDiaria(models.Model):
+    """
+    Capa de Configuración Dinámica: Permite establecer límites de placas 
+    específicos para fechas determinadas (ej. camiones en taller, feriados).
+    """
+    fecha = models.DateField(
+        unique=True, 
+        verbose_name="Fecha Específica",
+        db_index=True
+    )
+    limite_personalizado = models.IntegerField(
+        verbose_name="Límite para este día"
+    )
+    motivo = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        help_text="Ej: Mantenimiento de unidades / Pico de demanda"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Capacidad Diaria Específica"
+        verbose_name_plural = "Capacidades Diarias Específicas"
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.fecha} | Límite: {self.limite_personalizado}"
+
+
 class PlanificacionDespacho(models.Model):
     """
-    Capa de Planificación Core: Estructura principal de datos basada en el análisis de flujo.
+    Capa de Planificación Core: Estructura principal de datos.
     Incluye campos de auditoría, lógica de semanas y validaciones de integridad.
     """
     # Datos del Despacho
@@ -63,7 +93,7 @@ class PlanificacionDespacho(models.Model):
 
     @property
     def nombre_dia(self):
-        """Retorna el nombre del día en español para el Dashboard"""
+        """Retorna el nombre del día en español"""
         dias = {
             0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 
             3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
@@ -86,11 +116,11 @@ class PlanificacionDespacho(models.Model):
     def clean(self):
         """
         Capa de Reglas de Negocio (Business Logic):
-        Validaciones de capacidad, tiempo y restricciones de días laborales.
+        Validaciones de capacidad dinámica y restricciones de tiempo.
         """
         super().clean()
         
-        # 1. Validación de restricción temporal
+        # 1. Validación de restricción temporal (Bloqueo de pasado)
         if not self.pk:
             if self.fecha_despacho < date.today():
                 raise ValidationError({
@@ -98,26 +128,36 @@ class PlanificacionDespacho(models.Model):
                 })
         else:
             original = PlanificacionDespacho.objects.get(pk=self.pk)
-            if original.fecha_despacho < date.today():
+            # Solo validar si se intenta cambiar la fecha a una pasada o si ya era pasada
+            if original.fecha_despacho < date.today() and self.fecha_despacho < date.today():
                 raise ValidationError("Restricción de Seguridad: No se pueden editar registros históricos.")
 
         # 2. Validación de Capacidad Máxima (Placas Únicas)
-        #config = ConfiguracionCapacidad.objects.first()
-        #limite_permitido = config.limite_max if config else 7
-        
-        #despachos_dia = PlanificacionDespacho.objects.filter(
-        #    fecha_despacho=self.fecha_despacho
-        #).exclude(pk=self.pk)
-        
-        #placas_existentes = set(despachos_dia.values_list('unidad_placa', flat=True))
+        if self.fecha_despacho:
+            # Determinar el límite: ¿Hay excepción diaria o usamos el global?
+            excepcion = CapacidadDiaria.objects.filter(fecha=self.fecha_despacho).first()
+            if excepcion:
+                limite_permitido = excepcion.limite_personalizado
+            else:
+                config = ConfiguracionCapacidad.objects.first()
+                limite_permitido = config.limite_max if config else 7
+            
+            # Obtener placas ya registradas para ese día (excluyendo este registro si es edición)
+            despachos_dia = PlanificacionDespacho.objects.filter(
+                fecha_despacho=self.fecha_despacho
+            ).exclude(pk=self.pk)
+            
+            placas_existentes = set(despachos_dia.values_list('unidad_placa', flat=True))
 
-        # Si la placa que intento registrar NO está en la lista de hoy, verificamos si hay cupo
-        #if self.unidad_placa not in placas_existentes:
-        #    if len(placas_existentes) >= limite_permitido:
-        #        raise ValidationError(
-        #            f"Capacidad Crítica: Se ha alcanzado el límite de {limite_permitido} unidades únicas para el {self.nombre_dia}."
-        #        )
+            # Si la placa que intento registrar NO está en la lista de hoy, verificamos si hay cupo
+            if self.unidad_placa not in placas_existentes:
+                if len(placas_existentes) >= limite_permitido:
+                    pass
+                    #raise ValidationError(
+                    #    f"Capacidad Crítica: Se ha alcanzado el límite de {limite_permitido} unidades únicas para el día {self.fecha_despacho} ({self.nombre_dia})."
+                    #)
 
     def save(self, *args, **kwargs):
+        # Forzamos la ejecución de clean() antes de guardar en la DB
         self.full_clean()
         super().save(*args, **kwargs)

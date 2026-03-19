@@ -1,6 +1,6 @@
 # Ubicación: planificacion/admin.py
 from django.contrib import admin
-from .models import PlanificacionDespacho, ConfiguracionCapacidad
+from .models import PlanificacionDespacho, ConfiguracionCapacidad, CapacidadDiaria
 
 @admin.register(PlanificacionDespacho)
 class PlanificacionAdmin(admin.ModelAdmin):
@@ -13,3 +13,10 @@ class PlanificacionAdmin(admin.ModelAdmin):
 @admin.register(ConfiguracionCapacidad)
 class ConfiguracionAdmin(admin.ModelAdmin):
     list_display = ('limite_max', 'updated_at')
+
+@admin.register(CapacidadDiaria)
+class CapacidadDiariaAdmin(admin.ModelAdmin):
+    # Esto permite ver los ajustes de un vistazo
+    list_display = ('fecha', 'limite_personalizado', 'motivo')
+    list_editable = ('limite_personalizado',) # Permite editar el número sin entrar al registro
+    ordering = ('-fecha',)

@@ -21,5 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
      # Esta línea soluciona el error 404 redirigiendo el login automático al admin
     path('accounts/login/', lambda request: redirect('/admin/login/?next=/')),
-    path('', include('planificacion.urls')),
+    path('', include('planificacion.urls')),    
 ]

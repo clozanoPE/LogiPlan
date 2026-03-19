@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from .models import PlanificacionDespacho, ConfiguracionCapacidad
+# Se sincroniza con models incluyendo CapacidadDiaria
+from .models import PlanificacionDespacho, ConfiguracionCapacidad, CapacidadDiaria
 from .forms import PlanificacionForm
 from datetime import date, timedelta
 import collections
 from django.utils import timezone
+from django.db import models # Añadido para Q objects en búsqueda
 
 # --- FUNCIONES DE AYUDA PARA GRUPOS ---
 
@@ -23,11 +25,7 @@ def obtener_nombre_mes_es(f):
     return meses[f.month - 1]
 
 
-def calcular_kpis_dashboard(lunes_actual, conteo_por_fecha, capacidad_limite):
-    """
-    Analiza la tendencia de la semana en curso de Lunes a Sábado.
-    Optimizado para el gráfico de tendencia visual.
-    """
+def calcular_kpis_dashboard(lunes_actual, conteo_por_fecha, capacidad_limite_nominal, excepciones_externas=None):
     kpis = {
         'tendencia': [],
         'eficiencia': 0,
@@ -36,29 +34,31 @@ def calcular_kpis_dashboard(lunes_actual, conteo_por_fecha, capacidad_limite):
         'total_unidades': 0
     }
     
-    if capacidad_limite <= 0:
-        return kpis
+    # Prioridad: Excepciones externas (pasadas desde la vista dashboard)
+    excepciones_semana = excepciones_externas if excepciones_externas is not None else {}
 
     max_unidades = -1
     total_unidades_semana = 0
     dias_criticos = 0
-    
-    # Nombres cortos para el gráfico
+    capacidad_total_semana = 0
     nombres_cortos = ["LUN", "MAR", "MIE", "JUE", "VIE", "SAB"]
 
-    for i in range(6): # Lunes a Sábado
+    for i in range(6): 
         fecha = lunes_actual + timedelta(days=i)
-        # conteo_por_fecha debe ser un dict que devuelva un set o lista de placas
+        # Obtenemos placas únicas para ese día
         unidades = len(conteo_por_fecha.get(fecha, set()))
         
-        porcentaje = (unidades / capacidad_limite * 100)
+        # LÓGICA CLAVE: Si hay excepción se usa, si no, el nominal (global)
+        limite_real = excepciones_semana.get(fecha, capacidad_limite_nominal)
+        capacidad_total_semana += limite_real
         
-        # Guardamos la info necesaria para el componente visual
+        porcentaje = (unidades / limite_real * 100) if limite_real > 0 else 0
+        
         kpis['tendencia'].append({
             'dia': nombres_cortos[i],
-            'valor': min(porcentaje, 100), # Para la altura de la barra
-            'real': porcentaje,            # Valor real para cálculos
-            'unidades': unidades           # Número de camiones
+            'valor': min(porcentaje, 100),
+            'real': porcentaje,
+            'unidades': unidades
         })
 
         total_unidades_semana += unidades
@@ -66,47 +66,40 @@ def calcular_kpis_dashboard(lunes_actual, conteo_por_fecha, capacidad_limite):
             max_unidades = unidades
             kpis['dia_pico'] = obtener_nombre_dia_es(fecha)
         
-        if unidades >= capacidad_limite:
+        # ALERTA: Si se iguala o supera el límite real de ese día específico
+        if unidades >= limite_real and limite_real > 0:
             dias_criticos += 1
 
     kpis['total_unidades'] = total_unidades_semana
-    # Eficiencia sobre la capacidad total de la semana (6 días)
-    kpis['eficiencia'] = round((total_unidades_semana / (6 * capacidad_limite)) * 100, 1)
+    kpis['eficiencia'] = round((total_unidades_semana / capacidad_total_semana * 100), 1) if capacidad_total_semana > 0 else 0
     kpis['alertas'] = dias_criticos
     
     return kpis
 
-
 # --- VISTAS DEL SISTEMA ---
-
 @login_required
 def dashboard(request):
-    """
-    Vista principal: Calcula utilización de flota (Lunes a Sábado).
-    Muestra 2 semanas de planificación omitiendo domingos.
-    """
-    # 1. Obtener capacidad nominal
     config = ConfiguracionCapacidad.objects.first()
-    capacidad_limite = config.limite_max if config else 7
-
-    # 2. Rango de fechas: 14 días naturales para extraer días laborables
+    capacidad_limite_global = config.limite_max if config else 7
 
     hoy = date.today()    
-    #fecha_inicio = date.today()
     fecha_inicio = hoy - timedelta(days=hoy.weekday())
     fecha_fin = fecha_inicio + timedelta(days=13)
+    lunes_esta_semana = fecha_inicio 
+
+    # 1. Traer excepciones del rango
+    excepciones = {
+        cap.fecha: cap.limite_personalizado 
+        for cap in CapacidadDiaria.objects.filter(fecha__range=[fecha_inicio, fecha_fin])
+    }
     
-    # Referencia para KPIs: El lunes de la semana actual
-    lunes_esta_semana = fecha_inicio - timedelta(days=fecha_inicio.weekday())
-    
-    # 3. Consultar despachos en el rango
+    # 2. Consultar despachos
     despachos = PlanificacionDespacho.objects.filter(
         fecha_despacho__range=[fecha_inicio, fecha_fin]
     ).order_by('fecha_despacho', 'cliente')
 
-    # 4. Organizar datos por fecha
     datos_por_dia = collections.defaultdict(list)
-    conteo_por_fecha = collections.defaultdict(set) # Auxiliar para KPIs (Placas únicas)
+    conteo_por_fecha = collections.defaultdict(set) 
     
     for d in despachos:
         datos_por_dia[d.fecha_despacho].append(d)
@@ -114,54 +107,52 @@ def dashboard(request):
 
     agenda = collections.defaultdict(list)
     
-    # 5. Construir el calendario (Filtrando Domingos)
+    # 3. Construir calendario
     for i in range(14):
         dia_actual = fecha_inicio + timedelta(days=i)
-        
-        # OMITIR DOMINGOS
-        if dia_actual.weekday() == 6:
-            continue
+        if dia_actual.weekday() == 6: continue
 
-        # REGISTROS COMPLETOS del día
         registros_dia = datos_por_dia.get(dia_actual, [])
+        conteo_placas = len(conteo_por_fecha.get(dia_actual, set()))
         
-        # Capacidad basada en Placas Únicas
-        placas_unicas = set(r.unidad_placa for r in registros_dia)
-        conteo_placas = len(placas_unicas)
+        # LÓGICA CLAVE: Jerarquía de límites
+        limite_dia = excepciones.get(dia_actual, capacidad_limite_global)
         
-        # --- LÓGICA DE AGRUPACIÓN PARA EL DASHBOARD ---
-        dict_empresas = {}
-        for r in registros_dia:
-            if r.cliente not in dict_empresas:
-                dict_empresas[r.cliente] = {
-                    'nombre': r.cliente,
-                    'id_referencia': r.id
-                }
+        # Porcentaje basado en el límite de este día
+        porcentaje = (conteo_placas / limite_dia) * 100 if limite_dia > 0 else 0
         
-        empresas_unicas = sorted(dict_empresas.values(), key=lambda x: x['nombre'])
-        
-        porcentaje = (conteo_placas / capacidad_limite) * 100 if capacidad_limite > 0 else 0
-        
-        # Estilos de Semáforo
-        if conteo_placas > capacidad_limite:
+        # SEMÁFORO SINCRONIZADO:
+        # Rojo si SUPERA el límite del día. Ámbar si alcanza el 100% o está cerca (>=80%).
+        if conteo_placas > limite_dia:
             estado, color_class = "SOBRESATURADO", "rose"
-            estilo_card = "border-rose-500 shadow-rose-100"
+            estilo_card = "border-rose-500 shadow-lg shadow-rose-100/50"
             estilo_header = "bg-rose-600 text-white"
-        elif porcentaje >= 80:
+        elif porcentaje >= 100:
             estado, color_class = "CRÍTICO", "amber"
-            estilo_card = "border-amber-400"
+            estilo_card = "border-amber-500 shadow-md shadow-amber-50/50"
+            estilo_header = "bg-amber-600 text-white"
+        elif porcentaje >= 80:
+            estado, color_class = "ADVERTENCIA", "amber"
+            estilo_card = "border-amber-300"
             estilo_header = "bg-amber-500 text-white"
         else:
             estado, color_class = "NORMAL", "emerald"
             estilo_card = "border-slate-100"
             estilo_header = "bg-slate-100 text-slate-700"
 
+        # Agrupación de empresas para el detalle del card
+        dict_empresas = {}
+        for r in registros_dia:
+            if r.cliente not in dict_empresas:
+                dict_empresas[r.cliente] = {'nombre': r.cliente, 'id_referencia': r.id}
+        
         dia_info = {
             'fecha': dia_actual,
             'nombre_dia': obtener_nombre_dia_es(dia_actual),
             'mes': obtener_nombre_mes_es(dia_actual),
-            'empresas': empresas_unicas,
+            'empresas': sorted(dict_empresas.values(), key=lambda x: x['nombre']),
             'conteo_placas': conteo_placas,
+            'limite_dia': limite_dia, 
             'porcentaje': porcentaje,
             'estado': estado,
             'color_class': color_class,
@@ -172,19 +163,19 @@ def dashboard(request):
         num_semana = dia_actual.isocalendar()[1]
         agenda[num_semana].append(dia_info)
     
-    # --- INTEGRACIÓN DE KPIs ---
-    kpis_data = calcular_kpis_dashboard(lunes_esta_semana, conteo_por_fecha, capacidad_limite)
+    # KPIs con excepciones pasadas por parámetro para exactitud
+    kpis_data = calcular_kpis_dashboard(lunes_esta_semana, conteo_por_fecha, capacidad_limite_global, excepciones)
 
     return render(request, 'planificacion/dashboard.html', {
         'agenda': dict(agenda),
-        'capacidad_limite': capacidad_limite,
+        'capacidad_limite': capacidad_limite_global,
         'kpis': kpis_data,
     })
 
 @login_required
 @user_passes_test(es_planeamiento, login_url='dashboard')
 def actualizar_capacidad(request):
-    """Ajusta el límite máximo de la flota."""
+    """Ajusta el límite máximo de la flota global."""
     if request.method == 'POST':
         nuevo_limite = request.POST.get('nuevo_limite')
         if nuevo_limite:
@@ -195,13 +186,66 @@ def actualizar_capacidad(request):
     return redirect('dashboard')
 
 @login_required
+@user_passes_test(es_planeamiento, login_url='dashboard')
+def gestionar_capacidad_diaria(request):
+    """
+    Vista rápida para que Planeamiento ajuste el límite de camiones por fecha.
+    Recibe 'fecha' (YYYY-MM-DD) y 'limite_personalizado' (int) vía POST.
+    """
+    if request.method == 'POST':
+        fecha_str = request.POST.get('fecha')
+        nuevo_limite = request.POST.get('limite_personalizado')
+        motivo = request.POST.get('motivo', 'Ajuste manual desde Dashboard')
+
+        if not fecha_str or not nuevo_limite:
+            messages.error(request, "⚠️ Datos incompletos para actualizar la capacidad.")
+            return redirect('dashboard')
+
+        try:
+            # 1. Validación de formato y valor numérico
+            limite_int = int(nuevo_limite)
+            if limite_int < 0:
+                messages.error(request, "⚠️ El límite no puede ser negativo.")
+                return redirect('dashboard')
+
+            # 2. Validación de Integridad Histórica (Opcional pero Recomendado)
+            # Evita que se cambie la capacidad de un día que ya pasó
+            from datetime import datetime
+            fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            if fecha_dt < timezone.now().date():
+                messages.error(request, "🚫 No se puede modificar la capacidad de fechas pasadas.")
+                return redirect('dashboard')
+
+            # 3. Lógica central: Actualiza si existe, crea si no.
+            obj, created = CapacidadDiaria.objects.update_or_create(
+                fecha=fecha_dt,
+                defaults={
+                    'limite_personalizado': limite_int,
+                    'motivo': motivo
+                }
+            )
+
+            accion = "establecida" if created else "actualizada"
+            messages.success(request, f"✅ Capacidad para el {fecha_str} {accion} a {limite_int} unidades.")
+
+        except ValueError:
+            messages.error(request, "⚠️ El límite debe ser un número entero válido.")
+        except Exception as e:
+            messages.error(request, f"❌ Error al procesar el ajuste: {str(e)}")
+
+    return redirect('dashboard')
+
+
+@login_required
 def detalle_dia(request, fecha):
-    """Muestra todos los despachos de una fecha específica."""
+    """Muestra todos los despachos de una fecha específica con su límite real."""
     fecha_dt = date.fromisoformat(fecha)
     despachos = PlanificacionDespacho.objects.filter(fecha_despacho=fecha_dt).order_by('cliente')
     
+    # Obtener límite real para este día
+    excepcion = CapacidadDiaria.objects.filter(fecha=fecha_dt).first()
     config = ConfiguracionCapacidad.objects.first()
-    capacidad_limite = config.limite_max if config else 7
+    limite_dia = excepcion.limite_personalizado if excepcion else (config.limite_max if config else 7)
     
     placas_unicas = set(d.unidad_placa for d in despachos)
     conteo_placas = len(placas_unicas)
@@ -212,7 +256,7 @@ def detalle_dia(request, fecha):
         'despachos': despachos,
         'fecha': fecha_dt,
         'conteo_placas': conteo_placas,
-        'capacidad_limite': capacidad_limite,
+        'capacidad_limite': limite_dia, # Pasamos el límite real de ese día
         'nombre_dia': obtener_nombre_dia_es(fecha_dt),
         'es_editable': es_editable,
         'usuario_puede_editar': es_planeamiento(request.user), 
@@ -248,7 +292,7 @@ def lista_busqueda(request):
 @login_required
 @user_passes_test(es_planeamiento, login_url='dashboard')
 def registrar_planificacion(request):
-    """Registro de nuevas planificaciones."""
+    """Registro de nuevas planificaciones con validación de capacidad dinámica."""
     fecha_predefinida = request.GET.get('fecha')
     
     if request.method == 'POST':
@@ -263,12 +307,15 @@ def registrar_planificacion(request):
             planificacion.creado_por = request.user
             planificacion.save()
 
+            # Lógica de alerta basada en Capacidad Diaria
+            excepcion = CapacidadDiaria.objects.filter(fecha=nueva_fecha).first()
             config = ConfiguracionCapacidad.objects.first()
-            limite = config.limite_max if config else 7
+            limite_real = excepcion.limite_personalizado if excepcion else (config.limite_max if config else 7)
+            
             total_placas = PlanificacionDespacho.objects.filter(fecha_despacho=nueva_fecha).values('unidad_placa').distinct().count()
             
-            if total_placas > limite:
-                messages.warning(request, f"⚠️ Unidad {planificacion.unidad_placa} registrada, pero se ha superado el límite de flota ({total_placas}/{limite}).")
+            if total_placas > limite_real:
+                messages.warning(request, f"⚠️ Unidad {planificacion.unidad_placa} registrada, pero se ha superado el límite para este día ({total_placas}/{limite_real}).")
             else:
                 messages.success(request, f"✅ Unidad {planificacion.unidad_placa} programada correctamente.")
 
@@ -286,7 +333,7 @@ def registrar_planificacion(request):
 @login_required
 @user_passes_test(es_planeamiento, login_url='dashboard')
 def editar_planificacion(request, pk):
-    """Edición de planificaciones existentes."""
+    """Edición de planificaciones existentes con validación de capacidad dinámica."""
     registro = get_object_or_404(PlanificacionDespacho, pk=pk)
     
     if registro.fecha_despacho < date.today():
@@ -297,12 +344,16 @@ def editar_planificacion(request, pk):
         form = PlanificacionForm(request.POST, instance=registro)
         if form.is_valid():
             form.save()
+            
+            # Obtener límite real del día editado
+            excepcion = CapacidadDiaria.objects.filter(fecha=registro.fecha_despacho).first()
             config = ConfiguracionCapacidad.objects.first()
-            limite = config.limite_max if config else 7
+            limite_real = excepcion.limite_personalizado if excepcion else (config.limite_max if config else 7)
+            
             total_placas = PlanificacionDespacho.objects.filter(fecha_despacho=registro.fecha_despacho).values('unidad_placa').distinct().count()
             
-            if total_placas > limite:
-                messages.warning(request, f"⚠️ Planificación actualizada. Nota: La flota actual ({total_placas}) excede el límite nominal ({limite}).")
+            if total_placas > limite_real:
+                messages.warning(request, f"⚠️ Planificación actualizada. Nota: La flota actual ({total_placas}) excede el límite de este día ({limite_real}).")
             else:
                 messages.success(request, "✅ Planificación actualizada correctamente.")
             return redirect('dashboard')

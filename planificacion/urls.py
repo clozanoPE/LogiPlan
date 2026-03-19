@@ -22,4 +22,7 @@ urlpatterns = [
     path('busqueda/', views.lista_busqueda, name='lista_busqueda'),
     path('capacidad/actualizar/', views.actualizar_capacidad, name='actualizar_capacidad'),
     path('eliminar-planificacion/<int:pk>/', views.eliminar_planificacion, name='eliminar_planificacion'),
+    # RUTA CRÍTICA PARA EL AJUSTE DE CAPACIDAD
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('ajustar-capacidad/', views.gestionar_capacidad_diaria, name='gestionar_capacidad_diaria'),
 ]
