@@ -9,6 +9,38 @@
         <div class="relative z-10">
             <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard de Operaciones</h1>
             <p class="text-slate-500 font-medium">Planificación semanal de unidades y despacho de carga - <span class="text-emerald-600 font-bold text-xs uppercase tracking-widest">Sede Lurín</span></p>
+
+            <!-- NAVEGACIÓN HISTÓRICA POR SEMANAS (solo lectura, máx. 12 semanas atrás) -->
+            <div class="flex items-center gap-2 mt-3">
+                {% if es_limite_historico %}
+                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-200 cursor-not-allowed" title="Límite de navegación histórica alcanzado (12 semanas)">
+                    <i class="fas fa-angle-double-left text-xs"></i>
+                </span>
+                {% else %}
+                <a href="?week_offset={{ week_offset_prev }}" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-500 transition-all" title="Semana anterior">
+                    <i class="fas fa-angle-double-left text-xs"></i>
+                </a>
+                {% endif %}
+
+                <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full {% if es_semana_actual %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
+                    {% if es_semana_actual %}
+                        <i class="fas fa-circle text-[6px] mr-1"></i> Semana Actual
+                    {% else %}
+                        <i class="fas fa-clock-rotate-left mr-1"></i> {{ rango_fecha_inicio|date:"d M" }} – {{ rango_fecha_fin|date:"d M, Y" }}
+                    {% endif %}
+                </span>
+
+                {% if es_semana_actual %}
+                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-200 cursor-not-allowed" title="Ya te encuentras en la semana actual">
+                    <i class="fas fa-angle-double-right text-xs"></i>
+                </span>
+                {% else %}
+                <a href="?week_offset={{ week_offset_next }}" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-500 transition-all" title="Semana siguiente">
+                    <i class="fas fa-angle-double-right text-xs"></i>
+                </a>
+                <a href="?week_offset=0" class="text-[9px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-widest underline underline-offset-2 ml-1">Volver a hoy</a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="relative z-10 flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -297,6 +329,8 @@
             const p2 = document.getElementById('panelAjusteGlobal');
             // Solo recarga si ningún panel está abierto
             if ((p1 && p1.classList.contains('hidden')) && (p2 && p2.classList.contains('hidden'))) {
+                // location.reload() conserva la URL completa (incluye ?week_offset=N),
+                // por lo que el auto-refresh no rompe la navegación histórica del usuario.
                 window.location.reload();
             } else {
                 startAutoRefresh();

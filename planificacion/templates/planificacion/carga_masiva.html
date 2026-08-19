@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 space-y-6">
+    <!-- Navegación de retorno -->
+    <div class="mb-2">
+        <a href="{% url 'registrar_planificacion' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-daryza-green font-bold text-xs uppercase tracking-widest transition-colors">
+            <i class="fas fa-arrow-left"></i> Volver a Programar
+        </a>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <!-- Cabecera Institucional -->
+        <div class="bg-daryza-dark p-8 text-white relative">
+            <div class="relative z-10">
+                <span class="inline-block px-3 py-1 bg-daryza-green text-[10px] font-black uppercase tracking-[0.2em] rounded-md mb-3">Operaciones Lurín</span>
+                <h2 class="text-3xl font-black tracking-tight">Carga Masiva por Excel</h2>
+                <p class="text-slate-400 text-sm font-medium mt-1">Sube un archivo .xlsx con múltiples despachos a la vez.</p>
+            </div>
+            <i class="fas fa-file-excel text-white/5 text-9xl absolute right-8 bottom-[-20px] z-0"></i>
+        </div>
+
+        <div class="p-8 md:p-10 space-y-8">
+            <!-- Instrucciones y plantilla -->
+            <div class="bg-slate-50 rounded-2xl border border-slate-100 p-6">
+                <h3 class="text-daryza-green text-[11px] font-black uppercase tracking-[0.3em] mb-4">Estructura exacta del archivo</h3>
+                <p class="text-xs text-slate-500 font-bold mb-4">El archivo debe tener estas 9 columnas en la primera fila (el orden no importa, pero los nombres sí deben coincidir):</p>
+
+                <div class="flex flex-wrap gap-2 mb-5">
+                    {% for col in columnas_esperadas %}
+                    <span class="inline-flex items-center px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                        {{ col }}
+                    </span>
+                    {% endfor %}
+                </div>
+
+                <ul class="text-[11px] text-slate-500 font-medium space-y-1.5 mb-5 list-disc list-inside">
+                    <li><span class="font-black text-slate-700">fecha</span>: formato estricto AAAAMMDD (ej: 20260820). Solo se aceptan fechas de hoy en adelante.</li>
+                    <li><span class="font-black text-slate-700">pallets</span>: número entero.</li>
+                    <li><span class="font-black text-slate-700">costo_transporte</span>: número decimal, opcional (ej: 150.00).</li>
+                </ul>
+
+                <a href="{% url 'descargar_plantilla_excel' %}" class="inline-flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-emerald-100 transition-all">
+                    <i class="fas fa-download"></i> Descargar Plantilla Excel
+                </a>
+            </div>
+
+            <!-- Formulario de carga -->
+            <form method="post" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Archivo Excel (.xlsx)</label>
+                    <input type="file" name="archivo_excel" accept=".xlsx" required
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+                </div>
+                <button type="submit" class="w-full bg-daryza-green hover:bg-daryza-dark text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-daryza-green/20 uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98]">
+                    <i class="fas fa-upload"></i> Procesar Archivo
+                </button>
+            </form>
+
+            <!-- Resultado de la carga -->
+            {% if resultado %}
+            <div class="border-t border-slate-100 pt-8">
+                <h3 class="text-slate-800 text-sm font-black uppercase tracking-widest mb-4">Resultado de la Carga</h3>
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                        <p class="text-2xl font-black text-slate-800">{{ resultado.total_filas }}</p>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Filas Procesadas</p>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-center">
+                        <p class="text-2xl font-black text-emerald-600">{{ resultado.exitosos }}</p>
+                        <p class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1">Cargadas OK</p>
+                    </div>
+                    <div class="bg-rose-50 p-4 rounded-xl border border-rose-100 text-center">
+                        <p class="text-2xl font-black text-rose-600">{{ resultado.fallidos }}</p>
+                        <p class="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1">Con Errores</p>
+                    </div>
+                </div>
+
+                {% if resultado.errores %}
+                <div class="bg-rose-50/50 border border-rose-100 rounded-xl p-4 max-h-72 overflow-y-auto">
+                    <ul class="space-y-2">
+                        {% for error in resultado.errores %}
+                        <li class="text-[11px] text-rose-700 font-bold flex items-start gap-2">
+                            <i class="fas fa-circle-exclamation mt-0.5 flex-shrink-0"></i> <span>{{ error }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    input[type="file"]::-webkit-file-upload-button {
+        margin-right: 1rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        border: none;
+        background-color: #2bb673;
+        color: white;
+        font-weight: 700;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}

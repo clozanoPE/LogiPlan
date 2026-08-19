@@ -71,7 +71,13 @@ class PlanificacionDespacho(models.Model):
     orden_compra = models.CharField(max_length=100, verbose_name="Orden de Compra (OC)")
     carga_origen = models.CharField(max_length=150, verbose_name="Punto de Carga / Origen")
     pallets = models.PositiveIntegerField(verbose_name="Cantidad de Pallets")
-    
+
+    # Datos Comerciales
+    costo_transporte = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True, default=0.00,
+        verbose_name="Costo de Transporte"
+    )
+
     # Capa de Auditoría y Seguridad
     creado_por = models.ForeignKey(
         User, 

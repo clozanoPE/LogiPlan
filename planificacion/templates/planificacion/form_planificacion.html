@@ -3,9 +3,12 @@
 {% block content %}
 <div class="max-w-4xl mx-auto py-8">
     <!-- Navegación de retorno -->
-    <div class="mb-6">
+    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-daryza-green font-bold text-xs uppercase tracking-widest transition-colors">
             <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
+        <a href="{% url 'carga_masiva_excel' %}" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-600 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all">
+            <i class="fas fa-file-excel"></i> ¿Varios despachos? Carga Masiva por Excel
         </a>
     </div>
 
@@ -114,6 +117,14 @@
                         <div class="relative">
                             <i class="fas fa-boxes-stacked absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-daryza-green transition-colors"></i>
                             {{ form.pallets }}
+                        </div>
+                    </div>
+
+                    <div class="group">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Costo de Transporte (opcional)</label>
+                        <div class="relative">
+                            <i class="fas fa-sack-dollar absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-daryza-green transition-colors"></i>
+                            {{ form.costo_transporte }}
                         </div>
                     </div>
                 </div>

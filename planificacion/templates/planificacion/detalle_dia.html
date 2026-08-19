@@ -24,7 +24,11 @@
                     {{ conteo_placas }} / {{ capacidad_limite }}
                 </span>
             </div>
-            
+
+            <a href="{% url 'exportar_detalle_dia_excel' fecha|date:'Y-m-d' %}" class="bg-slate-800 hover:bg-black text-white px-5 py-2 rounded-full font-bold transition-all flex items-center gap-2" title="Exportar a Excel">
+                <i class="fas fa-file-excel"></i> Exportar
+            </a>
+
             {# AJUSTE DE SEGURIDAD: Solo Planeamiento puede añadir carga #}
             {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
                 {% if es_editable %}
@@ -38,6 +42,15 @@
 
     <!-- Tabla de Registros -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <!-- Barra de resumen: totales del día -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-6 py-4 bg-slate-50/60 border-b border-slate-100">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Total de registros: <span class="text-slate-800 font-black text-xs">{{ total_registros }}</span>
+            </p>
+            <span class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
+                <i class="fas fa-boxes-stacked"></i> Total Pallets: {{ total_pallets }}
+            </span>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>

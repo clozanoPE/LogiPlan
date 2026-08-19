@@ -7,8 +7,8 @@ class PlanificacionForm(forms.ModelForm):
     class Meta:
         model = PlanificacionDespacho
         fields = [
-            'fecha_despacho', 'cliente', 'sede', 'unidad_placa', 
-            'conductor', 'orden_compra', 'carga_origen', 'pallets'
+            'fecha_despacho', 'cliente', 'sede', 'unidad_placa',
+            'conductor', 'orden_compra', 'carga_origen', 'pallets', 'costo_transporte'
         ]
         # Widgets para añadir clases de CSS (Tailwind) y placeholders
         widgets = {
@@ -48,7 +48,14 @@ class PlanificacionForm(forms.ModelForm):
                 'style': 'padding-left: 3.5rem;'
             }),
             'pallets': forms.NumberInput(attrs={
-                'min': '1', 
+                'min': '1',
+                'class': 'form-input-styled',
+                'style': 'padding-left: 3.5rem;'
+            }),
+            'costo_transporte': forms.NumberInput(attrs={
+                'min': '0',
+                'step': '0.01',
+                'placeholder': '0.00',
                 'class': 'form-input-styled',
                 'style': 'padding-left: 3.5rem;'
             }),

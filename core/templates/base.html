@@ -127,6 +127,10 @@
                         <i class="fas fa-magnifying-glass"></i> Consultar
                     </a>
 
+                    <a href="{% url 'estadisticas_dashboard' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
+                        <i class="fas fa-chart-pie"></i> Estadística
+                    </a>
+
                     <div class="h-6 w-px bg-slate-200 mx-2"></div>
                     <a href="/admin" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
                         <i class="fas fa-gears opacity-40"></i> Admin

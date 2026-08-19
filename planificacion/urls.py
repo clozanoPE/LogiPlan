@@ -25,4 +25,15 @@ urlpatterns = [
     # RUTA CRÍTICA PARA EL AJUSTE DE CAPACIDAD
     path('dashboard/', views.dashboard, name='dashboard'),
     path('ajustar-capacidad/', views.gestionar_capacidad_diaria, name='gestionar_capacidad_diaria'),
+
+    # --- MÓDULO DE ESTADÍSTICA (SOLO LECTURA) ---
+    path('estadisticas/', views.estadisticas_dashboard, name='estadisticas_dashboard'),
+
+    # --- CARGA MASIVA POR EXCEL ---
+    path('programar/masivo/', views.carga_masiva_excel, name='carga_masiva_excel'),
+    path('programar/masivo/plantilla/', views.descargar_plantilla_excel, name='descargar_plantilla_excel'),
+
+    # --- EXPORTACIÓN A EXCEL ---
+    path('busqueda/exportar/', views.exportar_busqueda_excel, name='exportar_busqueda_excel'),
+    path('detalle/<str:fecha>/exportar/', views.exportar_detalle_dia_excel, name='exportar_detalle_dia_excel'),
 ]

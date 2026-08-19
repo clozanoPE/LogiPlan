@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Cabecera -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-arrow-left text-sm"></i>
+                </a>
+                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Estadística — Reportes y Análisis</h1>
+            </div>
+            <p class="text-slate-500 font-bold text-sm tracking-tight">Panel de consultas de solo lectura. No permite crear ni editar registros.</p>
+        </div>
+        {% if rango_truncado %}
+        <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-2 rounded-xl border border-amber-100 uppercase tracking-widest">
+            <i class="fas fa-triangle-exclamation"></i> Rango limitado a {{ max_rango_dias }} días para mantener el rendimiento
+        </span>
+        {% endif %}
+    </div>
+
+    <!-- Filtros: Rango de Fechas + Cliente -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Desde</label>
+                <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde|date:'Y-m-d' }}"
+                       class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hasta</label>
+                <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta|date:'Y-m-d' }}"
+                       class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente</label>
+                <input type="text" name="cliente" value="{{ filtros.cliente }}" placeholder="Todos los clientes"
+                       class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-daryza-green transition-all">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-daryza-dark hover:bg-black text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2">
+                    <i class="fas fa-filter"></i> Filtrar
+                </button>
+                <a href="{% url 'estadisticas_dashboard' %}" class="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-500 px-4 rounded-xl transition-all" title="Limpiar filtros">
+                    <i class="fas fa-undo-alt text-xs"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- PANEL 1: Volumen y Tendencia de Ocupación Histórica -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
+            <div>
+                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest">Volumen y Tendencia de Ocupación</h2>
+                <p class="text-[11px] text-slate-400 font-bold">Placas operadas por día vs. límite dinámico de capacidad</p>
+            </div>
+            <span class="text-[10px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full uppercase tracking-widest whitespace-nowrap">
+                {{ dias_criticos_rango }} días críticos
+            </span>
+        </div>
+        <div class="h-72">
+            <canvas id="chartOcupacion"></canvas>
+        </div>
+    </div>
+    {{ panel1_labels|json_script:"panel1-labels" }}
+    {{ panel1_ocupacion|json_script:"panel1-ocupacion" }}
+    {{ panel1_limite|json_script:"panel1-limite" }}
+
+    <!-- PANEL 2: Matriz de Concentración (Cliente x Día de la Semana) -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-1">Matriz de Concentración: Cliente × Día</h2>
+        <p class="text-[11px] text-slate-400 font-bold mb-4">Pallets acumulados por cliente y día de la semana en el rango filtrado</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100">
+                        <th class="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                        {% for dia in matriz_dias_semana %}
+                        <th class="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">{{ dia|slice:":3" }}</th>
+                        {% endfor %}
+                        <th class="px-4 py-3 text-[10px] font-black text-slate-700 uppercase tracking-widest text-center">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for fila in matriz_cliente_dia %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-4 py-3 text-xs font-black text-slate-800 uppercase">{{ fila.cliente }}</td>
+                        {% for valor in fila.valores %}
+                        <td class="px-4 py-3 text-center text-xs font-bold {% if valor > 0 %}text-emerald-700{% else %}text-slate-200{% endif %}">{{ valor }}</td>
+                        {% endfor %}
+                        <td class="px-4 py-3 text-center text-xs font-black text-slate-900 bg-slate-50">{{ fila.total }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-4 py-10 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">Sin datos para los filtros seleccionados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PANEL 3: Eficiencia de Carga y Densidad de Pallets -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Eficiencia de Carga y Densidad de Pallets</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pallets</p>
+                <p class="text-2xl font-black text-slate-900">{{ resumen_pallets.total_pallets }}</p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Promedio Pallets / Despacho</p>
+                <p class="text-2xl font-black text-slate-900">{{ resumen_pallets.promedio_pallets }}</p>
+            </div>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Despachos</p>
+                <p class="text-2xl font-black text-slate-900">{{ resumen_pallets.total_despachos }}</p>
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-400 font-bold mb-2 uppercase tracking-widest">Top Carga / Origen (por pallets)</p>
+        <div class="h-72">
+            <canvas id="chartOrigenes"></canvas>
+        </div>
+    </div>
+    {{ top_origenes_labels|json_script:"origenes-labels" }}
+    {{ top_origenes_valores|json_script:"origenes-valores" }}
+
+    <!-- PANEL 4: Auditoría y Frecuencia de Uso de Flota -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-6 pb-0">
+            <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-1">Auditoría y Frecuencia de Uso de Flota</h2>
+            <p class="text-[11px] text-slate-400 font-bold mb-4">Rendimiento por unidad (placa) en el rango filtrado</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100">
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Placa</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Conductor Frecuente</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Días Trabajados</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Servicios Totales</th>
+                        <th class="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Clientes Atendidos</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for fila in rendimiento_flota %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-3"><span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black">{{ fila.placa }}</span></td>
+                        <td class="px-6 py-3 text-xs font-bold text-slate-600 uppercase">{{ fila.conductor_frecuente }}</td>
+                        <td class="px-6 py-3 text-center text-xs font-black text-slate-700">{{ fila.dias_trabajados }}</td>
+                        <td class="px-6 py-3 text-center text-xs font-black text-slate-700">{{ fila.servicios_totales }}</td>
+                        <td class="px-6 py-3 text-center text-xs font-black text-slate-700">{{ fila.clientes_atendidos }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-10 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">Sin datos para los filtros seleccionados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PANEL 5: Histórico de Saturación e Incidencias de Capacidad -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row gap-6 items-center">
+            <div class="w-full md:w-1/2">
+                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-1">Saturación e Incidencias de Capacidad</h2>
+                <p class="text-[11px] text-slate-400 font-bold mb-4">Motivos de excepciones de capacidad registradas en el rango</p>
+                <div class="h-64">
+                    <canvas id="chartMotivos"></canvas>
+                </div>
+            </div>
+            <div class="w-full md:w-1/2 grid grid-cols-2 gap-4">
+                <div class="bg-rose-50 p-5 rounded-2xl border border-rose-100 text-center">
+                    <p class="text-3xl font-black text-rose-600">{{ dias_criticos_rango }}</p>
+                    <p class="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-1">Días Críticos / Sobresaturados</p>
+                </div>
+                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 text-center">
+                    <p class="text-3xl font-black text-slate-800">{{ motivos_labels|length }}</p>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Motivos Distintos Registrados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ motivos_labels|json_script:"motivos-labels" }}
+    {{ motivos_valores|json_script:"motivos-valores" }}
+
+</div>
+
+<!-- Chart.js vía CDN: única dependencia nueva, consistente con el patrón de dependencias por CDN del proyecto -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    // Paleta consistente con el branding Daryza usado en el resto del sistema
+    const COLOR_VERDE = '#2bb673';
+    const COLOR_AMBAR = '#f59e0b';
+    const COLOR_ROJO = '#e11d48';
+    const COLOR_SLATE = '#94a3b8';
+
+    // --- PANEL 1: Ocupación vs Límite Dinámico ---
+    const p1Labels = JSON.parse(document.getElementById('panel1-labels').textContent);
+    const p1Ocupacion = JSON.parse(document.getElementById('panel1-ocupacion').textContent);
+    const p1Limite = JSON.parse(document.getElementById('panel1-limite').textContent);
+
+    new Chart(document.getElementById('chartOcupacion'), {
+        type: 'line',
+        data: {
+            labels: p1Labels,
+            datasets: [
+                {
+                    label: 'Placas Operadas',
+                    data: p1Ocupacion,
+                    borderColor: COLOR_VERDE,
+                    backgroundColor: 'rgba(43, 182, 115, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                },
+                {
+                    label: 'Límite Dinámico',
+                    data: p1Limite,
+                    borderColor: COLOR_ROJO,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+
+    // --- PANEL 3: Top Carga / Origen ---
+    const origenesLabels = JSON.parse(document.getElementById('origenes-labels').textContent);
+    const origenesValores = JSON.parse(document.getElementById('origenes-valores').textContent);
+
+    new Chart(document.getElementById('chartOrigenes'), {
+        type: 'bar',
+        data: {
+            labels: origenesLabels,
+            datasets: [{
+                label: 'Pallets',
+                data: origenesValores,
+                backgroundColor: COLOR_VERDE,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+
+    // --- PANEL 5: Motivos de Excepciones de Capacidad ---
+    const motivosLabels = JSON.parse(document.getElementById('motivos-labels').textContent);
+    const motivosValores = JSON.parse(document.getElementById('motivos-valores').textContent);
+
+    new Chart(document.getElementById('chartMotivos'), {
+        type: 'doughnut',
+        data: {
+            labels: motivosLabels.length ? motivosLabels : ['Sin incidencias registradas'],
+            datasets: [{
+                data: motivosValores.length ? motivosValores : [1],
+                backgroundColor: [COLOR_VERDE, COLOR_AMBAR, COLOR_ROJO, COLOR_SLATE, '#6366f1', '#ec4899', '#0ea5e9'],
+                borderWidth: 2,
+                borderColor: '#ffffff',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+    });
+</script>
+{% endblock %}
