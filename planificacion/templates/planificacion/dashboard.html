@@ -43,23 +43,23 @@
             </div>
         </div>
 
-        <div class="relative z-10 flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div class="action-row relative z-10 items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
             <div class="flex items-center gap-3">
                 <div class="text-center px-2">
                     <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Capacidad Global</span>
                     <span class="text-3xl font-black text-emerald-600">{{ capacidad_limite }}</span>
                 </div>
-                
+
                 {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
                 <div class="flex gap-1">
                     <!-- Ajuste Global (Configuración Base) -->
-                    <button onclick="togglePanel('panelAjusteGlobal')" 
+                    <button onclick="togglePanel('panelAjusteGlobal')"
                             class="p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-800 hover:text-white transition-all text-slate-400 group"
                             title="Cambiar Capacidad Estándar (Global)">
                         <i class="fas fa-globe text-sm group-hover:rotate-12 transition-transform"></i>
                     </button>
                     <!-- Ajuste por Fecha (Excepciones) -->
-                    <button onclick="togglePanel('panelAjusteCapacidad')" 
+                    <button onclick="togglePanel('panelAjusteCapacidad')"
                             id="btnAjusteCapacidad"
                             class="p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-emerald-600 hover:text-white transition-all text-slate-400 group"
                             title="Ajustar Capacidad por Fecha Específica">
@@ -69,15 +69,15 @@
                 {% endif %}
             </div>
 
-            <div class="w-px h-10 bg-slate-200"></div>
-            
+            <div class="hidden sm:block w-px h-10 bg-slate-200"></div>
+
             <div class="flex flex-col gap-2">
-                <a href="{% url 'lista_busqueda' %}" class="bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
+                <a href="{% url 'lista_busqueda' %}" class="w-full sm:w-auto bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
                     <i class="fas fa-search"></i> Gestión / Filtros
                 </a>
-                
+
                 {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
-                <a href="{% url 'registrar_planificacion' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 uppercase tracking-wider">
+                <a href="{% url 'registrar_planificacion' %}" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full font-bold text-[11px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 uppercase tracking-wider">
                     <i class="fas fa-plus-circle"></i> Nuevo Registro
                 </a>
                 {% endif %}
@@ -327,8 +327,12 @@
         autoRefreshTimer = setTimeout(() => {
             const p1 = document.getElementById('panelAjusteCapacidad');
             const p2 = document.getElementById('panelAjusteGlobal');
-            // Solo recarga si ningún panel está abierto
-            if ((p1 && p1.classList.contains('hidden')) && (p2 && p2.classList.contains('hidden'))) {
+            const navPanel = document.getElementById('navPanel');
+            // Solo recarga si ningún panel de capacidad está abierto y el menú de
+            // navegación móvil (base.html) tampoco está abierto en ese momento.
+            const capacidadCerrada = (p1 && p1.classList.contains('hidden')) && (p2 && p2.classList.contains('hidden'));
+            const navCerrado = !navPanel || !navPanel.classList.contains('show');
+            if (capacidadCerrada && navCerrado) {
                 // location.reload() conserva la URL completa (incluye ?week_offset=N),
                 // por lo que el auto-refresh no rompe la navegación histórica del usuario.
                 window.location.reload();

@@ -16,7 +16,7 @@
             </p>
         </div>
         
-        <div class="flex gap-3">
+        <div class="action-row">
             <!-- Indicador de Capacidad basado en Placas Únicas -->
             <div class="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 text-center">
                 <span class="block text-[10px] font-black text-slate-400 uppercase">Utilización Flota</span>
@@ -25,14 +25,14 @@
                 </span>
             </div>
 
-            <a href="{% url 'exportar_detalle_dia_excel' fecha|date:'Y-m-d' %}" class="bg-slate-800 hover:bg-black text-white px-5 py-2 rounded-full font-bold transition-all flex items-center gap-2" title="Exportar a Excel">
+            <a href="{% url 'exportar_detalle_dia_excel' fecha|date:'Y-m-d' %}" class="bg-slate-800 hover:bg-black text-white px-5 py-2 rounded-full font-bold transition-all flex items-center justify-center gap-2" title="Exportar a Excel">
                 <i class="fas fa-file-excel"></i> Exportar
             </a>
 
             {# AJUSTE DE SEGURIDAD: Solo Planeamiento puede añadir carga #}
             {% if request.user.groups.all.0.name == 'Planeamiento' or request.user.is_superuser %}
                 {% if es_editable %}
-                <a href="{% url 'registrar_planificacion' %}?fecha={{ fecha|date:'Y-m-d' }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full font-bold transition-all flex items-center gap-2">
+                <a href="{% url 'registrar_planificacion' %}?fecha={{ fecha|date:'Y-m-d' }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-full font-bold transition-all flex items-center justify-center gap-2">
                     <i class="fas fa-plus"></i> Añadir Carga
                 </a>
                 {% endif %}

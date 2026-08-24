@@ -69,6 +69,34 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* Patron estandar para filas de acciones/botones: apilado en movil,
+           fila con wrap desde sm (640px). Ver CLAUDE.md, seccion "Patrones responsivos". */
+        .action-row {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+        .action-row > * {
+            width: 100%;
+        }
+        @media (min-width: 640px) {
+            .action-row {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .action-row > * {
+                width: auto;
+            }
+        }
+        /* Blindaje: si el viewport crece a >=768px mientras el panel móvil está
+           abierto (ej. rotación de tablet), nunca debe quedar visible en desktop,
+           sin depender de la especificidad entre .dropdown-menu.show y md:hidden. */
+        @media (min-width: 768px) {
+            #navPanel {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex flex-col text-slate-900">
@@ -115,19 +143,19 @@
 
                 <!-- Enlaces de Navegación -->
                 <div class="hidden md:flex items-center space-x-2">
-                    <a href="{% url 'dashboard' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
+                    <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
                         <i class="fas fa-chart-line"></i> Dashboard
                     </a>
 
                     <a href="{% url 'registrar_planificacion' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
                         <i class="fas fa-file-circle-plus"></i> Programar
                     </a>
-                    
+
                     <a href="{% url 'lista_busqueda' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
                         <i class="fas fa-magnifying-glass"></i> Consultar
                     </a>
 
-                    <a href="{% url 'estadisticas_dashboard' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
+                    <a href="{% url 'estadisticas_dashboard' %}" {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
                         <i class="fas fa-chart-pie"></i> Estadística
                     </a>
 
@@ -137,34 +165,75 @@
                     </a>
                 </div>
 
-                <!-- Perfil / Usuario con Dropdown para Cerrar Sesión -->
-                <div class="relative flex items-center gap-4 border-l border-slate-100 pl-4">
-                    <div class="hidden sm:flex flex-col items-end leading-tight">
-                        <span class="text-xs font-bold text-daryza-dark">{{ user.username|default:"Invitado" }}</span>
-                        <span class="text-[10px] text-daryza-green font-extrabold uppercase tracking-tighter">Operaciones Lurín</span>
-                    </div>
-                    
-                    <!-- Botón del Perfil -->
-                    <button id="userMenuButton" class="w-10 h-10 rounded-full border-2 border-daryza-green bg-white flex items-center justify-center font-bold text-daryza-green text-sm shadow-sm hover:bg-daryza-light transition-colors focus:outline-none">
-                        {{ user.username|slice:":1"|upper|default:"D" }}
+                <!-- Acciones móviles + Perfil -->
+                <div class="flex items-center gap-3">
+                    <!-- Botón de Menú Móvil (solo < 768px) -->
+                    <button id="navMenuButton"
+                            class="md:hidden w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-daryza-light hover:text-daryza-green transition-colors focus:outline-none"
+                            type="button"
+                            aria-expanded="false"
+                            aria-controls="navPanel"
+                            aria-label="Abrir menú de navegación">
+                        <i class="fas fa-bars text-lg" id="navMenuIcon" aria-hidden="true"></i>
                     </button>
 
-                    <!-- Menú Desplegable de Usuario -->
-                    <div id="userDropdown" class="dropdown-menu absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
-                        <div class="p-3 border-b border-slate-50 bg-slate-50/50">
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sesión activa</p>
-                            <p class="text-xs font-bold text-slate-700 truncate">{{ user.email|default:user.username }}</p>
+                    <!-- Perfil / Usuario con Dropdown para Cerrar Sesión -->
+                    <div class="relative flex items-center gap-4 border-l border-slate-100 pl-4">
+                        <div class="hidden sm:flex flex-col items-end leading-tight">
+                            <span class="text-xs font-bold text-daryza-dark">{{ user.username|default:"Invitado" }}</span>
+                            <span class="text-[10px] text-daryza-green font-extrabold uppercase tracking-tighter">Operaciones Lurín</span>
                         </div>
-                        
-                        <!-- FORMULARIO DE CIERRE DE SESIÓN PARA EVITAR ERROR 405 -->                        
-                        <form action="{% url 'logout' %}" method="post">
-                            {% csrf_token %}
-                            <input type="hidden" name="next" value="{% url 'login' %}">
-                            <button type="submit" class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
-                                <i class="fas fa-power-off"></i> Cerrar Sesión
-                            </button>
-                        </form>
+
+                        <!-- Botón del Perfil -->
+                        <button id="userMenuButton"
+                                type="button"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                aria-controls="userDropdown"
+                                aria-label="Menú de usuario"
+                                class="w-10 h-10 rounded-full border-2 border-daryza-green bg-white flex items-center justify-center font-bold text-daryza-green text-sm shadow-sm hover:bg-daryza-light transition-colors focus:outline-none">
+                            {{ user.username|slice:":1"|upper|default:"D" }}
+                        </button>
+
+                        <!-- Menú Desplegable de Usuario -->
+                        <div id="userDropdown" class="dropdown-menu absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden">
+                            <div class="p-3 border-b border-slate-50 bg-slate-50/50">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sesión activa</p>
+                                <p class="text-xs font-bold text-slate-700 truncate">{{ user.email|default:user.username }}</p>
+                            </div>
+
+                            <!-- FORMULARIO DE CIERRE DE SESIÓN PARA EVITAR ERROR 405 -->
+                            <form action="{% url 'logout' %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'login' %}">
+                                <button type="submit" class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left">
+                                    <i class="fas fa-power-off"></i> Cerrar Sesión
+                                </button>
+                            </form>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Panel de Navegación Móvil (colapsable, < 768px) -->
+            <div id="navPanel" class="dropdown-menu md:hidden border-t border-slate-100 pb-4 pt-3" role="navigation" aria-label="Menú de navegación móvil">
+                <div class="flex flex-col gap-1">
+                    <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white{% else %}text-slate-600 hover:bg-daryza-light hover:text-daryza-green{% endif %}">
+                        <i class="fas fa-chart-line w-4 text-center"></i> Dashboard
+                    </a>
+                    <a href="{% url 'registrar_planificacion' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-file-circle-plus w-4 text-center"></i> Programar
+                    </a>
+                    <a href="{% url 'lista_busqueda' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-magnifying-glass w-4 text-center"></i> Consultar
+                    </a>
+                    <a href="{% url 'estadisticas_dashboard' %}" {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}bg-daryza-green text-white{% else %}text-slate-600 hover:bg-daryza-light hover:text-daryza-green{% endif %}">
+                        <i class="fas fa-chart-pie w-4 text-center"></i> Estadística
+                    </a>
+                    <div class="h-px bg-slate-100 my-2"></div>
+                    <a href="/admin" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-gears opacity-40 w-4 text-center"></i> Admin
+                    </a>
                 </div>
             </div>
         </div>
@@ -226,16 +295,65 @@
             if (menuBtn && dropdown) {
                 menuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    dropdown.classList.toggle('show');
+                    const abierto = dropdown.classList.toggle('show');
+                    menuBtn.setAttribute('aria-expanded', abierto);
                 });
+            }
 
-                // Cerrar al hacer clic fuera
-                document.addEventListener('click', (e) => {
-                    if (!dropdown.contains(e.target)) {
+            // 3. Lógica para el Panel de Navegación Móvil
+            const navBtn = document.getElementById('navMenuButton');
+            const navPanel = document.getElementById('navPanel');
+            const navIcon = document.getElementById('navMenuIcon');
+
+            if (navBtn && navPanel) {
+                navBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const abierto = navPanel.classList.toggle('show');
+                    navBtn.setAttribute('aria-expanded', abierto);
+                    if (navIcon) {
+                        navIcon.classList.toggle('fa-bars', !abierto);
+                        navIcon.classList.toggle('fa-xmark', abierto);
+                    }
+                    // Solo un menú colapsable abierto a la vez
+                    if (abierto && dropdown) {
                         dropdown.classList.remove('show');
+                        menuBtn.setAttribute('aria-expanded', 'false');
                     }
                 });
             }
+
+            // Cerrar ambos menús al hacer clic fuera
+            document.addEventListener('click', (e) => {
+                if (dropdown && menuBtn && !dropdown.contains(e.target) && !menuBtn.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                    menuBtn.setAttribute('aria-expanded', 'false');
+                }
+                if (navPanel && navBtn && !navPanel.contains(e.target) && !navBtn.contains(e.target)) {
+                    navPanel.classList.remove('show');
+                    navBtn.setAttribute('aria-expanded', 'false');
+                    if (navIcon) {
+                        navIcon.classList.add('fa-bars');
+                        navIcon.classList.remove('fa-xmark');
+                    }
+                }
+            });
+
+            // Cerrar ambos menús con la tecla Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+                }
+                if (navPanel) {
+                    navPanel.classList.remove('show');
+                    if (navBtn) navBtn.setAttribute('aria-expanded', 'false');
+                    if (navIcon) {
+                        navIcon.classList.add('fa-bars');
+                        navIcon.classList.remove('fa-xmark');
+                    }
+                }
+            });
         });
     </script>
 </body>
