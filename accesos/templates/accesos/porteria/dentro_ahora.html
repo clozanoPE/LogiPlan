@@ -1,0 +1,27 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Dentro ahora · CD {{ cd }}{% endblock %}
+
+{% block content %}
+{% include 'accesos/porteria/_barra.html' %}
+
+<div class="grid gap-4">
+    {% for t in tramos %}
+    <a href="{% url 'accesos:porteria' %}?placa={{ t.transporte.placa_normalizada }}" class="flex flex-wrap items-center justify-between gap-4 p-5 bg-white rounded-3xl border-2 {% if t.prolongada %}border-rose-300{% else %}border-slate-100{% endif %} hover:border-sky-500">
+        <div>
+            <p class="text-3xl font-black tracking-widest text-daryza-dark">{{ t.transporte.placa }}</p>
+            <p class="text-sm font-bold text-slate-500">{{ t.programacion.razon_social }} · {{ t.programacion.motivo }}</p>
+        </div>
+        <div class="text-right">
+            <p class="text-xs font-black uppercase tracking-widest text-slate-400">Entró {{ t.entrada_en|date:"d/m H:i" }}</p>
+            <p class="text-2xl font-black {% if t.prolongada %}text-rose-600{% else %}text-slate-700{% endif %}">{{ t.tiempo_dentro }}</p>
+            {% if t.prolongada %}<p class="text-[11px] font-black uppercase text-rose-600">Más de {{ umbral }} min</p>{% endif %}
+        </div>
+    </a>
+    {% empty %}
+    <p class="p-10 text-center bg-white rounded-3xl text-slate-400 font-bold">No hay vehículos dentro del CD.</p>
+    {% endfor %}
+</div>
+<p class="mt-6 text-sm text-slate-400 text-center">Toque un vehículo para registrar su salida · {% include 'accesos/_autorefresco.html' with segundos=60 %}</p>
+{% endblock %}
+

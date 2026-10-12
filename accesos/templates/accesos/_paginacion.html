@@ -1,0 +1,41 @@
+{% comment %}
+Paginación de las grillas (contexto de accesos.paginacion.paginar): «Mostrando 16–30 de 412», Inicio, anterior,
+números con saltos, siguiente y Último. En teléfono los números se reemplazan por «Página X de Y».
+{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 %}
+{% with qs=querystring|default:'' %}
+<nav class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t border-slate-100 text-sm" aria-label="Paginación">
+    <span class="text-slate-400 font-bold">Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }} de {{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize }}</span>
+    <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if qs %}&{{ qs }}{% endif %}" class="h-9 min-w-9 px-3 rounded-full text-slate-500 hover:bg-slate-800 hover:text-white inline-flex items-center justify-center gap-2 font-bold transition-all" aria-label="Primera página" title="Primera página"><i class="fas fa-backward-step"></i><span class="hidden lg:inline">Inicio</span></a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if qs %}&{{ qs }}{% endif %}" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white inline-flex items-center justify-center transition-all" aria-label="Página anterior" title="Página anterior"><i class="fas fa-chevron-left"></i></a>
+        {% else %}
+        <span class="h-9 min-w-9 px-3 rounded-full text-slate-200 inline-flex items-center justify-center gap-2 font-bold" aria-hidden="true"><i class="fas fa-backward-step"></i><span class="hidden lg:inline">Inicio</span></span>
+        <span class="w-9 h-9 rounded-full bg-slate-50 text-slate-200 inline-flex items-center justify-center" aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+        {% endif %}
+
+        <span class="sm:hidden px-3 font-black text-daryza-dark whitespace-nowrap">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        <span class="hidden sm:flex items-center gap-1">
+            {% for numero in paginas %}
+                {% if numero == page_obj.number %}
+                <span class="h-9 min-w-9 px-2 rounded-full bg-marca text-white font-black inline-flex items-center justify-center shadow-md shadow-marca/30" aria-current="page">{{ numero }}</span>
+                {% elif numero == page_obj.paginator.ELLIPSIS %}
+                <span class="w-6 text-center text-slate-400 font-black" aria-hidden="true">…</span>
+                {% else %}
+                <a href="?page={{ numero }}{% if qs %}&{{ qs }}{% endif %}" class="h-9 min-w-9 px-2 rounded-full text-slate-600 font-bold hover:bg-marca-claro hover:text-marca inline-flex items-center justify-center transition-all" aria-label="Página {{ numero }}">{{ numero }}</a>
+                {% endif %}
+            {% endfor %}
+        </span>
+
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if qs %}&{{ qs }}{% endif %}" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-marca-oscuro hover:text-white inline-flex items-center justify-center transition-all" aria-label="Página siguiente" title="Página siguiente"><i class="fas fa-chevron-right"></i></a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% if qs %}&{{ qs }}{% endif %}" class="h-9 min-w-9 px-3 rounded-full text-slate-500 hover:bg-marca-oscuro hover:text-white inline-flex items-center justify-center gap-2 font-bold transition-all" aria-label="Última página" title="Última página"><span class="hidden lg:inline">Último</span><i class="fas fa-forward-step"></i></a>
+        {% else %}
+        <span class="w-9 h-9 rounded-full bg-slate-50 text-slate-200 inline-flex items-center justify-center" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+        <span class="h-9 min-w-9 px-3 rounded-full text-slate-200 inline-flex items-center justify-center gap-2 font-bold" aria-hidden="true"><span class="hidden lg:inline">Último</span><i class="fas fa-forward-step"></i></span>
+        {% endif %}
+    </div>
+</nav>
+{% endwith %}
+{% endif %}

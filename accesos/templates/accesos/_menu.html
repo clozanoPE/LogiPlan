@@ -1,0 +1,33 @@
+{% load static %}{# Enlaces del menú del módulo. Se usa dos veces: en escritorio (fila) y en el panel móvil (lista). #}
+{% with actual=request.resolver_match.url_name base_clase=movil|yesno:"flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all,px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap" %}
+{% with activo="bg-marca text-white shadow-md shadow-marca/30" inactivo="text-slate-600 hover:bg-marca-claro hover:text-marca" %}
+<a href="{% url 'accesos:inicio' %}" class="{{ base_clase }} {% if actual == 'inicio' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-house w-4 text-center"></i> Inicio</a>
+{% if 'vigilancia' in accesos_roles %}
+<a href="{% url 'accesos:porteria' %}" class="{{ base_clase }} {% if 'porteria' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-qrcode w-4 text-center"></i> Portería</a>
+{% endif %}
+{% if accesos_ve_indicadores %}
+<a href="{% url 'accesos:dashboard' %}" class="{{ base_clase }} {% if actual == 'dashboard' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-chart-column w-4 text-center"></i> Dashboard</a>
+<a href="{% url 'accesos:tablero_hoy' %}" class="{{ base_clase }} {% if actual == 'tablero_hoy' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-clock w-4 text-center"></i> Hoy</a>
+{% endif %}
+{% if accesos_lectura %}
+<a href="{% url 'accesos:programacion_agenda' %}" class="{{ base_clase }} {% if actual|slice:':12' == 'programacion' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-calendar-check w-4 text-center"></i> Programaciones</a>
+{% endif %}
+{% if accesos_ve_tramos %}
+<a href="{% url 'accesos:tramos_lista' %}" class="{{ base_clase }} {% if actual|slice:':5' == 'tramo' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-right-left w-4 text-center"></i> Tramos</a>
+{% endif %}
+{% if accesos_puede_programar %}
+<a href="{% url 'accesos:transportes_lista' %}" class="{{ base_clase }} {% if 'transporte' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-truck w-4 text-center"></i> Transportes</a>
+<a href="{% url 'accesos:conductores_lista' %}" class="{{ base_clase }} {% if 'conductor' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-id-card w-4 text-center"></i> Conductores</a>
+{% endif %}
+{% if 'administrador' in accesos_roles %}
+<a href="{% url 'accesos:auditoria_lista' %}" class="{{ base_clase }} {% if actual == 'auditoria_lista' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-shield-halved w-4 text-center"></i> Auditoría</a>
+{% if user.is_staff %}
+<a href="{% url 'admin:app_list' 'accesos' %}" class="{{ base_clase }} {{ inactivo }}"><i class="fas fa-gears w-4 text-center opacity-50"></i> Catálogos</a>
+{% endif %}
+{% endif %}
+<a href="{% static 'manual/index.html' %}" target="_blank" rel="noopener" class="{{ base_clase }} {{ inactivo }}"><i class="fas fa-book-open w-4 text-center"></i> Manual</a>
+{% if not accesos_solo %}
+<a href="{% url 'dashboard' %}" class="{{ base_clase }} text-slate-400 hover:bg-slate-100 hover:text-slate-700 {% if not movil %}xl:ml-auto{% endif %}"><i class="fas fa-arrow-left w-4 text-center"></i> Planificación</a>
+{% endif %}
+{% endwith %}
+{% endwith %}

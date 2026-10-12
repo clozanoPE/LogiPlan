@@ -1,0 +1,58 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Hoy{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Hoy en los CD</h1>
+        <p class="text-slate-500 text-sm font-medium">{{ fecha_larga }} · actualizado a las {{ hora|time:"H:i" }} · {% include 'accesos/_autorefresco.html' with segundos=60 %}</p>
+    </div>
+    <a href="{% url 'accesos:tramos_lista' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-list"></i> Ver tramos</a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    {% for c in centros %}
+    <div class="bg-white rounded-3xl border {% if c.saturado %}border-rose-300{% else %}border-slate-100{% endif %} p-6">
+        <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">CD {{ c.cd }}</p>
+        <div class="mt-3 flex items-end gap-3">
+            <p class="text-5xl font-black {% if c.saturado %}text-rose-600{% else %}text-daryza-dark{% endif %}">{{ c.dentro }}</p>
+            <p class="pb-2 text-slate-400 font-bold">/ {{ c.cd.capacidad_simultanea }} dentro ahora{% if c.saturado %} · <span class="text-rose-600">sobre la capacidad</span>{% endif %}</p>
+        </div>
+        <dl class="mt-4 grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-[10px] font-black uppercase text-slate-400">Programadas</dt><dd class="text-2xl font-black">{{ c.programadas }}</dd></div>
+            <div class="rounded-2xl bg-marca-claro p-3"><dt class="text-[10px] font-black uppercase text-marca">Atendidas</dt><dd class="text-2xl font-black">{{ c.atendidas }}</dd></div>
+            <div class="rounded-2xl bg-sky-50 p-3"><dt class="text-[10px] font-black uppercase text-sky-700">Pendientes</dt><dd class="text-2xl font-black">{{ c.pendientes }}</dd></div>
+        </dl>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <h2 class="px-6 pt-6 text-[11px] font-black uppercase tracking-[0.3em] text-marca">Vehículos dentro ahora</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm mt-3">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-5 py-3">Placa</th><th class="text-left px-5 py-3">CD</th><th class="text-left px-5 py-3">Razón social / motivo</th><th class="text-left px-5 py-3">Entró</th><th class="text-left px-5 py-3">Tiempo dentro</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for t in abiertos %}
+                <tr class="{% if t.prolongada %}bg-rose-50/60{% endif %}">
+                    <td class="px-5 py-4">{% if cds_tramos is None or t.cd_id in cds_tramos %}<a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a>{% else %}<span class="font-black tracking-wider">{{ t.transporte.placa }}</span>{% endif %}<span class="block text-[11px] text-slate-400 font-bold">{{ t.transporte.tamano }}</span></td>
+                    <td class="px-5 py-4 font-semibold">{{ t.cd }}</td>
+                    <td class="px-5 py-4">{{ t.programacion.razon_social }}<span class="block text-xs text-slate-400">{{ t.programacion.motivo }}</span></td>
+                    <td class="px-5 py-4 font-bold">{{ t.entrada_en|date:"d/m H:i" }}</td>
+                    <td class="px-5 py-4 font-black {% if t.prolongada %}text-rose-600{% elif t.sobre_meta %}text-amber-600{% endif %}">
+                        {{ t.tiempo_dentro }}
+                        {% if t.prolongada %}<span class="block text-[10px] uppercase">Prolongada</span>{% elif t.sobre_meta %}<span class="block text-[10px] uppercase">Sobre la meta</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 font-bold">No hay vehículos dentro en este momento.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+

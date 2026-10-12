@@ -1,0 +1,80 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Conductores{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Conductores</h1>
+        <p class="text-slate-500 text-sm font-medium">Maestro de conductores. En la programación solo se seleccionan.</p>
+    </div>
+    <div class="action-row">
+    <a href="{% url 'accesos:carga_masiva' 'conductores' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Carga masiva</a>
+    <a href="{% url 'accesos:carga_masiva' 'licencias' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-id-card"></i> Actualizar licencias</a>
+    <a href="{% url 'accesos:conductor_crear' %}" class="inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">
+        <i class="fas fa-plus"></i> Nuevo conductor
+    </a>
+    </div>
+</div>
+
+<form method="get" class="action-row mb-6">
+    <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por documento, apellidos o licencia" class="campo-accesos sm:max-w-sm" autocomplete="off">
+    <select name="licencia" class="campo-accesos sm:max-w-xs" aria-label="Licencia" onchange="this.form.submit()">
+        {% for valor, etiqueta in filtros_licencia %}<option value="{{ valor }}" {% if filtro_licencia == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest">Buscar</button>
+    {% if busqueda or filtro_licencia %}<a href="{% url 'accesos:conductores_lista' %}" class="text-xs font-bold text-slate-400 hover:text-slate-700">Limpiar</a>{% endif %}
+</form>
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-6 py-3">Documento</th>
+                    <th class="text-left px-6 py-3">Apellidos y nombres</th>
+                    <th class="text-left px-6 py-3">Licencia</th>
+                    <th class="hidden md:table-cell text-left px-6 py-3">Estado</th>
+                    <th class="text-right px-6 py-3">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for conductor in page_obj %}
+                <tr class="hover:bg-slate-50/60">
+                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-[10px] font-black text-slate-400 mr-1">{{ conductor.tipo_documento }}</span><span class="font-black">{{ conductor.numero_documento }}</span></td>
+                    <td class="px-6 py-4 text-slate-700 font-semibold">{{ conductor.nombre_completo }}{% if not conductor.activo %}<span class="md:hidden block text-xs font-bold text-slate-400">Inactivo</span>{% endif %}</td>
+                    <td class="px-6 py-4">
+                        {% if conductor.licencia_numero %}<p class="font-black whitespace-nowrap">{{ conductor.licencia_numero }}</p>{% endif %}
+                        {% for etiqueta, categoria, vencimiento, estado in conductor.estados_licencia %}
+                        <p class="text-xs whitespace-nowrap mt-0.5" title="{{ etiqueta }}">
+                            <span class="font-black text-slate-500">{{ categoria }}</span>
+                            <span class="text-slate-500">· vence {{ vencimiento|date:"d/m/Y" }}</span>
+                            {% if estado == 'VENCIDA' %}<span class="ml-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-black">Vencida</span>
+                            {% elif estado == 'POR_VENCER' %}<span class="ml-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-black">Por vencer</span>
+                            {% else %}<span class="ml-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-black">Vigente</span>{% endif %}
+                        </p>
+                        {% empty %}
+                        <span class="text-xs font-bold text-slate-400">Sin licencia registrada</span>
+                        {% endfor %}
+                        {% if conductor.tiene_licencia and not conductor.notificar_vencimiento %}<p class="text-[11px] font-bold text-slate-400 mt-1"><i class="fas fa-bell-slash"></i> Sin notificaciones</p>{% endif %}
+                    </td>
+                    <td class="hidden md:table-cell px-6 py-4">
+                        {% if conductor.activo %}<span class="text-emerald-600 font-bold">Activo</span>{% else %}<span class="text-slate-400 font-bold">Inactivo</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        {% if 'administrador' in accesos_roles %}
+                        <a href="{% url 'accesos:conductor_editar' conductor.pk %}" class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 whitespace-nowrap"><i class="fas fa-pen"></i> Editar</a>
+                        {% else %}
+                        <a href="{% url 'accesos:conductor_editar' conductor.pk %}" class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 whitespace-nowrap"><i class="fas fa-id-card"></i> Licencia</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 font-bold">No hay conductores{% if busqueda or filtro_licencia %} que coincidan con el filtro{% endif %}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'accesos/_paginacion.html' %}
+</div>
+{% endblock %}

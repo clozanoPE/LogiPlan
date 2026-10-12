@@ -1,0 +1,190 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}{% if programacion %}Editar {{ programacion.codigo }}{% else %}Nueva programación{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <a href="{% if programacion %}{% url 'accesos:programacion_detalle' programacion.pk %}{% else %}{% url 'accesos:programacion_agenda' %}{% endif %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest mb-6">
+        <i class="fas fa-arrow-left"></i> Volver
+    </a>
+
+    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div class="bg-daryza-dark p-8 text-white">
+            <h1 class="text-2xl font-black tracking-tight">{% if programacion %}Editar {{ programacion.codigo }}{% else %}Nueva programación{% endif %}</h1>
+            <p class="text-slate-400 text-sm font-medium mt-1">Una fecha, un horario y una placa. La hora puede ser exacta; los horarios sugeridos son solo una ayuda.</p>
+        </div>
+
+        <form method="post" class="p-8 space-y-8" novalidate>
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+            <p class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold">{{ error }}</p>
+            {% endfor %}
+
+            <section class="space-y-6">
+                <h2 class="text-marca text-[11px] font-black uppercase tracking-[0.3em] border-b border-slate-100 pb-2">1. Cuándo y dónde</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {% include 'accesos/maestros/_campo.html' with campo=form.fecha %}
+                    {% include 'accesos/maestros/_campo.html' with campo=form.hora %}
+                    {% include 'accesos/maestros/_campo.html' with campo=form.cd %}
+                </div>
+                <datalist id="horarios-sugeridos">{% for h in horarios_sugeridos %}<option value="{{ h }}">{% endfor %}</datalist>
+            </section>
+
+            <section class="space-y-6">
+                <h2 class="text-marca text-[11px] font-black uppercase tracking-[0.3em] border-b border-slate-100 pb-2">2. Vehículo y conductor</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        {% include 'accesos/maestros/_campo.html' with campo=form.transporte %}
+                        <button type="button" data-abrir="dialogo-transporte" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-marca-claro text-marca text-xs font-black uppercase tracking-widest hover:bg-marca-suave">
+                            <i class="fas fa-plus"></i> Nuevo transporte
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        {% include 'accesos/maestros/_campo.html' with campo=form.conductor %}
+                        <button type="button" data-abrir="dialogo-conductor" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-marca-claro text-marca text-xs font-black uppercase tracking-widest hover:bg-marca-suave">
+                            <i class="fas fa-plus"></i> Nuevo conductor
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">¿La placa o el conductor no aparecen? Regístrelos aquí mismo: quedan guardados en el maestro y seleccionados en esta programación.</p>
+            </section>
+
+            <section class="space-y-6">
+                <h2 class="text-marca text-[11px] font-black uppercase tracking-[0.3em] border-b border-slate-100 pb-2">3. Operación</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {% include 'accesos/maestros/_campo.html' with campo=form.tipo %}
+                    {% include 'accesos/maestros/_campo.html' with campo=form.documento %}
+                    {% include 'accesos/maestros/_campo.html' with campo=form.razon_social %}
+                </div>
+                <p id="nota-interno" class="hidden text-xs font-bold text-marca">Tipo INTERNO: se usan los datos de la empresa ({{ razon_social_empresa }}, RUC {{ ruc_empresa|default:"no configurado" }}).</p>
+                {% include 'accesos/maestros/_campo.html' with campo=form.motivo %}
+                <datalist id="motivos-frecuentes">{% for m in motivos_frecuentes %}<option value="{{ m }}">{% endfor %}</datalist>
+                {% include 'accesos/maestros/_campo.html' with campo=form.observacion_despacho %}
+            </section>
+
+            <div class="action-row justify-end pt-4 border-t border-slate-100">
+                <a href="{% url 'accesos:programacion_agenda' %}" class="px-6 py-3 rounded-full text-center text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cancelar</a>
+                <button type="submit" class="px-6 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-marca/30">Guardar programación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Registro rápido de transporte (mismas validaciones y auditoría que la pantalla del maestro) -->
+<dialog id="dialogo-transporte" class="rounded-3xl p-0 w-[min(32rem,calc(100vw-2rem))] backdrop:bg-slate-900/50">
+    <form method="post" action="{% url 'accesos:transporte_crear_rapido' %}" data-registro-rapido data-destino="{{ form.transporte.id_for_label }}" class="p-8 space-y-5" novalidate>
+        {% csrf_token %}
+        <h2 class="text-xl font-black text-daryza-dark">Nuevo transporte</h2>
+        {% if hay_tamanos %}
+        <p data-errores class="hidden p-3 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold"></p>
+        {% include 'accesos/maestros/_campo.html' with campo=form_transporte.placa %}
+        {% include 'accesos/maestros/_campo.html' with campo=form_transporte.tamano %}
+        <label class="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 cursor-pointer">
+            {{ form_transporte.es_interno }}
+            <span><span class="block font-black text-sm">Transporte interno</span>
+            <span class="block text-xs text-slate-500">Camión propio de Daryza (lleva QR).</span></span>
+        </label>
+        <input type="hidden" name="tr-activo" value="on">
+        <div class="action-row justify-end pt-2">
+            <button type="button" data-cerrar class="px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cancelar</button>
+            <button type="submit" class="px-6 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest">Guardar y seleccionar</button>
+        </div>
+        {% else %}
+        <p class="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl text-amber-800 text-sm font-bold">Todavía no hay tamaños de vehículo registrados. El Administrador debe crearlos antes de registrar transportes.</p>
+        <div class="action-row justify-end"><button type="button" data-cerrar class="px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cerrar</button></div>
+        {% endif %}
+    </form>
+</dialog>
+
+<!-- Registro rápido de conductor -->
+<dialog id="dialogo-conductor" class="rounded-3xl p-0 w-[min(36rem,calc(100vw-2rem))] backdrop:bg-slate-900/50">
+    <form method="post" action="{% url 'accesos:conductor_crear_rapido' %}" data-registro-rapido data-destino="{{ form.conductor.id_for_label }}" class="p-8 space-y-5" novalidate>
+        {% csrf_token %}
+        <h2 class="text-xl font-black text-daryza-dark">Nuevo conductor</h2>
+        <p data-errores class="hidden p-3 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold"></p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {% include 'accesos/maestros/_campo.html' with campo=form_conductor.tipo_documento %}
+            <div class="sm:col-span-2">{% include 'accesos/maestros/_campo.html' with campo=form_conductor.numero_documento %}</div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% include 'accesos/maestros/_campo.html' with campo=form_conductor.apellido_paterno %}
+            {% include 'accesos/maestros/_campo.html' with campo=form_conductor.apellido_materno %}
+        </div>
+        {% include 'accesos/maestros/_campo.html' with campo=form_conductor.nombres %}
+        <input type="hidden" name="co-activo" value="on">
+        <div class="action-row justify-end pt-2">
+            <button type="button" data-cerrar class="px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cancelar</button>
+            <button type="submit" class="px-6 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest">Guardar y seleccionar</button>
+        </div>
+    </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Tipo INTERNO: completa RUC y razón social con los datos de la empresa (el servidor también lo hace).
+    (() => {
+        const tipo = document.getElementById('{{ form.tipo.id_for_label }}');
+        const documento = document.getElementById('{{ form.documento.id_for_label }}');
+        const razon = document.getElementById('{{ form.razon_social.id_for_label }}');
+        const nota = document.getElementById('nota-interno');
+        const empresa = { ruc: '{{ ruc_empresa|escapejs }}', razon: '{{ razon_social_empresa|escapejs }}' };
+        const aplicar = () => {
+            const interno = tipo.value === 'INTERNO';
+            nota.classList.toggle('hidden', !interno);
+            if (interno) {
+                if (!documento.value) documento.value = empresa.ruc;
+                if (!razon.value) razon.value = empresa.razon;
+            } else {
+                if (documento.value === empresa.ruc) documento.value = '';
+                if (razon.value === empresa.razon) razon.value = '';
+            }
+        };
+        tipo.addEventListener('change', aplicar);
+        aplicar();
+    })();
+
+    // Registro rápido: abre la ventana, envía con fetch y agrega la opción ya seleccionada.
+    (() => {
+        document.querySelectorAll('[data-abrir]').forEach(boton => {
+            boton.addEventListener('click', () => document.getElementById(boton.dataset.abrir).showModal());
+        });
+        document.querySelectorAll('dialog [data-cerrar]').forEach(boton => {
+            boton.addEventListener('click', () => boton.closest('dialog').close());
+        });
+        document.querySelectorAll('form[data-registro-rapido]').forEach(formulario => {
+            const errores = formulario.querySelector('[data-errores]');
+            const enviar = formulario.querySelector('button[type="submit"]');
+            formulario.addEventListener('submit', async (evento) => {
+                evento.preventDefault();
+                enviar.disabled = true;
+                try {
+                    const respuesta = await fetch(formulario.action, {
+                        method: 'POST',
+                        body: new FormData(formulario),
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const datos = await respuesta.json();
+                    if (!datos.ok) {
+                        const mensajes = Object.values(datos.errores).flat().map(e => e.message);
+                        errores.textContent = mensajes.join(' ');
+                        errores.classList.remove('hidden');
+                        return;
+                    }
+                    const destino = document.getElementById(formulario.dataset.destino);
+                    destino.add(new Option(datos.etiqueta, datos.id, true, true));
+                    destino.dispatchEvent(new Event('change'));
+                    errores.classList.add('hidden');
+                    formulario.reset();
+                    formulario.closest('dialog').close();
+                } catch (error) {
+                    errores.textContent = 'No se pudo guardar. Revise su conexión e intente de nuevo.';
+                    errores.classList.remove('hidden');
+                } finally {
+                    enviar.disabled = false;
+                }
+            });
+        });
+    })();
+</script>
+{% endblock %}

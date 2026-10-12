@@ -1,0 +1,58 @@
+{# Tabla compartida: agenda de Despacho y consulta de Vigilancia. `con_acciones` muestra editar / detalle. #}
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-4 py-3">Hora</th>
+                    <th class="text-left px-4 py-3">Placa</th>
+                    {% if mostrar_cd %}<th class="text-left px-4 py-3">CD</th>{% endif %}
+                    <th class="text-left px-4 py-3">Tipo / Razón social</th>
+                    <th class="text-left px-4 py-3">Conductor</th>
+                    <th class="text-left px-4 py-3">Estado</th>
+                    <th class="text-left px-4 py-3">Entrada</th>
+                    <th class="text-left px-4 py-3">Salida</th>
+                    <th class="text-left px-4 py-3">Permanencia</th>
+                    <th class="text-right px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in programaciones %}
+                <tr class="hover:bg-slate-50/60 {% if p.esta_cancelada %}opacity-60{% endif %}">
+                    <td class="px-4 py-3 font-black text-lg text-daryza-dark">{{ p.hora|time:"H:i" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <a href="{% url 'accesos:programacion_pase' p.pk %}" class="inline-flex items-center gap-2 font-black tracking-wider hover:text-marca" title="Ver QR y pase de {{ p.transporte.placa }}">
+                            <i class="fas fa-qrcode text-marca"></i>{{ p.transporte.placa }}
+                        </a>
+                        <span class="block text-[11px] text-slate-400 font-bold">{{ p.transporte.tamano }}</span>
+                    </td>
+                    {% if mostrar_cd %}<td class="px-4 py-3 font-semibold text-slate-600">{{ p.cd }}</td>{% endif %}
+                    <td class="px-4 py-3">
+                        <span class="text-[10px] font-black uppercase text-marca">{{ p.get_tipo_display }}</span>
+                        <span class="block font-semibold text-slate-700">{{ p.razon_social }}</span>
+                        <span class="block text-[11px] text-slate-400">{{ p.motivo }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">
+                        {% if p.tramo and p.conductor_distinto %}{{ p.tramo.conductor.nombre_completo }}<span class="block text-[10px] font-black uppercase text-amber-700">Programado: {{ p.conductor.nombre_completo }}</span>
+                        {% else %}{{ p.conductor.nombre_completo }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3">{% include 'accesos/programacion/_estado.html' with codigo=p.estado_codigo %}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo %}{{ p.tramo.entrada_en|date:"H:i" }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo.salida_en %}{{ p.tramo.salida_en|date:"H:i" }}{% if p.tramo.entre_dias %}<span class="block text-[10px] text-slate-400">{{ p.tramo.salida_en|date:"d/m" }}</span>{% endif %}{% elif p.tramo %}<span class="text-emerald-600">Dentro</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-black whitespace-nowrap {% if p.prolongada %}text-rose-600{% endif %}">{% if p.tramo %}{{ p.permanencia }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        {% if con_acciones %}
+                        <a href="{% url 'accesos:programacion_detalle' p.pk %}" class="inline-flex px-3 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100">{{ p.codigo }}</a>
+                        {% if accesos_puede_programar and p.editable %}<a href="{% url 'accesos:programacion_editar' p.pk %}" class="inline-flex px-3 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100" aria-label="Editar {{ p.codigo }}"><i class="fas fa-pen"></i></a>{% endif %}
+                        {% else %}
+                        <span class="text-[11px] font-black text-slate-400">{{ p.codigo }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="10" class="px-6 py-12 text-center text-slate-400 font-bold">No hay programaciones con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',    
     'planificacion', # Nuestra nueva App
+    'accesos',  # Módulo de Control de Accesos de Transporte (independiente de planificacion)
 ]
 
 MIDDLEWARE = [
@@ -61,6 +62,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    # Solo actúa sobre usuarios con roles exclusivos de Accesos (Vigilancia, Consulta).
+    'accesos.middleware.AislamientoAccesosMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -76,6 +79,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accesos.context_processors.accesos',
             ],
         },
     },
@@ -97,6 +101,13 @@ DATABASES = {
         'PORT': os.getenv('MYSQLPORT', '3306'),
     }
 }
+
+# Piloto del módulo de Control de Accesos: solo estos usuarios (separados por coma) lo usan; '*' = todos los
+# que tengan un rol del módulo (lo planificado). Mientras dure el piloto, con una base que no es local
+# (Railway) el valor por defecto es solo 'clozano'; en local y en las pruebas, '*'. Se cambia sin desplegar con
+# la variable ACCESOS_USUARIOS_PILOTO (p. ej. '*' para liberar, o 'clozano,jllanos').
+_BASE_LOCAL = DATABASES['default']['HOST'] in ('127.0.0.1', 'localhost', '::1')
+ACCESOS_USUARIOS_PILOTO = os.getenv('ACCESOS_USUARIOS_PILOTO', '*' if _BASE_LOCAL else 'clozano')
 
 
 

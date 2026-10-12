@@ -1,0 +1,12 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Programaciones · CD {{ cd }}{% endblock %}
+
+{% block content %}
+{% include 'accesos/porteria/_barra.html' %}
+
+<p class="mb-4 text-lg font-black text-daryza-dark">{{ fecha_larga }}{% if es_hoy %} <span class="text-[10px] font-black uppercase tracking-widest text-marca align-middle">Hoy</span>{% endif %}</p>
+{% include 'accesos/programacion/_filtros.html' %}
+{% include 'accesos/programacion/_tabla.html' %}
+<p class="mt-4 text-sm text-slate-400 text-center">Toque la placa para ver su QR. Para registrar una entrada o salida use «Escanear».</p>
+{% endblock %}

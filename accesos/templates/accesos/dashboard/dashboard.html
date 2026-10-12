@@ -1,0 +1,527 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Dashboard de demoras{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Paleta de gráficos (validada para daltonismo): categórica azul/naranja, divergente azul–gris–rojo,
+       secuencial azul para el mapa de calor; el rojo de estado solo para «demora», siempre con ícono. */
+    .viz {
+        --texto-1: #0b0b0b;
+        --texto-2: #52514e;
+        --grilla: #ecebe7;
+        --superficie: #ffffff;
+        --serie-1: #2a78d6;
+        --serie-2: #eb6834;
+        --adelantado: #2a78d6;
+        --puntual: #a3a29c;
+        --retrasado: #e34948;
+        --critico: #d03b3b;
+        --vacio: #f4f4f2;
+    }
+    .mapa-celda { transition: transform .08s ease; cursor: pointer; }
+    .mapa-celda:hover { transform: scale(1.08); outline: 2px solid #0b0b0b; outline-offset: 1px; position: relative; z-index: 2; }
+    .mapa-celda.activa { outline: 3px solid #ea580c; outline-offset: 1px; }
+    .pestana[aria-selected="true"] { background: #1a1a1a; color: #fff; }
+    #tooltip-mapa { pointer-events: none; }
+    th[data-orden] { cursor: pointer; user-select: none; }
+    th[data-orden]:hover { color: #0b0b0b; }
+    .fila-filtrable { cursor: pointer; }
+    .desliza { scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="viz">
+<!-- Encabezado -->
+<div class="mb-4">
+    <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Dashboard de Gerencia · Control de Accesos</p>
+    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-daryza-dark">Dónde, cuándo y por qué se demoran los camiones</h1>
+    <p class="text-slate-500 text-sm font-medium mt-1">
+        {% if un_dia %}<span class="font-black text-daryza-dark">{% if es_hoy %}Hoy · {% endif %}{{ fecha_larga }}</span>{% if es_hoy %} · actualizado a las {{ hora_actual|time:"H:i" }}{% endif %}
+        {% else %}<span class="font-black text-daryza-dark">Del {{ fecha_larga }} al {{ hasta_larga }}</span>{% endif %}
+        · {{ kpis.tramos }} tramo{{ kpis.tramos|pluralize }} · demora = más de {{ limite_demora }} min
+        {% if muestra_dentro %}· {% include 'accesos/_autorefresco.html' with segundos=120 %}{% endif %}
+    </p>
+</div>
+
+<!-- Rangos rápidos y filtros -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-3 sm:p-4 mb-4">
+    <div class="flex gap-2 overflow-x-auto desliza pb-1" aria-label="Rangos rápidos">
+        {% for r in rangos %}
+        <a href="{{ r.url }}" class="shrink-0 px-4 py-2 rounded-full text-xs font-black {% if r.desde == desde and r.hasta == hasta %}bg-marca text-white shadow-md shadow-marca/30{% else %}bg-slate-100 text-slate-600 hover:bg-marca-claro hover:text-marca{% endif %}">{{ r.etiqueta }}</a>
+        {% endfor %}
+    </div>
+    <form method="get" id="form-filtros" class="mt-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
+        {% for clave, valor in filtros.items %}{% if valor is not None and clave != 'cd' and clave != 'tipo' and clave != 'tamano' %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endif %}{% endfor %}
+        <label class="col-span-1"><span class="sr-only">Desde</span><input type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="campo-accesos" data-auto></label>
+        <label class="col-span-1"><span class="sr-only">Hasta</span><input type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="campo-accesos" data-auto></label>
+        <select name="cd" class="campo-accesos" aria-label="CD" data-auto>
+            <option value="">Todos los CD</option>
+            {% for cd in cds %}<option value="{{ cd.pk }}" {% if filtros.cd == cd.pk %}selected{% endif %}>CD {{ cd }}</option>{% endfor %}
+        </select>
+        <select name="tipo" class="campo-accesos" aria-label="Tipo de operación" data-auto>
+            <option value="">Todos los tipos</option>
+            {% for valor, etiqueta in tipos %}<option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+        </select>
+        <select name="tamano" class="campo-accesos" aria-label="Tamaño" data-auto>
+            <option value="">Todos los tamaños</option>
+            {% for t in tamanos %}<option value="{{ t.pk }}" {% if filtros.tamano == t.pk %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase">Aplicar</button></noscript>
+        <p class="col-span-2 md:col-span-1 self-center text-[11px] font-bold text-slate-400 leading-snug"><i class="fas fa-hand-pointer text-marca mr-1"></i>Toque una barra, celda o fila para filtrar todo.</p>
+    </form>
+    {% if chips %}
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+        <span class="text-[11px] font-black uppercase tracking-widest text-slate-400">Filtrando por:</span>
+        {% for chip in chips %}
+        <a href="{{ chip.quitar }}" class="inline-flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-marca-claro text-marca text-xs font-black border border-marca/30 hover:bg-marca-suave" aria-label="Quitar filtro {{ chip.texto }}">{{ chip.texto }} <i class="fas fa-xmark"></i></a>
+        {% endfor %}
+        <a href="{{ limpiar_url }}" class="text-xs font-black text-slate-400 hover:text-slate-700 underline">Quitar todos</a>
+    </div>
+    {% endif %}
+</section>
+{% if recortado %}<p class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-800 text-sm font-bold">El rango se limitó a los últimos {{ max_rango }} días.</p>{% endif %}
+{% if not config.meta_permanencia_min %}<p class="mb-4 p-3 rounded-xl bg-sky-50 text-sky-800 text-xs sm:text-sm font-bold"><i class="fas fa-circle-info mr-1"></i> La meta de permanencia aún no está definida: mientras tanto, «demora» = más de {{ config.umbral_prolongada_min }} min (umbral de permanencia prolongada). El Administrador puede fijarla en Catálogos → Configuración.</p>{% endif %}
+
+<!-- Conclusiones -->
+{% if conclusiones %}
+<section class="mb-6 bg-daryza-dark text-white rounded-3xl p-5 sm:p-6 border-l-8 border-marca">
+    <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca mb-4">Lo que dicen los datos</h2>
+    <ul class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
+        {% for c in conclusiones %}
+        <li class="flex gap-3 items-start">
+            <i class="fas {{ c.icono }} mt-1 w-5 text-center {% if c.alerta %}text-amber-400{% else %}text-marca{% endif %}"></i>
+            <span class="text-sm font-medium leading-relaxed">{% if c.alerta %}<span class="font-black text-amber-400">Atención: </span>{% endif %}{{ c.texto }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% elif not kpis.tramos %}
+<section class="mb-6 bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center">
+    <i class="fas fa-truck-ramp-box text-4xl text-marca"></i>
+    <p class="mt-3 font-black text-daryza-dark">No hay ingresos registrados con estos filtros.</p>
+    <p class="text-sm text-slate-500">Pruebe otro rango de fechas o quite algún filtro.</p>
+</section>
+{% endif %}
+
+<!-- Indicadores -->
+<div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+    {% for t in tarjetas %}
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas {{ t.icono }} mr-1 text-marca"></i>{{ t.titulo }}</p>
+        <p class="mt-2 text-xl sm:text-2xl xl:text-3xl font-black text-daryza-dark whitespace-nowrap">{{ t.valor }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ t.detalle }}</p>
+        {% if t.variacion %}
+        <p class="mt-2 text-[11px] font-black {% if t.mejora %}text-emerald-700{% elif t.mejora is None %}text-slate-400{% else %}text-rose-700{% endif %}">
+            {% if t.mejora %}<i class="fas fa-arrow-trend-down mr-1"></i>{% elif t.mejora is not None %}<i class="fas fa-arrow-trend-up mr-1"></i>{% endif %}{{ t.variacion }}
+        </p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- En planta ahora -->
+{% if muestra_dentro %}
+<section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6 mb-6">
+    <div class="flex items-center justify-between gap-3 mb-3">
+        <h2 class="text-lg font-black text-daryza-dark"><span class="relative inline-flex w-3 h-3 mr-2 align-middle"><span class="absolute inline-flex h-full w-full rounded-full bg-marca opacity-60 animate-ping"></span><span class="relative inline-flex rounded-full w-3 h-3 bg-marca"></span></span>En planta ahora ({{ total_dentro }})</h2>
+        <a href="{% url 'accesos:tablero_hoy' %}" class="text-xs font-black text-marca hover:underline whitespace-nowrap">Tablero «Hoy» →</a>
+    </div>
+    {% if dentro %}
+    <div class="flex gap-3 overflow-x-auto desliza pb-2">
+        {% for t in dentro %}
+        <div class="shrink-0 w-48 rounded-2xl border-2 {% if t.prolongada %}border-rose-200 bg-rose-50{% else %}border-slate-100 bg-slate-50{% endif %} p-3">
+            <p class="text-lg font-black tracking-wider text-daryza-dark">{{ t.transporte.placa }}</p>
+            <p class="text-[11px] font-bold text-slate-500 truncate">CD {{ t.cd }} · {{ t.programacion.razon_social }}</p>
+            <p class="mt-2 text-sm font-black {% if t.prolongada %}text-rose-600{% else %}text-marca{% endif %}"><i class="fas fa-stopwatch mr-1"></i>{{ t.tiempo }}</p>
+            <p class="text-[10px] font-bold text-slate-400">entró {{ t.entrada_en|date:"d/m H:i" }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm font-bold text-slate-400">No hay vehículos dentro en este momento.</p>
+    {% endif %}
+</section>
+{% endif %}
+
+<!-- Mapa de calor -->
+<section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6 mb-6">
+    <div class="action-row justify-between mb-1">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">Mapa de calor: día × hora de llegada</h2>
+            <p class="text-xs text-slate-500" id="mapa-pregunta">¿Cuándo se congestiona el CD?</p>
+        </div>
+        <div class="flex gap-1 overflow-x-auto desliza" role="tablist" aria-label="Métrica del mapa de calor">
+            <button type="button" class="pestana shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-metrica="llegadas" aria-selected="true">Llegadas</button>
+            <button type="button" class="pestana shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-metrica="promedio" aria-selected="false">Permanencia</button>
+            <button type="button" class="pestana shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-metrica="pct_demora" aria-selected="false">% demora</button>
+        </div>
+    </div>
+    <div class="overflow-x-auto desliza mt-4"><table id="mapa" class="text-xs text-center border-separate border-spacing-[3px]"></table></div>
+    <div class="mt-4 flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-500">
+        <span id="leyenda-min">0</span>
+        <span id="leyenda-escala" class="flex rounded overflow-hidden h-3 w-40 sm:w-48"></span>
+        <span id="leyenda-max"></span>
+        <span class="inline-flex items-center gap-1"><span class="inline-block w-3 h-3 rounded" style="background: var(--vacio)"></span> sin llegadas</span>
+        <span class="text-slate-400">· toque una celda para filtrar ese día y hora</span>
+    </div>
+    <div id="tooltip-mapa" class="hidden fixed z-50 bg-daryza-dark text-white text-xs rounded-xl px-3 py-2 shadow-xl"></div>
+</section>
+
+<!-- Rankings de demora -->
+<section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6 mb-6">
+    <div class="mb-4">
+        <h2 class="text-lg font-black text-daryza-dark">¿Quién o qué concentra las demoras?</h2>
+        <p class="text-xs text-slate-500">Permanencia promedio por cada corte. La línea vertical marca el límite de demora ({{ limite_demora }} min). Toque una fila para filtrar todo el dashboard; toque un encabezado para ordenar.</p>
+    </div>
+    <div class="flex gap-1 overflow-x-auto desliza pb-1 mb-3" role="tablist" aria-label="Corte del ranking">
+        {% for clave, etiqueta in dimensiones.items %}
+        <button type="button" class="pestana-ranking pestana shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-dimension="{{ clave }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">{{ etiqueta }}</button>
+        {% endfor %}
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm" id="ranking">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-3 py-3 w-8">#</th>
+                    <th class="text-left px-3 py-3" data-orden="nombre" id="ranking-nombre">Nombre</th>
+                    <th class="text-right px-3 py-3" data-orden="tramos">Tramos</th>
+                    <th class="text-left px-3 py-3 min-w-[8rem] sm:min-w-[16rem]" data-orden="promedio">Permanencia promedio ▼</th>
+                    <th class="hidden md:table-cell text-right px-3 py-3" data-orden="p90">P90</th>
+                    <th class="hidden md:table-cell text-right px-3 py-3" data-orden="maximo">Máximo</th>
+                    <th class="text-right px-3 py-3" data-orden="demoras">Demoras</th>
+                    <th class="hidden lg:table-cell text-right px-3 py-3" data-orden="pct_retraso">Llegó tarde</th>
+                    <th class="hidden lg:table-cell text-right px-3 py-3" data-orden="total_horas">Horas en planta</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">{% if datos.tendencia.unidad == 'hora' %}¿Cómo evoluciona el día?{% else %}¿Mejoramos o empeoramos?{% endif %}</h2>
+        <p class="text-xs text-slate-500 mb-4">Permanencia promedio por {% if datos.tendencia.unidad == 'hora' %}hora de llegada{% elif datos.tendencia.unidad == 'dia' %}día{% else %}semana{% endif %}. Línea punteada: {% if config.meta_permanencia_min %}meta de {{ config.meta_permanencia_min }} min{% else %}límite de demora ({{ limite_demora }} min){% endif %}. Toque un punto para filtrar.</p>
+        <div class="h-64 sm:h-72"><canvas id="grafico-tendencia" role="img" aria-label="Permanencia promedio en el tiempo"></canvas></div>
+    </section>
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿Cuánto duran los tramos?</h2>
+        <p class="text-xs text-slate-500 mb-4">Tramos por rango de permanencia. <span class="font-black" style="color: var(--critico)"><i class="fas fa-triangle-exclamation"></i> Rojo</span>: superan el límite de demora. Toque una barra para filtrar.</p>
+        <div class="h-64 sm:h-72"><canvas id="grafico-distribucion" role="img" aria-label="Distribución de la permanencia"></canvas></div>
+    </section>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿Llegan a su hora programada?</h2>
+        <p class="text-xs text-slate-500 mb-4">Puntual = dentro de ±{{ config.tolerancia_puntualidad_min }} min de la hora programada. Toque un segmento para filtrar.</p>
+        <div class="h-36"><canvas id="grafico-puntualidad-cd" role="img" aria-label="Puntualidad por CD"></canvas></div>
+        <div class="h-44 mt-4"><canvas id="grafico-puntualidad-tipo" role="img" aria-label="Puntualidad por tipo de operación"></canvas></div>
+    </section>
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿Llegar tarde alarga la estadía?</h2>
+        <p class="text-xs text-slate-500 mb-4">Permanencia promedio según cómo llegó el camión respecto de su hora programada. Toque una barra para filtrar.</p>
+        <div class="h-72 sm:h-80"><canvas id="grafico-llegada" role="img" aria-label="Permanencia según puntualidad de llegada"></canvas></div>
+    </section>
+</div>
+
+{% if comparativo %}
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-6">
+    <div class="p-4 sm:p-6 pb-2">
+        <h2 class="text-lg font-black text-daryza-dark">Lurín frente a Punta Negra</h2>
+        <p class="text-xs text-slate-500">Mismos indicadores por CD. Toque un CD para filtrar.</p>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-5 py-3">CD</th><th class="text-right px-5 py-3">Tramos</th><th class="text-right px-5 py-3">Permanencia promedio</th><th class="text-right px-5 py-3">P90</th><th class="text-right px-5 py-3">Con demora</th><th class="text-right px-5 py-3">Puntuales</th><th class="text-right px-5 py-3">Retraso promedio</th><th class="text-right px-5 py-3">Horas en planta</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for c in comparativo %}
+                <tr class="fila-filtrable hover:bg-marca-claro" onclick="window.location='{{ c.url }}'">
+                    <td class="whitespace-nowrap px-5 py-3 font-black"><a href="{{ c.url }}" class="hover:text-marca">CD {{ c.nombre }}</a></td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right font-bold">{{ c.tramos }}</td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right font-black">{{ c.promedio_texto }}</td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right">{{ c.p90_texto }}</td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right font-bold">{{ c.demoras }} <span class="text-slate-400">({{ c.pct_demora|default_if_none:"0" }} %)</span></td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right">{{ c.pct_puntual|default_if_none:"—" }} %</td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right">{% if c.retraso_promedio %}{{ c.retraso_promedio }} min{% else %}—{% endif %}</td>
+                    <td class="whitespace-nowrap px-5 py-3 text-right">{{ c.total_horas }} h</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="p-4 sm:p-6 action-row justify-between">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">¿Por qué se demoró? {{ total_demoras }} demora{{ total_demoras|pluralize }}</h2>
+            <p class="text-xs text-slate-500">Las {{ demoras|length }} mayores de más de {{ limite_demora }} min, con las observaciones registradas en portería.</p>
+        </div>
+        <a href="{% url 'accesos:tramos_exportar' %}?desde={{ desde|date:'Y-m-d' }}&hasta={{ hasta|date:'Y-m-d' }}&cd={{ filtros.cd|default_if_none:'' }}&estado=demoras" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar demoras</a>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-4 py-3">Fecha</th><th class="text-left px-4 py-3">Placa</th><th class="text-left px-4 py-3">Permanencia</th><th class="text-left px-4 py-3">Conductor</th><th class="text-left px-4 py-3">CD</th><th class="text-left px-4 py-3">Razón social · motivo</th><th class="text-left px-4 py-3">Obs. entrada</th><th class="text-left px-4 py-3">Obs. salida</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for t in demoras %}
+                <tr class="hover:bg-slate-50/60">
+                    <td class="px-4 py-3 whitespace-nowrap font-bold">{{ t.fecha_local_entrada|date:"d/m/Y" }} {{ t.hora_local_entrada|time:"H:i" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{% if cds_tramos is None or t.cd_id in cds_tramos %}<a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a>{% else %}<span class="font-black tracking-wider">{{ t.transporte.placa }}</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-black whitespace-nowrap" style="color: var(--critico)"><i class="fas fa-triangle-exclamation mr-1"></i>{{ t.tiempo }}</td>
+                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ t.conductor.nombre_completo }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ t.cd }}</td>
+                    <td class="px-4 py-3 min-w-[12rem]">{{ t.programacion.razon_social }}<span class="block text-xs text-slate-400">{{ t.programacion.motivo }}</span></td>
+                    <td class="px-4 py-3 text-xs text-slate-600 min-w-[10rem]">{{ t.obs_entrada }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-600 min-w-[10rem]">{{ t.obs_salida }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-bold">No hay demoras con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if total_demoras > demoras|length %}
+    <div class="p-4 text-center border-t border-slate-100">
+        <a href="{% url 'accesos:tramos_lista' %}?desde={{ desde|date:'Y-m-d' }}&hasta={{ hasta|date:'Y-m-d' }}&cd={{ filtros.cd|default_if_none:'' }}&estado=demoras" class="text-sm font-black text-marca hover:underline">{% if cds_tramos is None %}Ver las {{ total_demoras }} demoras en la consulta de tramos{% else %}Ver las demoras de mi CD en la consulta de tramos{% endif %} →</a>
+    </div>
+    {% endif %}
+</section>
+</div>
+
+{{ datos|json_script:"datos-dashboard" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+    const datos = JSON.parse(document.getElementById('datos-dashboard').textContent);
+    const css = getComputedStyle(document.querySelector('.viz'));
+    const color = (nombre) => css.getPropertyValue(nombre).trim();
+    const duracion = (m) => {
+        if (m === null || m === undefined) return '—';
+        const h = Math.floor(m / 60), r = m % 60;
+        return h ? `${h} h ${String(r).padStart(2, '0')} min` : `${r} min`;
+    };
+    // Los nombres (razón social, motivo…) los escriben usuarios: se escapan antes de insertarlos como HTML.
+    const escapar = (s) => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const RAMPA = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+
+    // Filtrado cruzado: cambia parámetros de la URL y recarga; todos los paneles se recalculan con ellos.
+    const filtrar = (cambios) => {
+        const url = new URL(window.location.href);
+        Object.entries(cambios).forEach(([clave, valor]) => {
+            if (valor === null || valor === undefined || valor === '') url.searchParams.delete(clave);
+            else url.searchParams.set(clave, valor);
+        });
+        window.location.href = url.toString();
+    };
+    document.querySelectorAll('#form-filtros [data-auto]').forEach(campo => campo.addEventListener('change', () => campo.form.submit()));
+
+    // ---------- Mapa de calor ----------
+    const mapa = datos.mapa;
+    const METRICAS = {
+        llegadas: { pregunta: '¿Cuándo se congestiona el CD? Camiones que llegaron en cada bloque.', formato: v => `${v}` },
+        promedio: { pregunta: '¿A qué hora se quedan más tiempo? Permanencia promedio (min) de los que llegaron en cada bloque.', formato: v => duracion(v) },
+        pct_demora: { pregunta: '¿Cuándo se producen las demoras? % de tramos de cada bloque que superaron el límite.', formato: v => `${v} %` },
+    };
+    const tablaMapa = document.getElementById('mapa');
+    const tooltip = document.getElementById('tooltip-mapa');
+    const filtroDia = datos.filtros.dia, filtroHora = datos.filtros.hora;
+    function pintarMapa(metrica) {
+        const valores = mapa.celdas.flat().map(c => c[metrica]).filter(v => v !== null && v > 0);
+        const maximo = valores.length ? Math.max(...valores) : 0;
+        document.getElementById('mapa-pregunta').textContent = METRICAS[metrica].pregunta;
+        document.getElementById('leyenda-min').textContent = metrica === 'promedio' ? '0 min' : '0';
+        document.getElementById('leyenda-max').textContent = maximo ? METRICAS[metrica].formato(maximo) : '';
+        document.getElementById('leyenda-escala').innerHTML = RAMPA.map(c => `<span class="flex-1" style="background:${c}"></span>`).join('');
+        if (!mapa.horas.length) { tablaMapa.innerHTML = '<tr><td class="p-6 text-slate-400 font-bold">Sin llegadas con estos filtros.</td></tr>'; return; }
+        let html = '<thead><tr><th></th>' + mapa.horas.map(h => `<th class="px-1 pb-1 font-black text-slate-400">${String(h).padStart(2, '0')}h</th>`).join('') + '</tr></thead><tbody>';
+        mapa.celdas.forEach((fila, dia) => {
+            html += `<tr><th class="pr-3 text-left font-black text-slate-500 whitespace-nowrap">${mapa.dias[dia].slice(0, 3)}<span class="hidden sm:inline">${mapa.dias[dia].slice(3)}</span></th>`;
+            fila.forEach((celda, i) => {
+                const valor = celda[metrica];
+                let fondo = color('--vacio'), tinta = '#a3a29c', texto = '';
+                if (celda.llegadas) {
+                    const paso = maximo ? Math.min(RAMPA.length - 1, Math.floor((valor || 0) / maximo * (RAMPA.length - 1) + 0.0001)) : 0;
+                    fondo = RAMPA[paso]; tinta = paso >= 3 ? '#ffffff' : '#0b0b0b';
+                    texto = metrica === 'llegadas' ? valor : (valor === null ? '' : Math.round(valor));
+                }
+                const activa = filtroDia === dia && filtroHora === mapa.horas[i] ? ' activa' : '';
+                html += `<td class="mapa-celda${activa} min-w-[2.4rem] w-10 sm:w-11 h-9 sm:h-10 rounded-md font-black" style="background:${fondo};color:${tinta}" data-dia="${dia}" data-i="${i}">${texto}</td>`;
+            });
+            html += '</tr>';
+        });
+        tablaMapa.innerHTML = html + '</tbody>';
+    }
+    tablaMapa.addEventListener('mousemove', (e) => {
+        const td = e.target.closest('td.mapa-celda');
+        if (!td) { tooltip.classList.add('hidden'); return; }
+        const dia = +td.dataset.dia, i = +td.dataset.i, celda = mapa.celdas[dia][i], hora = mapa.horas[i];
+        tooltip.innerHTML = `<p class="font-black">${mapa.dias[dia]} · ${String(hora).padStart(2, '0')}:00–${String(hora + 1).padStart(2, '0')}:00</p>` +
+            (celda.llegadas ? `<p>${celda.llegadas} llegada${celda.llegadas === 1 ? '' : 's'}</p><p>Permanencia promedio: ${duracion(celda.promedio)}</p><p>Con demora: ${celda.pct_demora ?? 0} %</p><p class="text-orange-300 mt-1">Toque para filtrar</p>` : '<p>Sin llegadas</p>');
+        tooltip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 200)}px`; tooltip.style.top = `${e.clientY + 14}px`;
+        tooltip.classList.remove('hidden');
+    });
+    tablaMapa.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+    tablaMapa.addEventListener('click', (e) => {
+        const td = e.target.closest('td.mapa-celda');
+        if (!td || !mapa.celdas[+td.dataset.dia][+td.dataset.i].llegadas) return;
+        filtrar({ dia: td.dataset.dia, hora: mapa.horas[+td.dataset.i] });
+    });
+    document.querySelectorAll('[data-metrica]').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('[data-metrica]').forEach(b => b.setAttribute('aria-selected', b === boton));
+        pintarMapa(boton.dataset.metrica);
+    }));
+    pintarMapa('llegadas');
+
+    // ---------- Rankings ----------
+    let dimension = Object.keys(datos.dimensiones)[0], orden = 'promedio', descendente = true;
+    const cuerpo = document.querySelector('#ranking tbody');
+    function pintarRanking() {
+        const filas = [...datos.rankings[dimension]].sort((a, b) => {
+            const x = a[orden] ?? -1, y = b[orden] ?? -1;
+            return (typeof x === 'string' ? x.localeCompare(y) : x - y) * (descendente ? -1 : 1);
+        });
+        document.getElementById('ranking-nombre').textContent = datos.dimensiones[dimension];
+        document.querySelectorAll('#ranking th[data-orden]').forEach(th => {
+            th.textContent = th.textContent.replace(/ [▼▲]$/, '') + (th.dataset.orden === orden ? (descendente ? ' ▼' : ' ▲') : '');
+        });
+        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">Sin tramos cerrados con estos filtros.</td></tr>'; return; }
+        const escala = Math.max(datos.limite, ...filas.map(f => f.promedio)) * 1.08;
+        const marca = datos.limite / escala * 100;
+        cuerpo.innerHTML = filas.map((f, i) => {
+            const demora = f.promedio > datos.limite;
+            const activa = String(datos.filtros[dimension] ?? '') === String(f.valor);
+            return `<tr class="fila-filtrable ${activa ? 'bg-marca-claro' : 'hover:bg-marca-claro'}" data-valor="${escapar(f.valor)}" title="Filtrar todo el dashboard por ${escapar(f.nombre)}">
+                <td class="px-3 py-3 text-slate-400 font-black">${i + 1}</td>
+                <td class="px-3 py-3 font-black text-daryza-dark whitespace-nowrap">${escapar(f.nombre)}</td>
+                <td class="px-3 py-3 text-right font-bold">${f.tramos}</td>
+                <td class="px-3 py-3">
+                    <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-1 sm:gap-3">
+                        <div class="relative flex-1 h-3 rounded-full bg-slate-100 min-w-[5rem]">
+                            <div class="h-3 rounded-full" style="width:${f.promedio / escala * 100}%;background:${demora ? color('--critico') : color('--serie-1')}"></div>
+                            <div class="absolute -top-1 -bottom-1 w-0.5 bg-slate-800" style="left:${marca}%"></div>
+                        </div>
+                        <span class="sm:w-24 sm:text-right font-black whitespace-nowrap" style="color:${demora ? color('--critico') : color('--texto-1')}">${demora ? '<i class="fas fa-triangle-exclamation mr-1"></i>' : ''}${duracion(f.promedio)}</span>
+                    </div>
+                </td>
+                <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap">${duracion(f.p90)}</td>
+                <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap">${duracion(f.maximo)}</td>
+                <td class="px-3 py-3 text-right font-bold whitespace-nowrap">${f.demoras} <span class="text-slate-400">(${f.pct_demora ?? 0} %)</span></td>
+                <td class="hidden lg:table-cell px-3 py-3 text-right whitespace-nowrap">${f.pct_retraso ?? 0} %</td>
+                <td class="hidden lg:table-cell px-3 py-3 text-right whitespace-nowrap">${f.total_horas} h</td>
+            </tr>`;
+        }).join('');
+    }
+    cuerpo.addEventListener('click', (e) => {
+        const fila = e.target.closest('tr[data-valor]');
+        if (fila) filtrar({ [dimension]: fila.dataset.valor });
+    });
+    document.querySelectorAll('.pestana-ranking').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('.pestana-ranking').forEach(b => b.setAttribute('aria-selected', b === boton));
+        dimension = boton.dataset.dimension; pintarRanking();
+    }));
+    document.querySelectorAll('#ranking th[data-orden]').forEach(th => th.addEventListener('click', () => {
+        descendente = th.dataset.orden === orden ? !descendente : th.dataset.orden !== 'nombre';
+        orden = th.dataset.orden; pintarRanking();
+    }));
+    pintarRanking();
+
+    // ---------- Gráficos (Chart.js) ----------
+    if (typeof Chart === 'undefined') return;
+    const movil = window.matchMedia('(max-width: 640px)').matches;
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.font.size = movil ? 11 : 12;
+    Chart.defaults.color = color('--texto-2');
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1a1a1a';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    const grilla = { color: color('--grilla') };
+    const manito = (evento, elementos) => { evento.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; };
+    // Sin datos: en vez de ejes vacíos, un mensaje claro en el lugar del gráfico.
+    const sinDatos = (id, texto) => {
+        const contenedor = document.getElementById(id).parentElement;
+        contenedor.innerHTML = `<div class="h-full min-h-[8rem] flex flex-col items-center justify-center text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 p-4"><i class="fas fa-chart-simple text-2xl text-slate-300"></i><p class="mt-2 text-sm font-bold text-slate-400">${texto}</p></div>`;
+    };
+    const SIN_CERRADOS = 'Todavía no hay tramos cerrados con estos filtros: la permanencia se calcula cuando el vehículo sale.';
+
+    // Tendencia: clic en un punto = esa hora, ese día o esa semana.
+    const tend = datos.tendencia;
+    const referencia = datos.meta || datos.limite;
+    if (!tend.promedio.some(v => v !== null)) sinDatos('grafico-tendencia', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-tendencia'), {
+        type: 'line',
+        data: { labels: tend.etiquetas, datasets: [
+            { label: 'Permanencia promedio', data: tend.promedio, borderColor: color('--serie-1'), backgroundColor: color('--serie-1'),
+              borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25 },
+            { label: datos.meta ? 'Meta' : 'Límite de demora', data: tend.etiquetas.map(() => referencia), borderColor: color('--texto-2'),
+              borderDash: [6, 6], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 } ] },
+        options: { interaction: { mode: 'index', intersect: false }, onHover: manito,
+            onClick: (e, elementos) => {
+                if (!elementos.length) return;
+                const valor = tend.valores[elementos[0].index];
+                if (tend.unidad === 'hora') filtrar({ hora: valor });
+                else if (tend.unidad === 'dia') filtrar({ desde: valor, hasta: valor });
+                else { const fin = new Date(valor + 'T00:00:00'); fin.setDate(fin.getDate() + 6); filtrar({ desde: valor, hasta: fin.toISOString().slice(0, 10) }); }
+            },
+            scales: { y: { beginAtZero: true, grid: grilla, title: { display: !movil, text: 'minutos' } }, x: { grid: { display: false }, ticks: { maxRotation: 50, autoSkip: true } } },
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? `Promedio: ${duracion(c.raw)} · ${tend.tramos[c.dataIndex]} tramos · ${tend.pct_demora[c.dataIndex] ?? 0} % con demora` : `${c.dataset.label}: ${c.raw} min` } } } },
+    });
+
+    // Distribución: clic en una barra = ese rango de permanencia.
+    const dist = datos.distribucion;
+    if (!dist.conteos.some(v => v > 0)) sinDatos('grafico-distribucion', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-distribucion'), {
+        type: 'bar',
+        data: { labels: dist.etiquetas, datasets: [{ label: 'Tramos', data: dist.conteos, borderRadius: 4, borderSkipped: 'start',
+            backgroundColor: dist.sobre_limite.map((s, i) => (datos.filtros.rango !== undefined && datos.filtros.rango !== i) ? '#d6d5d0' : (s ? color('--critico') : color('--serie-1'))),
+            borderColor: color('--superficie'), borderWidth: 2 }] },
+        options: { onHover: manito, onClick: (e, el) => { if (el.length) filtrar({ rango: el[0].index }); },
+            scales: { y: { beginAtZero: true, grid: grilla, ticks: { precision: 0 }, title: { display: !movil, text: 'tramos' } }, x: { grid: { display: false }, ticks: { maxRotation: 45 } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} tramos${dist.sobre_limite[c.dataIndex] ? ' · con demora' : ''}` } } } },
+    });
+
+    // Puntualidad (divergente: adelantado azul · puntual gris · retrasado rojo). Clic = ese grupo y esa llegada.
+    const SERIES_PUNTUALIDAD = [['ADELANTADO', 'Adelantado', '--adelantado'], ['PUNTUAL', 'Puntual', '--puntual'], ['RETRASADO', 'Retrasado', '--retrasado']];
+    const puntualidad = (id, d) => new Chart(document.getElementById(id), {
+        type: 'bar',
+        data: { labels: d.grupos, datasets: SERIES_PUNTUALIDAD.map(([clave, etiqueta, variable]) => ({
+            label: etiqueta, data: d[clave], backgroundColor: color(variable), borderColor: color('--superficie'), borderWidth: 2, borderRadius: 4 })) },
+        options: { indexAxis: 'y', onHover: manito,
+            onClick: (e, el) => { if (el.length) filtrar({ [d.param]: d.valores[el[0].index], llegada: SERIES_PUNTUALIDAD[el[0].datasetIndex][0] }); },
+            scales: { x: { stacked: true, max: 100, grid: grilla, ticks: { callback: v => `${v} %` } }, y: { stacked: true, grid: { display: false } } },
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw ?? 0} %`, footer: (items) => `${d.totales[items[0].dataIndex]} tramos` } } } },
+    });
+    if (datos.puntualidad_cd.grupos.length) {
+        puntualidad('grafico-puntualidad-cd', datos.puntualidad_cd);
+        puntualidad('grafico-puntualidad-tipo', datos.puntualidad_tipo);
+    } else {
+        sinDatos('grafico-puntualidad-cd', 'Sin llegadas con estos filtros.');
+        document.getElementById('grafico-puntualidad-tipo').parentElement.remove();
+    }
+
+    // Efecto del retraso. Clic = esa categoría de llegada.
+    const llegada = datos.segun_llegada;
+    if (!llegada.promedio.some(v => v !== null)) sinDatos('grafico-llegada', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-llegada'), {
+        type: 'bar',
+        data: { labels: ['Adelantado', 'Puntual', 'Retrasado'], datasets: [{ label: 'Permanencia promedio', data: llegada.promedio,
+            backgroundColor: SERIES_PUNTUALIDAD.map(s => color(s[2])), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 90 }] },
+        options: { onHover: manito, onClick: (e, el) => { if (el.length) filtrar({ llegada: llegada.categorias[el[0].index] }); },
+            scales: { y: { beginAtZero: true, grid: grilla, title: { display: !movil, text: 'minutos' } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${duracion(c.raw)} en promedio · ${llegada.tramos[c.dataIndex]} tramos` } } } },
+    });
+})();
+</script>
+{% endblock %}

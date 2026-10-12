@@ -1,0 +1,69 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Tramos{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Tramos (ingresos y salidas)</h1>
+        <p class="text-slate-500 text-sm font-medium">{{ total }} tramo{{ total|pluralize }} entre el {{ filtros.desde|date:"d/m/Y" }} y el {{ filtros.hasta|date:"d/m/Y" }}.</p>
+    </div>
+    <a href="{% url 'accesos:tramos_exportar' %}?{{ querystring }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+</div>
+
+{% if recortado %}<p class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-800 text-sm font-bold">El rango se limitó a los últimos {{ max_rango }} días.</p>{% endif %}
+
+<form method="get" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-white rounded-3xl border border-slate-100 p-4">
+    <input type="date" name="desde" value="{{ filtros.desde|date:'Y-m-d' }}" class="campo-accesos" aria-label="Desde">
+    <input type="date" name="hasta" value="{{ filtros.hasta|date:'Y-m-d' }}" class="campo-accesos" aria-label="Hasta">
+    <select name="cd" class="campo-accesos" aria-label="CD">
+        <option value="">Todos los CD</option>
+        {% for cd in cds %}<option value="{{ cd.pk }}" {% if filtros.cd == cd.pk|stringformat:'s' %}selected{% endif %}>{{ cd }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Placa" class="campo-accesos" autocomplete="off">
+    <select name="estado" class="campo-accesos" aria-label="Estado">
+        {% for valor, etiqueta in estados_filtro.items %}<option value="{{ valor }}" {% if filtros.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest">Filtrar</button>
+</form>
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-4 py-3">Placa</th><th class="text-left px-4 py-3">CD</th><th class="text-left px-4 py-3">Programada</th>
+                    <th class="text-left px-4 py-3">Entrada</th><th class="text-left px-4 py-3">Salida</th><th class="text-left px-4 py-3">Permanencia</th>
+                    <th class="text-left px-4 py-3">Llegada</th><th class="text-left px-4 py-3">Observaciones</th><th class="text-left px-4 py-3">Marcas</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for t in page_obj %}
+                <tr class="hover:bg-slate-50/60 {% if not t.vigente %}opacity-50 line-through{% endif %}">
+                    <td class="px-4 py-3"><a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a><span class="block text-[11px] text-slate-400">{{ t.get_tipo_snapshot_display }} · {{ t.programacion.razon_social|truncatechars:24 }}</span></td>
+                    <td class="px-4 py-3">{{ t.cd }}</td>
+                    <td class="px-4 py-3 font-bold">{{ t.programacion.hora|time:"H:i" }}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{{ t.entrada_en|date:"d/m H:i" }}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if t.salida_en %}{{ t.salida_en|date:"d/m H:i" }}{% else %}<span class="text-emerald-600">Dentro</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-black {% if t.prolongada %}text-rose-600{% endif %}">{{ t.tiempo_dentro }}</td>
+                    <td class="px-4 py-3">
+                        {% if t.puntualidad == 'PUNTUAL' %}<span class="text-emerald-600 font-bold">Puntual</span>{% elif t.puntualidad == 'RETRASADO' %}<span class="text-rose-600 font-bold">+{{ t.desviacion_llegada_min }} min</span>{% else %}<span class="text-sky-700 font-bold">{{ t.desviacion_llegada_min }} min</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ t.obs_entrada|truncatechars:30 }}{% if t.salida_en %} / {{ t.obs_salida|truncatechars:30 }}{% endif %}</td>
+                    <td class="px-4 py-3 text-[10px] font-black uppercase space-y-1">
+                        {% if t.fuera_de_ventana %}<span class="block text-amber-700">Fuera de ventana</span>{% endif %}
+                        {% if t.km_inconsistente %}<span class="block text-amber-700">Km</span>{% endif %}
+                        {% if t.corregido %}<span class="block text-slate-500">Corregido</span>{% endif %}
+                        {% if t.cierre_administrativo %}<span class="block text-slate-500">Cierre adm.</span>{% endif %}
+                        {% if not t.vigente %}<span class="block text-rose-600">Anulado</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">No hay tramos con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'accesos/_paginacion.html' %}
+</div>
+{% endblock %}

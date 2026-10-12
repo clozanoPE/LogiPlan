@@ -1,0 +1,40 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Pase {{ programacion.codigo }}{% endblock %}
+
+{% block content %}
+{% with p=programacion %}
+<div class="no-imprimir action-row justify-between mb-8">
+    <a href="javascript:history.back()" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest">
+        <i class="fas fa-arrow-left"></i> Volver
+    </a>
+    <button type="button" onclick="window.print()" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-marca/30">
+        <i class="fas fa-print"></i> Imprimir pase
+    </button>
+</div>
+
+<!-- Pase de ingreso: el QR contiene la placa; Vigilancia lo escanea y el sistema busca esta programación -->
+<div class="mx-auto w-full max-w-md bg-white border-4 border-daryza-dark rounded-3xl overflow-hidden">
+    <div class="bg-daryza-dark text-white px-8 py-5 flex items-center justify-between">
+        <div>
+            <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Pase de ingreso · Daryza</p>
+            <p class="text-lg font-black">CD {{ p.cd }}</p>
+        </div>
+        <p class="text-xs font-black text-slate-400">{{ p.codigo }}</p>
+    </div>
+    <div class="px-8 pt-6 text-center">
+        <div class="mx-auto w-64 [&>svg]:w-full [&>svg]:h-auto">{{ qr_svg|safe }}</div>
+        <p class="mt-3 text-5xl font-black tracking-widest text-daryza-dark">{{ p.transporte.placa }}</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ p.transporte.tamano }}</p>
+    </div>
+    <dl class="px-8 py-6 grid grid-cols-2 gap-4 text-sm">
+        <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha</dt><dd class="font-black">{{ fecha_larga }}</dd></div>
+        <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Hora programada</dt><dd class="text-2xl font-black">{{ p.hora|time:"H:i" }}</dd></div>
+        <div class="col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">{{ p.get_tipo_display }}</dt><dd class="font-bold">{{ p.razon_social }} <span class="text-slate-400">({{ p.documento }})</span></dd></div>
+        <div class="col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{{ p.conductor.nombre_completo }} · {{ p.conductor.tipo_documento }} {{ p.conductor.numero_documento }}</dd></div>
+        <div class="col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Motivo</dt><dd class="font-bold">{{ p.motivo }}</dd></div>
+    </dl>
+    <p class="px-8 pb-6 text-[11px] text-slate-400 text-center">Presente este pase en portería. Contenido del QR: <span class="font-black">{{ p.transporte.contenido_qr }}</span></p>
+</div>
+{% endwith %}
+{% endblock %}

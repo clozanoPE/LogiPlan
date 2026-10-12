@@ -1,0 +1,19 @@
+<form method="get" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 bg-white rounded-3xl border border-slate-100 p-4 mb-6">
+    <input type="date" name="fecha" value="{{ filtros.fecha|date:'Y-m-d' }}" class="campo-accesos" aria-label="Fecha">
+    {% if cds %}
+    <select name="cd" class="campo-accesos" aria-label="CD">
+        <option value="">Todos los CD</option>
+        {% for cd in cds %}<option value="{{ cd.pk }}" {% if filtros.cd == cd.pk|stringformat:'s' %}selected{% endif %}>{{ cd }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="Placa" class="campo-accesos" autocomplete="off" aria-label="Placa">
+    <input type="search" name="conductor" value="{{ filtros.conductor }}" placeholder="Conductor o DNI" class="campo-accesos" autocomplete="off" aria-label="Conductor">
+    <select name="estado" class="campo-accesos" aria-label="Estado">
+        <option value="">Todos los estados</option>
+        {% for valor, etiqueta in etiquetas_estado.items %}<option value="{{ valor }}" {% if filtros.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <div class="flex gap-2">
+        <button type="submit" class="flex-1 px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest">Filtrar</button>
+        <a href="?" class="px-4 py-3 rounded-full bg-slate-100 text-slate-500 text-xs font-black uppercase" aria-label="Limpiar filtros"><i class="fas fa-rotate-left"></i></a>
+    </div>
+</form>

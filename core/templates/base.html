@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LogiPlan Web | Sistema de Gestión Logística</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo7.png' %}">
     
     <!-- Tailwind CSS para diseño profesional -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -89,10 +90,12 @@
                 width: auto;
             }
         }
-        /* Blindaje: si el viewport crece a >=768px mientras el panel móvil está
+        /* Blindaje: si el viewport crece a >=1280px mientras el panel móvil está
            abierto (ej. rotación de tablet), nunca debe quedar visible en desktop,
-           sin depender de la especificidad entre .dropdown-menu.show y md:hidden. */
-        @media (min-width: 768px) {
+           sin depender de la especificidad entre .dropdown-menu.show y xl:hidden.
+           El menú completo (6 enlaces + Admin) no cabe por debajo de 1280px:
+           antes se desbordaba en tablets (768–1279px), por eso el corte es xl. */
+        @media (min-width: 1280px) {
             #navPanel {
                 display: none !important;
             }
@@ -142,7 +145,7 @@
                 </div>
 
                 <!-- Enlaces de Navegación -->
-                <div class="hidden md:flex items-center space-x-2">
+                <div class="hidden xl:flex items-center space-x-2">
                     <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white shadow-lg shadow-daryza-green/30{% else %}hover:bg-daryza-light text-slate-600 hover:text-daryza-green{% endif %}">
                         <i class="fas fa-chart-line"></i> Dashboard
                     </a>
@@ -159,6 +162,12 @@
                         <i class="fas fa-chart-pie"></i> Estadística
                     </a>
 
+                    {% if accesos_enlace_visible %}
+                    <a href="{% url 'accesos:inicio' %}" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-truck-ramp-box"></i> Accesos
+                    </a>
+                    {% endif %}
+
                     <div class="h-6 w-px bg-slate-200 mx-2"></div>
                     <a href="/admin" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
                         <i class="fas fa-gears opacity-40"></i> Admin
@@ -167,9 +176,9 @@
 
                 <!-- Acciones móviles + Perfil -->
                 <div class="flex items-center gap-3">
-                    <!-- Botón de Menú Móvil (solo < 768px) -->
+                    <!-- Botón de Menú Móvil (teléfono y tablet, < 1280px) -->
                     <button id="navMenuButton"
-                            class="md:hidden w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-daryza-light hover:text-daryza-green transition-colors focus:outline-none"
+                            class="xl:hidden w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:bg-daryza-light hover:text-daryza-green transition-colors focus:outline-none"
                             type="button"
                             aria-expanded="false"
                             aria-controls="navPanel"
@@ -215,8 +224,8 @@
                 </div>
             </div>
 
-            <!-- Panel de Navegación Móvil (colapsable, < 768px) -->
-            <div id="navPanel" class="dropdown-menu md:hidden border-t border-slate-100 pb-4 pt-3" role="navigation" aria-label="Menú de navegación móvil">
+            <!-- Panel de Navegación Móvil (colapsable, < 1280px) -->
+            <div id="navPanel" class="dropdown-menu xl:hidden border-t border-slate-100 pb-4 pt-3" role="navigation" aria-label="Menú de navegación móvil">
                 <div class="flex flex-col gap-1">
                     <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all {% if request.resolver_match.url_name == 'dashboard' %}bg-daryza-green text-white{% else %}text-slate-600 hover:bg-daryza-light hover:text-daryza-green{% endif %}">
                         <i class="fas fa-chart-line w-4 text-center"></i> Dashboard
@@ -230,6 +239,11 @@
                     <a href="{% url 'estadisticas_dashboard' %}" {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}aria-current="page"{% endif %} class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all {% if request.resolver_match.url_name == 'estadisticas_dashboard' %}bg-daryza-green text-white{% else %}text-slate-600 hover:bg-daryza-light hover:text-daryza-green{% endif %}">
                         <i class="fas fa-chart-pie w-4 text-center"></i> Estadística
                     </a>
+                    {% if accesos_enlace_visible %}
+                    <a href="{% url 'accesos:inicio' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
+                        <i class="fas fa-truck-ramp-box w-4 text-center"></i> Accesos
+                    </a>
+                    {% endif %}
                     <div class="h-px bg-slate-100 my-2"></div>
                     <a href="/admin" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-daryza-light hover:text-daryza-green transition-all">
                         <i class="fas fa-gears opacity-40 w-4 text-center"></i> Admin

@@ -1,0 +1,8 @@
+{% comment %}
+Activa la actualización automática de la página (script en base_accesos.html). Uso:
+{% include 'accesos/_autorefresco.html' with segundos=120 %}
+{% endcomment %}
+<span class="inline-flex flex-wrap items-center gap-x-2" data-autorefresco="{{ segundos }}">
+    <span><i class="fas fa-rotate text-marca mr-1" aria-hidden="true"></i>se actualiza solo cada {% if segundos == 60 %}minuto{% else %}{% widthratio segundos 60 1 %} min{% endif %}</span>
+    <button type="button" data-actualizar-ahora class="font-black text-marca hover:underline">Actualizar ahora</button>
+</span>

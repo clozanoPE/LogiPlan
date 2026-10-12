@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de LogiPlan · Daryza S.A.C.</title>
+<meta name="description" content="Manual de usuario de LogiPlan: Planificación de despachos y Control de Accesos de Transporte (CD Lurín y CD Punta Negra).">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+    --negro: #1a1a1a;
+    --texto: #1f2937;
+    --texto-2: #52514e;
+    --gris: #94a3b8;
+    --linea: #e8e7e3;
+    --fondo: #f8fafc;
+    --blanco: #ffffff;
+    --verde: #2bb673;
+    --verde-claro: #f4fbf7;
+    --naranja: #ea580c;
+    --naranja-oscuro: #c2410c;
+    --naranja-claro: #fff7ed;
+    --azul-claro: #eff6ff;
+    --azul: #1d4ed8;
+    --ambar-claro: #fffbeb;
+    --ambar: #b45309;
+    --rojo: #d03b3b;
+    --radio: 22px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body { margin: 0; font-family: 'Inter', system-ui, sans-serif; color: var(--texto); background: var(--fondo); line-height: 1.65; font-size: 16px; }
+img { max-width: 100%; display: block; }
+a { color: var(--naranja-oscuro); }
+code, kbd { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: .9em; background: #f1f5f9; padding: .1em .4em; border-radius: 6px; }
+kbd { border: 1px solid var(--linea); border-bottom-width: 2px; }
+
+/* ---------- Estructura ---------- */
+.diseno { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
+.indice { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--negro); color: #cbd5e1; padding: 28px 22px 40px; }
+.indice .marca { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; color: #fff; text-decoration: none; }
+.indice .logo { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--verde) 50%, var(--naranja) 50%); display: grid; place-items: center; font-weight: 900; color: #fff; }
+.indice .marca b { display: block; font-size: 18px; letter-spacing: -.02em; }
+.indice .marca small { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--gris); }
+.indice h4 { margin: 22px 0 8px; font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--gris); }
+.indice h4.verde { color: var(--verde); }
+.indice h4.naranja { color: var(--naranja); }
+.indice a { display: block; padding: 6px 10px; margin: 1px 0; border-radius: 10px; color: #e2e8f0; text-decoration: none; font-size: 14px; font-weight: 500; }
+.indice a:hover, .indice a.activo { background: rgba(255,255,255,.08); color: #fff; }
+.indice a.activo { box-shadow: inset 3px 0 0 var(--naranja); }
+.contenido { min-width: 0; }
+.envoltura { max-width: 1040px; margin: 0 auto; padding: 0 40px 80px; }
+.boton-menu { display: none; }
+
+/* ---------- Portada ---------- */
+.portada { background: var(--negro); color: #fff; padding: 72px 40px 64px; position: relative; overflow: hidden; }
+.portada::before, .portada::after { content: ''; position: absolute; border-radius: 50%; filter: blur(2px); opacity: .9; }
+.portada::before { width: 420px; height: 420px; right: -120px; top: -160px; background: radial-gradient(circle, rgba(234,88,12,.55), transparent 70%); }
+.portada::after { width: 360px; height: 360px; right: 220px; bottom: -220px; background: radial-gradient(circle, rgba(43,182,115,.45), transparent 70%); }
+.portada .envoltura { position: relative; z-index: 1; padding-bottom: 0; }
+.etiqueta { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; color: var(--naranja); }
+.portada h1 { font-size: clamp(36px, 6vw, 64px); line-height: 1.05; letter-spacing: -.04em; margin: 14px 0 18px; font-weight: 900; }
+.portada h1 span.v { color: var(--verde); }
+.portada h1 span.n { color: var(--naranja); }
+.portada p.lead { font-size: 19px; color: #cbd5e1; max-width: 680px; margin: 0 0 30px; }
+.modulos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 760px; }
+.modulo { border-radius: var(--radio); padding: 20px 22px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+.modulo b { display: block; font-size: 18px; }
+.modulo small { color: #cbd5e1; font-size: 14px; }
+.modulo.verde { box-shadow: inset 0 4px 0 var(--verde); }
+.modulo.naranja { box-shadow: inset 0 4px 0 var(--naranja); }
+.acciones { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px; }
+.boton { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; border: 0; cursor: pointer; }
+.boton.primario { background: var(--naranja); color: #fff; box-shadow: 0 10px 30px -10px rgba(234,88,12,.8); }
+.boton.secundario { background: rgba(255,255,255,.1); color: #fff; }
+.meta { margin-top: 26px; font-size: 13px; color: var(--gris); }
+
+/* ---------- Secciones ---------- */
+.descargas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin: 18px 0; }
+.descarga { display: flex; flex-direction: column; gap: 6px; padding: 18px 18px 16px; border-radius: 20px; background: #fff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; box-shadow: 0 10px 30px -22px rgba(15,23,42,.5); transition: transform .15s, box-shadow .15s; }
+.descarga:hover { transform: translateY(-2px); box-shadow: 0 18px 36px -22px rgba(234,88,12,.7); border-color: rgba(234,88,12,.45); }
+.descarga .icono { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; color: #fff; background: var(--naranja); font-size: 13px; }
+.descarga.verde .icono { background: var(--verde); }
+.descarga b { font-size: 15px; }
+.descarga small { color: #64748b; font-size: 12.5px; line-height: 1.45; }
+.descarga span.ir { margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--naranja-oscuro); }
+.descarga.verde span.ir { color: #15803d; }
+.parte { margin: 64px 0 8px; padding: 34px 36px; border-radius: 28px; color: #fff; }
+.parte.verde { background: linear-gradient(120deg, #15803d, var(--verde)); }
+.parte.naranja { background: linear-gradient(120deg, var(--naranja-oscuro), var(--naranja)); }
+.parte.gris { background: linear-gradient(120deg, #334155, #475569); }
+.parte span { font-size: 12px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase; opacity: .85; }
+.parte h2 { margin: 6px 0 6px; font-size: 32px; letter-spacing: -.03em; border: 0; padding: 0; }
+.parte p { margin: 0; opacity: .92; max-width: 720px; }
+section.capitulo { padding-top: 44px; }
+h2 { font-size: 28px; letter-spacing: -.03em; line-height: 1.2; margin: 0 0 6px; font-weight: 900; color: var(--negro); }
+h2 .num { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--negro); color: #fff; font-size: 16px; margin-right: 12px; vertical-align: 4px; }
+.verde-cap h2 .num { background: var(--verde); }
+.naranja-cap h2 .num { background: var(--naranja); }
+h3 { font-size: 20px; letter-spacing: -.02em; margin: 30px 0 8px; color: var(--negro); }
+p.entrada { font-size: 18px; color: var(--texto-2); margin: 4px 0 18px; }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+.pasos { counter-reset: paso; list-style: none; padding: 0; }
+.pasos li { counter-increment: paso; position: relative; padding: 0 0 14px 48px; margin: 0; }
+.pasos li::before { content: counter(paso); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--naranja-claro); color: var(--naranja-oscuro); font-weight: 900; display: grid; place-items: center; font-size: 14px; border: 2px solid rgba(234,88,12,.3); }
+.verde-cap .pasos li::before { background: var(--verde-claro); color: #15803d; border-color: rgba(43,182,115,.35); }
+
+/* ---------- Figuras ---------- */
+figure { margin: 22px 0 26px; }
+figure .marco { border-radius: 18px; overflow: hidden; border: 1px solid var(--linea); background: #fff; box-shadow: 0 20px 50px -30px rgba(15,23,42,.35); cursor: zoom-in; }
+figure .marco img { width: 100%; height: auto; }
+figure.angosta { max-width: 420px; }
+figure.media { max-width: 640px; }
+figcaption { font-size: 13px; color: var(--texto-2); margin-top: 10px; padding-left: 12px; border-left: 3px solid var(--naranja); }
+.verde-cap figcaption { border-left-color: var(--verde); }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+.duo figure { margin: 0; }
+
+/* ---------- Componentes ---------- */
+.nota { border-radius: 16px; padding: 14px 18px; margin: 18px 0; font-size: 15px; display: flex; gap: 12px; }
+.nota::before { font-size: 20px; line-height: 1.3; }
+.nota.info { background: var(--azul-claro); color: #1e3a8a; }
+.nota.info::before { content: 'ℹ️'; }
+.nota.consejo { background: var(--naranja-claro); color: #7c2d12; }
+.nota.consejo::before { content: '💡'; }
+.nota.cuidado { background: var(--ambar-claro); color: #78350f; }
+.nota.cuidado::before { content: '⚠️'; }
+.nota.verde { background: var(--verde-claro); color: #14532d; }
+.nota.verde::before { content: '✅'; }
+.tabla { overflow-x: auto; margin: 16px 0 22px; border-radius: 16px; border: 1px solid var(--linea); background: #fff; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--texto-2); background: #f8fafc; padding: 12px 14px; border-bottom: 1px solid var(--linea); white-space: nowrap; }
+td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+.si { color: #15803d; font-weight: 800; }
+.no { color: #94a3b8; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.chip.pendiente { background: #e0f2fe; color: #0369a1; }
+.chip.planta { background: #d1fae5; color: #065f46; }
+.chip.cerrada { background: var(--naranja-claro); color: var(--naranja-oscuro); }
+.chip.noatendida { background: #ffe4e6; color: #be123c; }
+.chip.cancelada { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+.tarjetas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 18px 0 24px; }
+.tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 20px; padding: 18px 20px; }
+.tarjeta b { display: block; font-size: 17px; color: var(--negro); margin: 6px 0 4px; }
+.tarjeta small { color: var(--texto-2); font-size: 14px; }
+.tarjeta .icono { font-size: 26px; }
+.flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 24px; }
+.flujo .paso-flujo { background: #fff; border: 2px solid var(--linea); border-radius: 16px; padding: 12px 16px; font-weight: 800; font-size: 14px; }
+.flujo .paso-flujo small { display: block; font-weight: 500; color: var(--texto-2); font-size: 12px; }
+.flujo .flecha { color: var(--gris); font-weight: 900; font-size: 20px; }
+.flujo .paso-flujo.destacado { border-color: var(--naranja); background: var(--naranja-claro); }
+.ejemplo { background: var(--negro); color: #e2e8f0; border-radius: 20px; padding: 20px 24px; margin: 18px 0; overflow-x: auto; }
+.ejemplo h4 { margin: 0 0 10px; color: var(--naranja); font-size: 12px; letter-spacing: .25em; text-transform: uppercase; }
+.ejemplo table { color: #e2e8f0; font-size: 14px; }
+.ejemplo th { background: transparent; color: var(--gris); border-color: rgba(255,255,255,.1); }
+.ejemplo td { border-color: rgba(255,255,255,.06); }
+.faq details { background: #fff; border: 1px solid var(--linea); border-radius: 16px; padding: 14px 18px; margin: 10px 0; }
+.faq summary { font-weight: 800; cursor: pointer; color: var(--negro); }
+.faq details p { margin: 10px 0 2px; }
+.glosario { display: grid; grid-template-columns: 220px 1fr; gap: 0; background: #fff; border: 1px solid var(--linea); border-radius: 16px; overflow: hidden; }
+.glosario dt, .glosario dd { margin: 0; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; }
+.glosario dt { font-weight: 800; color: var(--negro); background: #fafaf9; }
+.pie { margin-top: 70px; background: var(--negro); color: #94a3b8; border-radius: 28px; padding: 30px 36px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; font-size: 14px; }
+.pie b { color: #fff; }
+
+/* ---------- Ampliar imágenes ---------- */
+.visor { position: fixed; inset: 0; background: rgba(15,23,42,.92); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50; cursor: zoom-out; }
+.visor.abierto { display: flex; }
+.visor img { max-height: 92vh; max-width: 96vw; border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.visor p { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; color: #cbd5e1; font-size: 14px; }
+
+/* ---------- Teléfono y tablet ---------- */
+@media (max-width: 1080px) {
+    .diseno { grid-template-columns: minmax(0, 1fr); }
+    .indice { position: fixed; inset: 0 30% 0 0; max-width: 320px; z-index: 40; transform: translateX(-105%); transition: transform .25s ease; height: 100vh; }
+    .indice.abierto { transform: none; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); }
+    .boton-menu { display: inline-flex; position: fixed; right: 16px; bottom: 16px; z-index: 45; width: 56px; height: 56px; border-radius: 50%; background: var(--naranja); color: #fff; border: 0; font-size: 24px; align-items: center; justify-content: center; box-shadow: 0 12px 30px -8px rgba(234,88,12,.9); cursor: pointer; }
+}
+@media (max-width: 720px) {
+    .envoltura { padding: 0 18px 60px; }
+    .portada { padding: 48px 18px 44px; }
+    .modulos, .duo, .tarjetas { grid-template-columns: 1fr; }
+    .parte { padding: 26px 22px; border-radius: 22px; }
+    .parte h2 { font-size: 26px; }
+    h2 { font-size: 24px; }
+    .glosario { grid-template-columns: 1fr; }
+    .glosario dt { border-bottom: 0; padding-bottom: 2px; }
+}
+
+/* ---------- Impresión / PDF ---------- */
+@media print {
+    .indice, .boton-menu, .acciones, .visor { display: none !important; }
+    .diseno { display: block; }
+    body { background: #fff; font-size: 12px; }
+    .portada { page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .parte { page-break-before: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    section.capitulo { page-break-inside: auto; }
+    figure { page-break-inside: avoid; }
+    figure .marco { box-shadow: none; }
+    .envoltura { padding: 0 8px; max-width: none; }
+}
+</style>
+</head>
+<body>
+<div class="diseno">
+
+<!-- =============== ÍNDICE =============== -->
+<nav class="indice" id="indice" aria-label="Índice del manual">
+    <a class="marca" href="#inicio"><span class="logo">LP</span><span><b>LogiPlan</b><small>Manual de usuario</small></span></a>
+    <h4>Introducción</h4>
+    <a href="#bienvenida">1. Bienvenida</a>
+    <a href="#ingreso">2. Ingreso y roles</a>
+    <h4 class="verde">Planificación</h4>
+    <a href="#p-dashboard">3. Dashboard de Operaciones</a>
+    <a href="#p-programar">4. Programar despachos</a>
+    <a href="#p-masiva">5. Carga masiva por Excel</a>
+    <a href="#p-consultar">6. Consultar y exportar</a>
+    <a href="#p-detalle">7. Detalle del día</a>
+    <a href="#p-estadistica">8. Estadística</a>
+    <h4 class="naranja">Control de Accesos</h4>
+    <a href="#a-conceptos">9. Conceptos clave</a>
+    <a href="#a-roles">10. Roles y menú</a>
+    <a href="#a-maestros">11. Transportes, conductores y QR</a>
+    <a href="#a-programaciones">12. Programaciones (Despacho)</a>
+    <a href="#a-carga">13. Carga masiva y plantillas</a>
+    <a href="#a-porteria">14. Portería (Vigilancia)</a>
+    <a href="#a-hoy">15. Tablero «Hoy»</a>
+    <a href="#a-dashboard">16. Dashboard de Gerencia</a>
+    <a href="#a-tramos">17. Tramos y correcciones</a>
+    <a href="#a-auditoria">18. Auditoría y configuración</a>
+    <h4>Referencia</h4>
+    <a href="#movil">19. Teléfono y tablet</a>
+    <a href="#reglas">20. Reglas del sistema</a>
+    <a href="#faq">21. Preguntas frecuentes</a>
+    <a href="#glosario">22. Glosario</a>
+</nav>
+<button class="boton-menu" id="boton-menu" aria-label="Abrir índice" aria-controls="indice" aria-expanded="false">☰</button>
+
+<main class="contenido">
+
+<!-- =============== PORTADA =============== -->
+<header class="portada" id="inicio">
+    <div class="envoltura">
+        <span class="etiqueta">Daryza S.A.C. · Manual de usuario</span>
+        <h1>LogiPlan<br><span class="v">Planificación</span> y <span class="n">Control de Accesos</span></h1>
+        <p class="lead">Guía completa para planificar despachos, programar los ingresos de transportes a los CD Lurín y Punta Negra, registrar entradas y salidas en portería y analizar dónde se pierde el tiempo.</p>
+        <div class="modulos">
+            <div class="modulo verde"><b>🟢 Planificación</b><small>Despachos de carga por día y capacidad de flota. Color verde.</small></div>
+            <div class="modulo naranja"><b>🟠 Control de Accesos</b><small>Ingresos, salidas, permanencia y demoras en los CD. Color naranja.</small></div>
+        </div>
+        <div class="acciones">
+            <a class="boton primario" href="#bienvenida">Empezar a leer</a>
+            <button class="boton secundario" onclick="window.print()">Imprimir o guardar en PDF</button>
+        </div>
+        <p class="meta">Versión 1.0 · Octubre 2026 · Las pantallas usan datos ficticios de demostración.</p>
+    </div>
+</header>
+
+<div class="envoltura">
+
+<!-- =============== 1. BIENVENIDA =============== -->
+<section class="capitulo" id="bienvenida">
+    <h2><span class="num">1</span>Bienvenida</h2>
+    <p class="entrada">LogiPlan es el sistema web interno de Daryza para la logística de los centros de distribución. Tiene dos módulos que comparten el mismo usuario y contraseña.</p>
+    <div class="tarjetas">
+        <div class="tarjeta"><span class="icono">🚚</span><b>Planificación</b><small>Planeamiento registra los despachos de cada día y controla cuántas unidades operan frente a la capacidad.</small></div>
+        <div class="tarjeta"><span class="icono">🛂</span><b>Control de Accesos</b><small>Despacho programa los ingresos, Vigilancia registra entradas y salidas en una tablet y Gerencia analiza los tiempos.</small></div>
+        <div class="tarjeta"><span class="icono">🎨</span><b>Se distinguen por el color</b><small>Verde = Planificación. Naranja = Control de Accesos. Así siempre sabe en qué módulo está.</small></div>
+    </div>
+    <div class="nota info"><div>Todas las horas del sistema son <b>hora de Lima</b>. Las fechas se muestran como día/mes/año (por ejemplo, 08/10/2026).</div></div>
+</section>
+
+<!-- =============== 2. INGRESO =============== -->
+<section class="capitulo" id="ingreso">
+    <h2><span class="num">2</span>Ingreso al sistema y roles</h2>
+    <p class="entrada">Cada persona entra con su propio usuario. Lo que ve después depende de su rol.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/00-login.jpg" alt="Pantalla de ingreso a LogiPlan" loading="lazy"></div><figcaption>Pantalla de ingreso. Escriba su usuario y contraseña y pulse «Ingresar al Sistema».</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li>Abra <b>logiplan.daryza.pe</b> en el navegador (computadora, tablet o teléfono).</li>
+                <li>Ingrese su <b>usuario</b> y <b>contraseña</b>. Las cuentas las crea el área de TI.</li>
+                <li>El sistema lo lleva a su pantalla de inicio según su rol (tabla siguiente).</li>
+                <li>Para salir, use el botón rojo <b>Salir</b> (en portería se llama <b>Cambiar vigilante</b>).</li>
+            </ol>
+        </div>
+    </div>
+    <div class="tabla"><table>
+        <thead><tr><th>Rol</th><th>Para qué sirve</th><th>Pantalla al entrar</th><th>Ve Planificación</th></tr></thead>
+        <tbody>
+            <tr><td><b>Planeamiento</b></td><td>Registra y edita despachos, ajusta la capacidad. En Control de Accesos tiene los permisos de Despacho automáticamente.</td><td>Dashboard de Operaciones (y el menú «Accesos»)</td><td class="si">Sí</td></tr>
+            <tr><td><b>Comercial</b></td><td>Consulta despachos y estadísticas (solo lectura).</td><td>Dashboard de Operaciones</td><td class="si">Sí</td></tr>
+            <tr><td><b>Accesos · Despacho</b></td><td>Programa los ingresos de transportes. Solo se asigna a quien programa ingresos sin ser de Planeamiento.</td><td>Según sus otros grupos</td><td>Según sus otros grupos</td></tr>
+            <tr><td><b>Accesos · Vigilancia</b></td><td>Registra entradas y salidas en portería con la tablet.</td><td>Control de Accesos</td><td class="no">No</td></tr>
+            <tr><td><b>Accesos · Consulta</b></td><td>Gerencia y analistas: tablero, dashboard y reportes.</td><td>Control de Accesos</td><td class="no">No</td></tr>
+            <tr><td><b>Accesos · Administrador</b></td><td>Catálogos, configuración, correcciones y auditoría. Necesita «Staff status» para entrar a Catálogos.</td><td>Control de Accesos</td><td>Según sus otros grupos</td></tr>
+        </tbody>
+    </table></div>
+    <div class="nota consejo"><div>Desde Planificación se pasa a Control de Accesos con el enlace naranja <b>«Accesos»</b> del menú, y se vuelve con <b>«Planificación»</b>.</div></div>
+</section>
+
+<!-- =============== PARTE I =============== -->
+<div class="parte verde"><span>Parte I</span><h2>Planificación de despachos</h2><p>Módulo verde. Para Planeamiento y Comercial: despachos por día, capacidad de flota y reportes.</p></div>
+
+<section class="capitulo verde-cap" id="p-dashboard">
+    <h2><span class="num">3</span>Dashboard de Operaciones</h2>
+    <p class="entrada">Muestra dos semanas (de lunes a sábado), cuántas unidades hay programadas cada día y si se supera la capacidad.</p>
+    <figure><div class="marco"><img src="img/p01-dashboard-operaciones.jpg" alt="Dashboard de Operaciones de Planificación" loading="lazy"></div><figcaption>Dashboard de Operaciones: capacidad global, indicadores de la semana y una tarjeta por día con los clientes registrados.</figcaption></figure>
+    <h3>Cómo leerlo</h3>
+    <ul>
+        <li><b>Capacidad global</b>: límite estándar de unidades por día (por defecto 7). Planeamiento puede cambiarlo, o fijar un límite distinto para una fecha concreta (feriado, mantenimiento) con su motivo.</li>
+        <li><b>Indicadores</b>: tendencia de ocupación por día, eficiencia semanal, día crítico (el de mayor demanda) y alertas (días que llegaron o superaron el límite).</li>
+        <li><b>Tarjeta de cada día</b>: placas distintas frente al límite, clientes del día y una barra de color: <span class="chip planta">Normal</span> menos de 80 %, ámbar desde 80 %, crítico al 100 % y <span class="chip noatendida">Sobresaturado</span> por encima del límite.</li>
+        <li>Con <kbd>«</kbd> y <kbd>»</kbd> se recorren semanas anteriores (hasta 12 semanas atrás). «Volver a hoy» regresa a la semana actual.</li>
+    </ul>
+    <div class="nota info"><div>Superar la capacidad <b>no bloquea</b> el registro: el sistema lo permite y lo señala en rojo para que Planeamiento decida.</div></div>
+</section>
+
+<section class="capitulo verde-cap" id="p-programar">
+    <h2><span class="num">4</span>Programar despachos</h2>
+    <p class="entrada">Solo Planeamiento registra, edita o elimina despachos.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/p02-nueva-programacion.jpg" alt="Formulario de nueva programación de despacho" loading="lazy"></div><figcaption>Formulario de despacho en dos columnas: servicio y vehículo.</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li>Pulse <b>Nuevo Registro</b> en el dashboard o <b>Programar</b> en el menú.</li>
+                <li>Complete fecha, cliente, sede de destino, placa, conductor, orden de compra, punto de carga y pallets. El costo de transporte es opcional.</li>
+                <li>Guarde. Si el día supera la capacidad, verá un aviso, pero el despacho queda registrado.</li>
+            </ol>
+            <div class="nota cuidado"><div>No se puede registrar en fechas pasadas, ni editar despachos de días ya pasados. Una misma placa no puede repetirse el mismo día.</div></div>
+        </div>
+    </div>
+</section>
+
+<section class="capitulo verde-cap" id="p-masiva">
+    <h2><span class="num">5</span>Carga masiva por Excel</h2>
+    <p class="entrada">Para registrar muchos despachos a la vez desde una hoja de cálculo.</p>
+    <figure class="media"><div class="marco"><img src="img/p03-carga-masiva.jpg" alt="Pantalla de carga masiva por Excel" loading="lazy"></div><figcaption>Carga masiva: descargue la plantilla, complétela y súbala.</figcaption></figure>
+    <ol class="pasos">
+        <li>Descargue la <b>plantilla</b> desde la misma pantalla. Tiene las 9 columnas necesarias y una fila de ejemplo.</li>
+        <li>Complete una fila por despacho. La fecha va como <code>AAAAMMDD</code> (por ejemplo <code>20261015</code>). Máximo 500 filas por archivo.</li>
+        <li>Suba el archivo <code>.xlsx</code>. Cada fila se valida con las mismas reglas que el formulario.</li>
+        <li>Revise el resultado: filas procesadas, cargadas y con error (cada error indica la fila y el motivo). Las filas correctas se guardan aunque otras fallen.</li>
+    </ol>
+    <div class="descargas">
+        <a class="descarga verde" href="/programar/masivo/plantilla/"><span class="icono">XLS</span><b>Plantilla de despachos</b><small>Todas las plantillas de LogiPlan están reunidas en el capítulo 13.</small><span class="ir">Descargar plantilla ↓</span></a>
+    </div>
+</section>
+
+<section class="capitulo verde-cap" id="p-consultar">
+    <h2><span class="num">6</span>Consultar y exportar</h2>
+    <p class="entrada">Historial de despachos con filtros por cliente, placa y rango de fechas.</p>
+    <figure><div class="marco"><img src="img/p04-consultar.jpg" alt="Consulta de despachos con filtros" loading="lazy"></div><figcaption>Consultar: filtros, totales de registros y pallets, y la tabla paginada.</figcaption></figure>
+    <ul>
+        <li>Al entrar, muestra el <b>mes actual</b>. Puede cambiar fechas o dejarlas vacías para buscar en todo el historial.</li>
+        <li>Los totales de registros y pallets se calculan sobre <b>todo</b> el resultado, no solo sobre la página visible.</li>
+        <li><b>Exportar a Excel</b> descarga exactamente lo filtrado.</li>
+    </ul>
+</section>
+
+<section class="capitulo verde-cap" id="p-detalle">
+    <h2><span class="num">7</span>Detalle del día</h2>
+    <figure><div class="marco"><img src="img/p05-detalle-dia.jpg" alt="Detalle de los despachos de un día" loading="lazy"></div><figcaption>Detalle del día: utilización de flota, totales, tabla completa y exportación.</figcaption></figure>
+    <p>Desde la tarjeta de un día (botón <b>Detalle</b>) se ve la lista completa de despachos, la utilización de la flota (placas distintas frente al límite), el total de registros y pallets, y el botón <b>Exportar</b>. Si el día es hoy o futuro, Planeamiento puede <b>Añadir carga</b>.</p>
+</section>
+
+<section class="capitulo verde-cap" id="p-estadistica">
+    <h2><span class="num">8</span>Estadística</h2>
+    <p class="entrada">Reportes de solo lectura para cualquier usuario de Planificación, filtrables por fechas (hasta 180 días) y cliente.</p>
+    <figure><div class="marco"><img src="img/p06-estadistica.jpg" alt="Módulo de Estadística de Planificación" loading="lazy"></div><figcaption>Estadística: ocupación histórica, matriz cliente × día, eficiencia de carga, uso de flota e incidencias de capacidad.</figcaption></figure>
+    <div class="duo">
+        <ol>
+            <li><b>Tendencia de ocupación</b>: placas por día frente al límite.</li>
+            <li><b>Matriz de concentración</b>: pallets por cliente y día de la semana.</li>
+            <li><b>Eficiencia de carga</b>: total y promedio de pallets, principales orígenes.</li>
+            <li><b>Uso de flota</b>: rendimiento por placa y su conductor más frecuente.</li>
+            <li><b>Saturación e incidencias</b>: motivos de las excepciones de capacidad.</li>
+        </ol>
+        <figure class="angosta"><div class="marco"><img src="img/p07-planificacion-movil.jpg" alt="Planificación en el teléfono con el menú abierto" loading="lazy"></div><figcaption>Planificación en el teléfono: el menú se abre con el botón ☰.</figcaption></figure>
+    </div>
+</section>
+
+<!-- =============== PARTE II =============== -->
+<div class="parte naranja"><span>Parte II</span><h2>Control de Accesos de Transporte</h2><p>Módulo naranja. Programación de ingresos, registro en portería, permanencia, demoras e indicadores para Gerencia en los CD Lurín y Punta Negra.</p></div>
+
+<section class="capitulo naranja-cap" id="a-conceptos">
+    <h2><span class="num">9</span>Conceptos clave</h2>
+    <p class="entrada">Todo el módulo se entiende con tres conceptos.</p>
+    <div class="tarjetas">
+        <div class="tarjeta"><span class="icono">🚛</span><b>Transporte</b><small>El vehículo: placa, tamaño y si es interno. La placa es su identificador y lo que lleva el código QR.</small></div>
+        <div class="tarjeta"><span class="icono">📅</span><b>Programación</b><small>Lo que Despacho espera: <b>una fecha, un horario y una placa</b> en un CD, con conductor, tipo, RUC o DNI, razón social y motivo.</small></div>
+        <div class="tarjeta"><span class="icono">⏱️</span><b>Tramo</b><small>Lo que ocurrió: la entrada y la salida reales, el kilometraje, las observaciones y el vigilante. Una programación genera un tramo.</small></div>
+    </div>
+    <h3>Ciclo de una programación</h3>
+    <div class="flujo">
+        <div class="paso-flujo"><span class="chip pendiente">Pendiente</span><small>Programada, aún no llega</small></div><span class="flecha">→</span>
+        <div class="paso-flujo"><span class="chip planta">En planta</span><small>Vigilancia registró la entrada</small></div><span class="flecha">→</span>
+        <div class="paso-flujo destacado"><span class="chip cerrada">Cerrada</span><small>Registró la salida: tiempos completos</small></div>
+    </div>
+    <p>Además: <span class="chip noatendida">No atendida</span> si termina el día y el vehículo nunca ingresó, y <span class="chip cancelada">Cancelada</span> si Despacho la anuló con un motivo.</p>
+    <div class="ejemplo">
+        <h4>Ejemplo · placa F7J-011 el mismo día</h4>
+        <table>
+            <thead><tr><th>Horario</th><th>Programación</th><th>Entrada</th><th>Salida</th><th>Tramo del día</th></tr></thead>
+            <tbody>
+                <tr><td>A</td><td>PRG-000101 · 08:10</td><td>08:10</td><td>08:45</td><td>1.er tramo · 35 min</td></tr>
+                <tr><td>B</td><td>PRG-000102 · 10:30</td><td>10:30</td><td>11:00</td><td>2.º tramo · 30 min</td></tr>
+                <tr><td>C</td><td>PRG-000103 · 14:00</td><td>14:00</td><td>14:30</td><td>3.er tramo · 30 min</td></tr>
+            </tbody>
+        </table>
+        <p style="margin:12px 0 0;font-size:14px;color:#cbd5e1">Si la misma placa vuelve a ingresar el mismo día, Despacho registra <b>otra programación</b> en otro horario. Al escanear a las 10:25 solo se ofrecen las programaciones B y C, porque A ya tiene su tramo.</p>
+    </div>
+    <div class="nota info"><div><b>Permanencia</b> = tiempo desde la entrada hasta la salida. Más de <b>4 horas</b> es una <b>permanencia prolongada</b>: no es habitual (por ejemplo, un ingreso de madrugada que se queda hasta el amanecer), pero se controla y se marca. Una <b>demora</b> es una permanencia que supera la <b>meta</b> que defina Gerencia; mientras no exista meta, se usa el umbral de 4 horas.</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-roles">
+    <h2><span class="num">10</span>Roles y menú de Control de Accesos</h2>
+    <div class="tabla"><table>
+        <thead><tr><th>Puede…</th><th>Administrador</th><th>Despacho (incluye Planeamiento)</th><th>Vigilancia</th><th>Consulta</th></tr></thead>
+        <tbody>
+            <tr><td>Programar, editar y cancelar ingresos</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Registrar transportes y conductores</td><td class="si">Sí (y editarlos)</td><td class="si">Sí (alta; en conductores también actualiza la licencia)</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Campanita de licencias por vencer</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Carga masiva por Excel (transportes, conductores, programaciones, licencias)</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Imprimir etiqueta QR de camiones internos</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Registrar entradas y salidas (portería)</td><td class="no">—</td><td class="no">—</td><td class="si">Sí, en sus CD</td><td class="no">—</td></tr>
+            <tr><td>Ver programaciones</td><td class="si">Todas</td><td class="si">Todas</td><td class="si">Las de su CD</td><td class="si">Todas</td></tr>
+            <tr><td>Tablero «Hoy» y Dashboard</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+            <tr><td>Consulta de tramos y exportación</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Los de su CD (solo lectura)</td><td class="si">Sí</td></tr>
+            <tr><td>Corregir, anular o cerrar tramos</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+            <tr><td>Auditoría, catálogos y configuración</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        </tbody>
+    </table></div>
+    <figure><div class="marco"><img src="img/a01-inicio-administrador.jpg" alt="Inicio del módulo de Control de Accesos" loading="lazy"></div><figcaption>Inicio de Control de Accesos: solo aparecen las secciones del rol del usuario. El menú naranja está siempre arriba.</figcaption></figure>
+</section>
+
+<section class="capitulo naranja-cap" id="a-maestros">
+    <h2><span class="num">11</span>Transportes, conductores y código QR</h2>
+    <p class="entrada">Los maestros se registran una vez; en cada programación solo se eligen.</p>
+    <figure><div class="marco"><img src="img/a02-transportes.jpg" alt="Lista de transportes" loading="lazy"></div><figcaption>Transportes: búsqueda por placa (escriba «f7j011», «F7J 011» o «F7J-011»: es la misma placa).</figcaption></figure>
+    <ul>
+        <li><b>Transporte</b>: placa, tamaño de vehículo y si es <b>interno</b> (camión propio de Daryza). Un transporte inactivo no se puede programar ni ingresar.</li>
+        <li><b>Conductor</b>: tipo de documento (DNI de 8 dígitos o Carné de Extranjería), número, apellidos y nombres, y su <b>licencia de conducir</b> (opcional).</li>
+        <li>Nada se borra: los registros se <b>desactivan</b>, y todo cambio queda en la auditoría.</li>
+    </ul>
+    <h3>Licencia de conducir y campanita de vencimientos</h3>
+    <ul>
+        <li><b>Licencia</b>: número (ej. Q43028991), categoría de camiones (<b>A-IIb, A-IIIa, A-IIIb o A-IIIc</b>) y fecha de vencimiento. Si se registra, los tres datos son obligatorios.</li>
+        <li><b>Licencia especial A-IV</b> (materiales y residuos peligrosos, camiones MAPTEL): va en el mismo número de licencia, con su <b>propio vencimiento</b>.</li>
+        <li><b>Notificar vencimientos</b>: casilla activa por defecto. Mientras esté activa, la <b>campanita</b> de la barra superior (Administrador y Despacho) avisa cada licencia desde <b>30 días antes</b> de su vencimiento y hasta <b>7 días después</b>. Al tocarla se ve la lista; cada aviso abre el conductor.</li>
+        <li>Pasados esos 7 días, cuando <b>todas</b> las licencias del conductor ya vencieron, la casilla se <b>desactiva sola</b> (queda en la auditoría como «Sistema»). Si la A-IV aún no vence, la casilla sigue activa.</li>
+        <li>Al registrar una <b>renovación</b> (una fecha de vencimiento nueva y vigente), las notificaciones se <b>vuelven a activar solas</b>, salvo que en ese mismo cambio se desmarque la casilla.</li>
+        <li><b>Despacho</b> actualiza la licencia y las notificaciones desde «Conductores → Licencia»; los datos personales los corrige el Administrador.</li>
+        <li>En la lista de Conductores se ve el estado de cada licencia (<b>Vigente</b>, <b>Por vencer</b>, <b>Vencida</b>) y se puede filtrar por «Por vencer o vencidas», «Con alguna vencida» o «Sin licencia registrada».</li>
+    </ul>
+    <figure class="media"><div class="marco"><img src="img/a32-conductor-licencia.jpg" alt="Licencia de conducir en el formulario del conductor" loading="lazy"></div><figcaption>Licencia del conductor, vista de Despacho: número, categoría y vencimiento, licencia especial A-IV con su propio vencimiento y la casilla «Notificar vencimientos». Los datos personales solo los cambia el Administrador.</figcaption></figure>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a33-campanita.jpg" alt="Campanita con las licencias por vencer" loading="lazy"></div><figcaption>Campanita abierta: el número rojo indica cuántas licencias requieren atención; las vencidas en rojo y las por vencer en ámbar, de la más urgente a la menos urgente.</figcaption></figure>
+        <figure class="angosta"><div class="marco"><img src="img/a36-campanita-telefono.jpg" alt="Campanita en el teléfono" loading="lazy"></div><figcaption>En el teléfono la campanita está junto al botón de salir y el menú ☰.</figcaption></figure>
+    </div>
+    <div class="nota consejo"><div>La campanita no bloquea nada: un conductor con la licencia vencida se puede seguir programando. Sirve para que Despacho gestione la renovación a tiempo. Para cargar o renovar muchas licencias a la vez use <b>Conductores → Actualizar licencias</b> (capítulo 13).</div></div>
+    <h3>Código QR</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a03-etiqueta-qr.jpg" alt="Etiqueta QR de un transporte interno" loading="lazy"></div><figcaption>Etiqueta QR para pegar en el camión interno (Administrador): imprimir o descargar PNG.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a04-conductores.jpg" alt="Lista de conductores con su licencia" loading="lazy"></div><figcaption>Conductores: búsqueda por documento, apellidos o licencia; filtro por vencimiento y estado de cada licencia (Vigente, Por vencer, Vencida).</figcaption></figure>
+    </div>
+    <div class="nota consejo"><div>El QR contiene la <b>placa</b> (sin guiones). Por eso escanear el QR o digitar la placa dan el mismo resultado. Si se pierde la etiqueta, basta con reimprimirla.</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-programaciones">
+    <h2><span class="num">12</span>Programaciones (Despacho)</h2>
+    <p class="entrada">Despacho registra normalmente el día anterior qué vehículos van a ingresar, a qué hora y a qué CD.</p>
+    <figure><div class="marco"><img src="img/a05-agenda.jpg" alt="Agenda de programaciones del día" loading="lazy"></div><figcaption>Agenda del día: filtros por fecha, CD, placa, conductor y estado; resumen por CD; entrada, salida y permanencia de cada programación.</figcaption></figure>
+    <h3>Registrar una programación</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a06-nueva-programacion.jpg" alt="Formulario de nueva programación de ingreso" loading="lazy"></div><figcaption>Nueva programación: cuándo y dónde, vehículo y conductor, y operación.</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li><b>Cuándo y dónde</b>: fecha, hora (puede ser exacta, como 08:17; hay horarios sugeridos) y CD.</li>
+                <li><b>Vehículo y conductor</b>: elíjalos de la lista. Si no existen, use <b>+ Nuevo transporte</b> o <b>+ Nuevo conductor</b> sin salir del formulario.</li>
+                <li><b>Operación</b>: tipo (Cliente, Proveedor o Interno), RUC o DNI, razón social, motivo y observación de Despacho. En <b>Interno</b> el RUC (20144109458) y la razón social de Daryza se completan solos.</li>
+                <li><b>Guardar</b>. Si hay más vehículos que la capacidad del CD alrededor de esa hora, o la misma placa está programada cerca en otro CD, verá un aviso (no impide guardar).</li>
+            </ol>
+        </div>
+    </div>
+    <figure class="media"><div class="marco"><img src="img/a06b-registro-rapido.jpg" alt="Registro rápido de transporte" loading="lazy"></div><figcaption>Registro rápido: el transporte nuevo queda guardado en el maestro y seleccionado en la programación.</figcaption></figure>
+    <h3>Detalle, pase con QR y cambios</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a07-detalle-programacion.jpg" alt="Detalle de una programación" loading="lazy"></div><figcaption>Detalle: datos, registro de portería (entrada, salida, permanencia), QR de la placa, acciones e historial.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a08-pase.jpg" alt="Pase de ingreso imprimible con QR" loading="lazy"></div><figcaption>Pase de ingreso imprimible: sirve para cualquier vehículo, incluso de clientes y proveedores.</figcaption></figure>
+    </div>
+    <ul>
+        <li><b>Nueva en otro horario</b>: copia la programación (sin la hora) para registrar rápido el siguiente ingreso del día de la misma placa.</li>
+        <li><b>Editar</b>: solo antes de la hora programada y mientras el vehículo no haya ingresado.</li>
+        <li><b>Cancelar</b>: con motivo obligatorio. Despacho puede cancelar hasta la hora programada; después, solo el Administrador.</li>
+    </ul>
+    <div class="nota cuidado"><div>No se programa en una hora que ya pasó. Si un vehículo perdió su cita y aún debe ingresar, registre una <b>nueva</b> programación.</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-carga">
+    <h2><span class="num">13</span>Carga masiva por Excel y plantillas</h2>
+    <p class="entrada">Administrador y Despacho pueden registrar muchos transportes, conductores o programaciones a la vez desde una hoja de Excel. Cada fila se valida con las <b>mismas reglas</b> que el registro manual.</p>
+    <h3>Plantillas para descargar</h3>
+    <div class="descargas">
+        <a class="descarga verde" href="/programar/masivo/plantilla/"><span class="icono">XLS</span><b>Despachos (Planificación)</b><small>9 columnas: fecha AAAAMMDD, placa, conductor, cliente, sede, origen, OC, pallets y costo.</small><span class="ir">Descargar plantilla ↓</span></a>
+        <a class="descarga" href="/accesos/carga/transportes/plantilla/"><span class="icono">XLS</span><b>Transportes</b><small>Placa, tamaño (lista) e interno SI/NO.</small><span class="ir">Descargar plantilla ↓</span></a>
+        <a class="descarga" href="/accesos/carga/conductores/plantilla/"><span class="icono">XLS</span><b>Conductores</b><small>Tipo y número de documento, apellidos, nombres y licencia (opcional).</small><span class="ir">Descargar plantilla ↓</span></a>
+        <a class="descarga" href="/accesos/carga/licencias/plantilla/"><span class="icono">XLS</span><b>Actualizar licencias</b><small>Documento del conductor ya registrado, licencia, categoría, vencimientos y notificar SI/NO.</small><span class="ir">Descargar plantilla ↓</span></a>
+        <a class="descarga" href="/accesos/carga/programaciones/plantilla/"><span class="icono">XLS</span><b>Programaciones</b><small>CD, fecha, hora, tipo, placa, conductor, RUC/DNI, razón social, motivo y observación.</small><span class="ir">Descargar plantilla ↓</span></a>
+    </div>
+    <div class="nota consejo"><div>Las plantillas se generan en el momento con los valores vigentes del sistema (CD, tamaños, tipos de documento), por eso siempre están actualizadas. Para descargarlas debe haber iniciado sesión con un rol que pueda cargar: Planeamiento para despachos; Administrador o Despacho para Control de Accesos.</div></div>
+    <figure class="media"><div class="marco"><img src="img/a26-agenda-carga-masiva.jpg" alt="Botón Carga masiva en la agenda de programaciones" loading="lazy"></div><figcaption>El botón <b>Carga masiva</b> está en Programaciones, Transportes y Conductores, junto al botón de registro.</figcaption></figure>
+    <h3>Paso a paso</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a27-carga-subir.jpg" alt="Pantalla para subir el archivo de carga masiva" loading="lazy"></div><figcaption>Paso 1: descargue la plantilla y suba el archivo. A la derecha están las columnas y su formato.</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li><b>Descargue la plantilla</b>. Tiene tres hojas: <b>Datos</b> (donde se escribe, con listas desplegables para CD, tipo, tamaño y tipo de documento), <b>Instrucciones</b> y <b>Ejemplo</b>.</li>
+                <li>Complete una fila por registro desde la fila 2, sin cambiar los encabezados. Máximo 500 filas.</li>
+                <li>Suba el archivo y pulse <b>Revisar archivo</b>. Verá una <b>vista previa</b> fila por fila: <b>Válida</b>, <b>Válida con aviso</b>, <b>Omitida</b> o <b>Error</b>, con el motivo. Todavía no se graba nada.</li>
+                <li>Pulse <b>Grabar N filas válidas</b>. El sistema vuelve a validar cada fila en ese momento y graba solo las válidas; las que tienen error se informan y no se graban.</li>
+                <li>Corrija en el Excel solo las filas con error y vuelva a subirlas.</li>
+            </ol>
+        </div>
+    </div>
+    <figure><div class="marco"><img src="img/a28-carga-vista-previa.jpg" alt="Vista previa de la carga masiva con filas válidas, con aviso y con error" loading="lazy"></div><figcaption>Paso 2: vista previa. Arriba, cuántas se grabarán, cuántas tienen aviso, cuántas se omiten y cuántas tienen error. Cada error dice exactamente qué corregir.</figcaption></figure>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a29-carga-resultado.jpg" alt="Resultado de la carga masiva" loading="lazy"></div><figcaption>Paso 3: resultado. Cada programación registrada muestra su código (PRG-…); los errores quedan a la vista.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a30-carga-telefono.jpg" alt="Vista previa de carga masiva en el teléfono" loading="lazy"></div><figcaption>También funciona en el teléfono: cada fila muestra su estado y el detalle debajo.</figcaption></figure>
+    </div>
+    <h3>Actualizar licencias de conductores</h3>
+    <p>Desde <b>Conductores → Actualizar licencias</b> se cargan o renuevan las licencias de conductores que <b>ya están registrados</b>. Es la única carga que modifica registros: solo cambia la licencia y las notificaciones, nunca los datos personales.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a34-carga-licencias.jpg" alt="Pantalla de actualizar licencias con sus columnas" loading="lazy"></div><figcaption>Columnas de la plantilla de licencias: documento del conductor, licencia, categoría, vencimientos y «notificar» (SI/NO, opcional).</figcaption></figure>
+        <figure><div class="marco"><img src="img/a35-carga-licencias-vista-previa.jpg" alt="Vista previa de actualizar licencias" loading="lazy"></div><figcaption>Vista previa: cada fila dice qué cambia (renovación, A-IV nueva). Las filas sin cambios se omiten; un documento no registrado o un dato incompleto es error.</figcaption></figure>
+    </div>
+    <h3>Qué valida cada carga</h3>
+    <div class="tabla"><table>
+        <thead><tr><th>Carga</th><th>Validaciones</th><th>Si ya existe</th></tr></thead>
+        <tbody>
+            <tr><td><b>Transportes</b></td><td>Placa de 5 a 8 letras o números (con o sin guion), tamaño de la lista, interno SI/NO.</td><td>La placa se <b>omite</b> (no se modifica).</td></tr>
+            <tr><td><b>Conductores</b></td><td>DNI de 8 dígitos o CE de 9 a 12 caracteres; apellido paterno y nombres obligatorios. Si Excel quitó el cero inicial de un DNI (8123456), se completa solo. Licencia opcional: si se escribe, número, categoría y vencimiento (y vencimiento de la A-IV si se indica). Las categorías se aceptan escritas con espacio o guion («A IIIb»).</td><td>El documento se <b>omite</b> (no se modifica).</td></tr>
+            <tr><td><b>Actualizar licencias</b></td><td>El conductor debe estar <b>registrado</b> (tipo y número de documento). Número, categoría y vencimiento obligatorios. Si las columnas de la A-IV quedan vacías, se conserva la registrada. «notificar» vacío conserva el valor actual. Un conductor no puede repetirse en el archivo.</td><td>Es la única carga que <b>modifica</b>: solo la licencia y las notificaciones. Las filas sin cambios se omiten.</td></tr>
+            <tr><td><b>Programaciones</b></td><td>CD y tipo válidos; fecha y hora futuras (hora de Lima); placa y conductor <b>registrados y activos</b>; RUC con dígito verificador o DNI; en INTERNO el RUC y la razón social de Daryza se completan solos; la placa no se repite en la misma fecha y hora, ni en el sistema ni dentro del mismo archivo.</td><td>Es un <b>error</b>: indica el código de la programación existente.</td></tr>
+        </tbody>
+    </table></div>
+    <div class="nota consejo"><div><b>Orden recomendado:</b> primero cargue los transportes y conductores nuevos, y después las programaciones que los usan. Los avisos (capacidad del CD, misma placa cerca en otro CD, INTERNO con transporte externo) no impiden grabar.</div></div>
+    <div class="nota cuidado"><div>Cada registro creado por carga masiva queda en la <b>auditoría</b> con el motivo «Carga masiva: nombre del archivo». Las fechas pueden escribirse como fecha de Excel (DD/MM/AAAA) o como AAAAMMDD; las horas como HH:MM en formato de 24 horas.</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-porteria">
+    <h2><span class="num">14</span>Portería (Vigilancia, en la tablet)</h2>
+    <p class="entrada">El vigilante nunca elige «entrada» o «salida»: el sistema lo decide. Si la placa no tiene un tramo abierto, es ENTRADA; si lo tiene, es SALIDA.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a09-porteria-escanear.jpg" alt="Pantalla de portería para escanear" loading="lazy"></div><figcaption>Portería: escanee el QR con el lector o la cámara, o digite la placa.</figcaption></figure>
+        <div>
+            <h3 style="margin-top:0">Al iniciar el turno</h3>
+            <ol class="pasos">
+                <li>Entre con <b>su propio usuario</b>: todo lo que registre queda a su nombre. La sesión dura 12 horas.</li>
+                <li>Si está autorizado en más de un CD, elija en cuál trabaja hoy.</li>
+                <li>Al terminar, pulse <b>Cambiar vigilante</b> para que el siguiente entre con su usuario.</li>
+            </ol>
+            <div class="nota consejo"><div>Con un <b>lector QR físico</b> no hace falta tocar nada: el lector escribe la placa en el campo y la envía solo. La <b>cámara</b> de la tablet funciona como alternativa.</div></div>
+        </div>
+    </div>
+    <h3>Registrar una ENTRADA</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a10-porteria-entrada.jpg" alt="Registro de entrada en portería" loading="lazy"></div><figcaption>Entrada: la programación más cercana (±60 min) aparece marcada como <b>Sugerida</b>.</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li>Verifique la <b>programación sugerida</b> (hora, tipo, razón social, conductor y motivo). Si corresponde otra, selecciónela.</li>
+                <li>Si elige una fuera de la ventana de ±60 min, el sistema pide <b>confirmar</b> y la deja marcada.</li>
+                <li>Digite el <b>kilometraje</b> (obligatorio). Si es menor al último registrado, verá un aviso, pero se registra.</li>
+                <li>Agregue una <b>observación</b> si hace falta (por defecto «Ninguna»).</li>
+                <li>Si llegó <b>otro conductor</b>, ábralo en «¿Llegó otro conductor?» y elíjalo.</li>
+                <li>Pulse <b>Registrar entrada</b>. Una confirmación grande aparece 3 segundos y la pantalla vuelve a escanear.</li>
+            </ol>
+        </div>
+    </div>
+    <h3>Registrar una SALIDA</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a11-porteria-salida.jpg" alt="Registro de salida en portería" loading="lazy"></div><figcaption>Salida: hora de entrada, tiempo dentro (en rojo si es prolongado), programación y conductor.</figcaption></figure>
+        <div>
+            <ol class="pasos">
+                <li>Escanee o digite la placa del vehículo que sale.</li>
+                <li>Revise el tiempo dentro y agregue una observación de salida si corresponde.</li>
+                <li>Pulse <b>Registrar salida</b>. La programación queda <span class="chip cerrada">Cerrada</span> con sus tiempos.</li>
+            </ol>
+            <div class="nota info"><div>Una salida al día siguiente (por ejemplo, entró a las 23:00 y sale a las 07:00) se registra igual: el sistema la reconoce como <b>permanencia entre días</b>.</div></div>
+        </div>
+    </div>
+    <h3>Cuando algo no corresponde</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a12-no-programado.jpg" alt="Aviso de vehículo no programado" loading="lazy"></div><figcaption><b>Vehículo no programado</b>: no tiene una programación pendiente hoy en este CD (o la placa no existe o está inactiva). No puede ingresar: comuníquese con Despacho.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a13-confirmacion.jpg" alt="Confirmación de registro" loading="lazy"></div><figcaption>Confirmación de registro: visible 3 segundos, luego vuelve sola a la pantalla de escaneo.</figcaption></figure>
+    </div>
+    <div class="nota cuidado"><div>Si el sistema indica que el vehículo <b>figura dentro de otro CD</b>, no se registra nada: el Administrador debe revisar y cerrar el tramo anterior. Si dos tablets registran la misma placa a la vez, solo una entrada queda y la otra pide volver a escanear.</div></div>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a14-dentro-ahora.jpg" alt="Vehículos dentro ahora" loading="lazy"></div><figcaption>«Dentro ahora»: vehículos en el CD con su tiempo; toque uno para registrar su salida.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a15-programaciones-vigilancia.jpg" alt="Programaciones vistas por Vigilancia" loading="lazy"></div><figcaption>«Programaciones»: consulta de solo lectura del CD con filtros de fecha, placa, conductor y estado.</figcaption></figure>
+    </div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-hoy">
+    <h2><span class="num">15</span>Tablero «Hoy»</h2>
+    <figure><div class="marco"><img src="img/a16-tablero-hoy.jpg" alt="Tablero Hoy" loading="lazy"></div><figcaption>Tablero «Hoy»: ocupación de cada CD frente a su capacidad, programadas, atendidas, pendientes y vehículos dentro. Se actualiza solo cada minuto.</figcaption></figure>
+    <p>Pensado para una pantalla en la oficina o para supervisores. En rojo, los CD por encima de su capacidad y los vehículos con permanencia prolongada.</p>
+    <h3>Actualización automática</h3>
+    <ul>
+        <li>«Hoy» y «Dentro ahora» (Portería) se actualizan solos <b>cada minuto</b>; el Dashboard, <b>cada 2 minutos</b>, solo cuando el rango incluye el día de hoy (un rango pasado no cambia y no se recarga).</li>
+        <li>Para no interrumpir, la actualización <b>espera</b> mientras el menú o la campanita están abiertos, mientras escribe o elige un filtro, durante 30 segundos después de tocar o desplazar la pantalla, y mientras la pestaña está en segundo plano (al volver se pone al día).</li>
+        <li>Conserva los filtros y la posición en la página. El enlace <b>Actualizar ahora</b>, junto al aviso «se actualiza solo…», recarga en el momento.</li>
+    </ul>
+</section>
+
+<section class="capitulo naranja-cap" id="a-dashboard">
+    <h2><span class="num">16</span>Dashboard de Gerencia</h2>
+    <p class="entrada">Responde dónde, cuándo y por qué se demoran los camiones. Al entrar muestra el <b>día de hoy</b>; con los botones de rango se ve ayer, 7 o 30 días, el mes o 90 días.</p>
+    <figure><div class="marco"><img src="img/a17-dashboard.jpg" alt="Dashboard de Gerencia completo" loading="lazy"></div><figcaption>Dashboard completo (30 días de datos de demostración).</figcaption></figure>
+    <h3>Cómo leerlo, de arriba abajo</h3>
+    <div class="tabla"><table>
+        <thead><tr><th>Sección</th><th>Qué responde</th></tr></thead>
+        <tbody>
+            <tr><td><b>Lo que dicen los datos</b></td><td>Conclusiones automáticas en lenguaje simple: hora pico, la placa, el conductor y el cliente con mayor permanencia, cuánto más tarda un CD que el otro, y si llegar tarde alarga la estadía. Solo aparecen si hay suficientes datos.</td></tr>
+            <tr><td><b>Indicadores</b></td><td>Permanencia promedio (y P90: el 10 % más lento), % de tramos con demora, % de llegadas puntuales, % de citas no atendidas, permanencias prolongadas y vehículos dentro ahora. Cada uno compara con el periodo anterior: en verde si mejoró, en rojo si empeoró.</td></tr>
+            <tr><td><b>En planta ahora</b></td><td>Vehículos dentro en este momento y su tiempo (cuando el rango incluye hoy).</td></tr>
+            <tr><td><b>Mapa de calor</b></td><td>Día de la semana × hora de llegada. Cambie entre <b>Llegadas</b> (congestión), <b>Permanencia</b> (a qué hora se quedan más) y <b>% demora</b>.</td></tr>
+            <tr><td><b>¿Quién o qué concentra las demoras?</b></td><td>Ranking por placa, conductor, razón social, motivo, tamaño, tipo y CD, con la línea del límite de demora. Se ordena tocando los encabezados.</td></tr>
+            <tr><td><b>Tendencia</b></td><td>Permanencia promedio por hora (un día), por día o por semana, con la meta.</td></tr>
+            <tr><td><b>¿Cuánto duran los tramos?</b></td><td>Cantidad de tramos por rango de permanencia; en rojo, los que superan el límite.</td></tr>
+            <tr><td><b>Puntualidad y retraso</b></td><td>% adelantado, puntual (±15 min) y retrasado por CD y por tipo, y si los retrasados permanecen más.</td></tr>
+            <tr><td><b>Lurín frente a Punta Negra</b> y <b>¿Por qué se demoró?</b></td><td>Comparativo de los CD y las 15 mayores demoras con las observaciones de portería (exportable).</td></tr>
+        </tbody>
+    </table></div>
+    <h3>Filtrar con un toque</h3>
+    <figure><div class="marco"><img src="img/a18-dashboard-filtrado.jpg" alt="Dashboard filtrado por placa y llegada retrasada" loading="lazy"></div><figcaption>Dashboard filtrado: los filtros activos aparecen como chips naranjas; la ✕ quita cada uno.</figcaption></figure>
+    <ul>
+        <li><b>Todo es un filtro</b>: toque una fila del ranking (por ejemplo, una placa o un conductor), una celda del mapa de calor (ese día y hora), un punto de la tendencia, una barra de la distribución o de puntualidad, o un CD del comparativo. <b>Todo el dashboard</b> se recalcula con ese filtro.</li>
+        <li>Los filtros se suman: por ejemplo, placa <b>G6T-246</b> + <b>Llegó retrasado</b>.</li>
+        <li>CD, tipo y tamaño se eligen arriba y se aplican solos. <b>Quitar todos</b> vuelve a la vista completa.</li>
+        <li>La dirección de la página guarda los filtros: puede copiarla y compartirla con la misma vista.</li>
+        <li>Si el rango incluye hoy, el Dashboard se actualiza solo cada 2 minutos sin perder los filtros (ver «Actualización automática» en el capítulo 15).</li>
+    </ul>
+    <div class="nota info"><div>Solo los tramos con salida aportan permanencia. Por eso, temprano en la mañana, varios gráficos de «Hoy» muestran «Todavía no hay tramos cerrados».</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-tramos">
+    <h2><span class="num">17</span>Tramos y correcciones</h2>
+    <figure><div class="marco"><img src="img/a20-tramos.jpg" alt="Consulta de tramos" loading="lazy"></div><figcaption>Consulta de tramos: filtros por fechas, CD, placa y estado (dentro ahora, prolongados, demoras, con marcas, anulados) y exportación a Excel.</figcaption></figure>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a21-tramo-detalle.jpg" alt="Detalle de un tramo" loading="lazy"></div><figcaption>Detalle del tramo con las acciones del Administrador e historial.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a22-corregir-tramo.jpg" alt="Formulario de corrección de un tramo" loading="lazy"></div><figcaption>Corregir: horas en hora de Lima; se recalculan permanencia y puntualidad.</figcaption></figure>
+    </div>
+    <p>Solo el <b>Administrador</b> corrige, y siempre con un <b>motivo</b> que queda en la auditoría:</p>
+    <ul>
+        <li><b>Corregir datos</b>: horas, kilometraje, programación (de la misma placa), conductor u observaciones.</li>
+        <li><b>Cierre administrativo</b>: registra una salida que Vigilancia olvidó, con hora estimada.</li>
+        <li><b>Anular</b>: para una entrada equivocada. El tramo no se borra, deja de contar en los indicadores y la programación vuelve a quedar pendiente.</li>
+    </ul>
+    <figure class="media"><div class="marco"><img src="img/a31-tramos-vigilancia.jpg" alt="Consulta de tramos vista por Vigilancia en la tablet" loading="lazy"></div><figcaption>Vigilancia también consulta y exporta los tramos, pero solo los de su CD y sin las acciones de corrección.</figcaption></figure>
+</section>
+
+<section class="capitulo naranja-cap" id="a-auditoria">
+    <h2><span class="num">18</span>Auditoría y configuración</h2>
+    <figure><div class="marco"><img src="img/a23-auditoria.jpg" alt="Bitácora de auditoría" loading="lazy"></div><figcaption>Auditoría: quién hizo qué, cuándo, sobre qué registro, qué valores cambiaron y por qué. Nadie puede editarla ni borrarla.</figcaption></figure>
+    <figure class="media"><div class="marco"><img src="img/a24-catalogos-admin.jpg" alt="Catálogos y configuración en el panel de administración" loading="lazy"></div><figcaption>Catálogos y configuración (Administrador, en el panel de administración).</figcaption></figure>
+    <div class="tabla"><table>
+        <thead><tr><th>Parámetro</th><th>Valor inicial</th><th>Para qué sirve</th></tr></thead>
+        <tbody>
+            <tr><td>Ventana de sugerencia</td><td>± 60 min</td><td>Programación sugerida en portería.</td></tr>
+            <tr><td>Tolerancia de puntualidad</td><td>± 15 min</td><td>Llegada puntual en el dashboard.</td></tr>
+            <tr><td>Umbral de permanencia prolongada</td><td>240 min (4 h)</td><td>Marca de permanencia prolongada.</td></tr>
+            <tr><td>Meta de permanencia</td><td>Por definir (Gerencia)</td><td>Define qué es una «demora».</td></tr>
+            <tr><td>Duración estimada de atención</td><td>60 min</td><td>Aviso de capacidad al programar.</td></tr>
+            <tr><td>Capacidad simultánea por CD</td><td>Lurín 5 · Punta Negra 3</td><td>Avisos y tablero «Hoy».</td></tr>
+            <tr><td>Sesión de Vigilancia</td><td>12 horas</td><td>Tablets compartidas entre turnos.</td></tr>
+            <tr><td>RUC y razón social de la empresa</td><td>20144109458 · Daryza S.A.C.</td><td>Programaciones de tipo Interno.</td></tr>
+            <tr><td>Aviso de vencimiento de licencias</td><td>30 días</td><td>Desde cuándo la campanita avisa una licencia.</td></tr>
+            <tr><td>Aviso después del vencimiento</td><td>7 días</td><td>Hasta cuándo se avisa una licencia vencida; después se desactivan solas las notificaciones.</td></tr>
+        </tbody>
+    </table></div>
+    <p>En el mismo panel se administran los <b>tamaños de vehículo</b>, los <b>CD</b>, los <b>tipos de documento</b> y los <b>CD autorizados</b> de cada vigilante. El área de TI crea los usuarios y les asigna sus grupos (roles).</p>
+</section>
+
+<!-- =============== REFERENCIA =============== -->
+<div class="parte gris"><span>Parte III</span><h2>Referencia</h2><p>Uso en teléfono y tablet, reglas, preguntas frecuentes y glosario.</p></div>
+
+<section class="capitulo" id="movil">
+    <h2><span class="num">19</span>Teléfono y tablet</h2>
+    <p class="entrada">LogiPlan se adapta a cualquier pantalla. La portería está diseñada para la tablet Lenovo en vertical.</p>
+    <div class="duo">
+        <figure class="angosta"><div class="marco"><img src="img/a19-dashboard-telefono.jpg" alt="Dashboard en el teléfono" loading="lazy"></div><figcaption>Dashboard en el teléfono: los rangos y pestañas se deslizan con el dedo.</figcaption></figure>
+        <figure class="angosta"><div class="marco"><img src="img/a25-menu-telefono.jpg" alt="Menú de Control de Accesos en el teléfono" loading="lazy"></div><figcaption>Menú en el teléfono: botón ☰ arriba a la derecha.</figcaption></figure>
+    </div>
+    <ul>
+        <li>Las tablas anchas se desplazan de lado con el dedo; en pantallas angostas se ocultan columnas secundarias.</li>
+        <li>Las listas de Transportes, Conductores, Tramos y Auditoría muestran <b>15 registros por página</b>, con «Mostrando 16–30 de 412 registros». En computadora y tablet se elige la página por número (<b>Inicio</b> · 1 … 5 <b>6</b> 7 … 28 · <b>Último</b>); en el teléfono se ve «Página 6 de 28» con los botones de primera, anterior, siguiente y última. Los filtros se conservan al cambiar de página.</li>
+        <li>En la tablet, el campo de placa y los botones de entrada y salida son grandes para usarlos con el dedo.</li>
+        <li>Para usar la cámara, el navegador pide permiso la primera vez: acéptelo.</li>
+    </ul>
+</section>
+
+<section class="capitulo" id="reglas">
+    <h2><span class="num">20</span>Reglas del sistema</h2>
+    <div class="tabla"><table>
+        <thead><tr><th>Regla</th><th>Qué pasa</th></tr></thead>
+        <tbody>
+            <tr><td>Programar en el pasado</td><td>No se permite (ni en Planificación ni en Accesos).</td></tr>
+            <tr><td>Editar una programación de Accesos</td><td>Solo antes de su hora y si el vehículo no ingresó.</td></tr>
+            <tr><td>Cancelar una programación</td><td>Con motivo. Despacho hasta la hora programada; después, solo el Administrador.</td></tr>
+            <tr><td>Misma placa, mismo día y hora</td><td>No se permite repetir.</td></tr>
+            <tr><td>Capacidad superada</td><td>Aviso, no bloqueo.</td></tr>
+            <tr><td>Ingreso sin programación</td><td>Bloqueado: «Vehículo no programado».</td></tr>
+            <tr><td>Programación fuera de ±60 min</td><td>Permitida con confirmación; queda marcada.</td></tr>
+            <tr><td>Kilometraje</td><td>Obligatorio en la entrada; si es menor al anterior, aviso y marca.</td></tr>
+            <tr><td>Un vehículo, dos entradas a la vez</td><td>Imposible: solo un tramo abierto por placa.</td></tr>
+            <tr><td>Vehículo dentro de otro CD</td><td>Bloqueado hasta que el Administrador lo resuelva.</td></tr>
+            <tr><td>Citas no atendidas</td><td>Sin ingreso al terminar el día de la programación.</td></tr>
+            <tr><td>Licencia por vencer</td><td>Aviso en la campanita desde 30 días antes hasta 7 días después; no bloquea programaciones ni ingresos.</td></tr>
+            <tr><td>Registros históricos</td><td>Nunca se borran: se anulan o desactivan, siempre con auditoría.</td></tr>
+        </tbody>
+    </table></div>
+</section>
+
+<section class="capitulo faq" id="faq">
+    <h2><span class="num">21</span>Preguntas frecuentes</h2>
+    <details><summary>El vehículo llegó, pero el sistema dice «no programado».</summary><p>Revise en «Programaciones» si existe una programación de hoy para esa placa y ese CD. Si no existe, si es de otro CD o ya fue usada, Despacho debe registrar una nueva. Revise también que la placa esté bien digitada.</p></details>
+    <details><summary>Se registró una entrada por error.</summary><p>Avise al Administrador: puede <b>anular</b> el tramo (con motivo). La programación vuelve a quedar pendiente y se puede registrar de nuevo.</p></details>
+    <details><summary>Vigilancia olvidó registrar una salida.</summary><p>Al escanear la placa aparecerá como SALIDA. Si el vehículo ya se fue, el Administrador hace un <b>cierre administrativo</b> con la hora estimada.</p></details>
+    <details><summary>El kilometraje se digitó mal.</summary><p>El Administrador lo corrige desde el detalle del tramo, con motivo.</p></details>
+    <details><summary>El camión necesita volver a entrar el mismo día.</summary><p>Despacho registra otra programación en otro horario. La forma más rápida es «Nueva en otro horario» desde el detalle de la anterior.</p></details>
+    <details><summary>¿Por qué el dashboard de «Hoy» aparece vacío temprano?</summary><p>La permanencia solo se calcula cuando el vehículo sale. Use «Ayer» o «7 días» para ver tendencias.</p></details>
+    <details><summary>La cámara de la tablet no abre.</summary><p>Acepte el permiso de cámara del navegador, o digite la placa: el resultado es el mismo. Con un lector QR físico no se necesita la cámara.</p></details>
+    <details><summary>Subí un Excel y algunas filas salen con error.</summary><p>Grabe las válidas, corrija en el Excel solo las filas con error (el detalle dice qué falta) y vuelva a subirlas. Las que ya se grabaron aparecerán como «Omitidas» (maestros) o con error de duplicado (programaciones), así que no se duplican.</p></details>
+    <details><summary>No veo el menú «Accesos» en Planificación.</summary><p>El enlace aparece a los usuarios de Planeamiento y a quienes tienen un grupo de Control de Accesos. Si es su caso y no lo ve, pida a TI que revise sus grupos. Comercial no tiene acceso a este módulo.</p></details>
+    <details><summary>¿Cómo sé en qué módulo estoy?</summary><p>Por el color: verde es Planificación y naranja es Control de Accesos (barra superior, botones y pie de página).</p></details>
+</section>
+
+<section class="capitulo" id="glosario">
+    <h2><span class="num">22</span>Glosario</h2>
+    <dl class="glosario">
+        <dt>CD</dt><dd>Centro de Distribución: Lurín o Punta Negra.</dd>
+        <dt>Programación</dt><dd>Ingreso esperado de una placa en una fecha y hora, en un CD.</dd>
+        <dt>Tramo</dt><dd>Una entrada y su salida reales en portería.</dd>
+        <dt>Permanencia</dt><dd>Tiempo desde la entrada hasta la salida de un tramo.</dd>
+        <dt>Permanencia prolongada</dt><dd>Más de 4 horas dentro del CD (configurable).</dd>
+        <dt>Demora</dt><dd>Permanencia por encima de la meta de Gerencia (o de 4 horas mientras no haya meta).</dd>
+        <dt>Puntual</dt><dd>Llegada dentro de ±15 minutos de la hora programada.</dd>
+        <dt>P90</dt><dd>El tiempo que supera el 10 % más lento de los tramos.</dd>
+        <dt>Ventana de sugerencia</dt><dd>±60 minutos alrededor de la hora actual para proponer la programación en portería.</dd>
+        <dt>Cita no atendida</dt><dd>Programación cuyo día terminó sin ingreso.</dd>
+        <dt>Cierre administrativo</dt><dd>Salida registrada por el Administrador cuando Vigilancia la olvidó.</dd>
+        <dt>Licencia especial A-IV</dt><dd>Categoría para transportar materiales y residuos peligrosos (camiones MAPTEL). Va en la misma licencia, con su propio vencimiento.</dd>
+        <dt>Campanita</dt><dd>Aviso de licencias por vencer o recién vencidas, en la barra superior (Administrador y Despacho).</dd>
+        <dt>Pase de ingreso</dt><dd>Hoja imprimible de una programación con el QR de la placa.</dd>
+    </dl>
+</section>
+
+<footer class="pie">
+    <div><b>LogiPlan</b> · Planificación y Control de Accesos<br>Daryza S.A.C. · Área de Sistemas</div>
+    <div>Manual de usuario v1.0 · Octubre 2026<br>Pantallas con datos ficticios de demostración.</div>
+</footer>
+
+</div>
+</main>
+</div>
+
+<div class="visor" id="visor" role="dialog" aria-label="Imagen ampliada"><img alt=""><p></p></div>
+
+<script>
+(() => {
+    // Índice en teléfono y tablet.
+    const indice = document.getElementById('indice');
+    const boton = document.getElementById('boton-menu');
+    const abrir = (si) => { indice.classList.toggle('abierto', si); boton.setAttribute('aria-expanded', si); boton.textContent = si ? '✕' : '☰'; };
+    boton.addEventListener('click', () => abrir(!indice.classList.contains('abierto')));
+    indice.querySelectorAll('a').forEach(a => a.addEventListener('click', () => abrir(false)));
+
+    // Resalta en el índice la sección visible.
+    const enlaces = [...indice.querySelectorAll('a[href^="#"]')];
+    const observador = new IntersectionObserver((entradas) => {
+        entradas.forEach(e => {
+            if (!e.isIntersecting) return;
+            enlaces.forEach(a => a.classList.toggle('activo', a.getAttribute('href') === '#' + e.target.id));
+        });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    document.querySelectorAll('section.capitulo').forEach(s => observador.observe(s));
+
+    // Ampliar imágenes.
+    const visor = document.getElementById('visor');
+    document.querySelectorAll('figure .marco img').forEach(img => img.addEventListener('click', () => {
+        visor.querySelector('img').src = img.src;
+        visor.querySelector('p').textContent = img.closest('figure').querySelector('figcaption')?.textContent || '';
+        visor.classList.add('abierto');
+    }));
+    visor.addEventListener('click', () => visor.classList.remove('abierto'));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { visor.classList.remove('abierto'); abrir(false); } });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{% if codigo == 'EN_PLANTA' %}<span class="inline-flex px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider">En planta</span>
+{% elif codigo == 'CERRADA' %}<span class="inline-flex px-2.5 py-1 rounded-full bg-marca-claro text-marca text-[10px] font-black uppercase tracking-wider">Cerrada</span>
+{% elif codigo == 'PENDIENTE' %}<span class="inline-flex px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 text-[10px] font-black uppercase tracking-wider">Pendiente</span>
+{% elif codigo == 'NO_ATENDIDA' %}<span class="inline-flex px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-wider">No atendida</span>
+{% elif codigo == 'CANCELADA' %}<span class="inline-flex px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-wider line-through">Cancelada</span>
+{% endif %}

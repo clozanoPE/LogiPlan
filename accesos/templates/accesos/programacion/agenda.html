@@ -1,0 +1,48 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Programaciones {{ fecha|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Programaciones</h1>
+        <p class="text-slate-500 text-sm font-medium">Cada programación es una fecha, un horario y una placa. Con la entrada pasa a «En planta» y con la salida queda «Cerrada».</p>
+    </div>
+    {% if accesos_puede_programar %}
+    <div class="action-row">
+    <a href="{% url 'accesos:carga_masiva' 'programaciones' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Carga masiva</a>
+    <a href="{% url 'accesos:programacion_crear' %}?fecha={{ fecha|date:'Y-m-d' }}" class="inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">
+        <i class="fas fa-plus"></i> Nueva programación
+    </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="flex items-center gap-3 mb-4">
+    <a href="?fecha={{ dia_anterior|date:'Y-m-d' }}&cd={{ filtros.cd }}&q={{ filtros.q }}&conductor={{ filtros.conductor }}&estado={{ filtros.estado }}" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white flex items-center justify-center transition-all" aria-label="Día anterior"><i class="fas fa-chevron-left"></i></a>
+    <div class="text-center min-w-[11rem]">
+        <p class="text-lg font-black text-daryza-dark">{{ fecha_larga }}</p>
+        {% if es_hoy %}<p class="text-[10px] font-black uppercase tracking-widest text-marca">Hoy</p>{% endif %}
+    </div>
+    <a href="?fecha={{ dia_siguiente|date:'Y-m-d' }}&cd={{ filtros.cd }}&q={{ filtros.q }}&conductor={{ filtros.conductor }}&estado={{ filtros.estado }}" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-marca-oscuro hover:text-white flex items-center justify-center transition-all" aria-label="Día siguiente"><i class="fas fa-chevron-right"></i></a>
+</div>
+
+{% include 'accesos/programacion/_filtros.html' %}
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+    {% for item in resumen %}
+    <div class="bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between">
+        <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">CD {{ item.cd }}</p>
+            <p class="text-2xl font-black text-daryza-dark">{{ item.activas }} <span class="text-sm font-bold text-slate-400">programadas</span></p>
+        </div>
+        <div class="text-right text-xs font-bold text-slate-400">
+            <p><span class="text-emerald-700">{{ item.en_planta }} en planta</span> · <span class="text-marca">{{ item.cerradas }} cerradas</span></p>
+            <p>Capacidad simultánea: {{ item.cd.capacidad_simultanea }}{% if item.canceladas %} · {{ item.canceladas }} cancelada{{ item.canceladas|pluralize }}{% endif %}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% include 'accesos/programacion/_tabla.html' with mostrar_cd=True con_acciones=True %}
+{% endblock %}

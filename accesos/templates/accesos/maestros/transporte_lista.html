@@ -1,0 +1,69 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Transportes{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Transportes</h1>
+        <p class="text-slate-500 text-sm font-medium">Maestro de vehículos. La placa es la clave de búsqueda y el contenido del QR.</p>
+    </div>
+    <div class="action-row">
+    <a href="{% url 'accesos:carga_masiva' 'transportes' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Carga masiva</a>
+    <a href="{% url 'accesos:transporte_crear' %}" class="inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">
+        <i class="fas fa-plus"></i> Nuevo transporte
+    </a>
+    </div>
+</div>
+
+<form method="get" class="action-row mb-6">
+    <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar placa (F7J-011, f7j011…)" class="campo-accesos sm:max-w-sm" autocomplete="off">
+    <button type="submit" class="px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest">Buscar</button>
+    {% if busqueda %}<a href="{% url 'accesos:transportes_lista' %}" class="text-xs font-bold text-slate-400 hover:text-slate-700">Limpiar</a>{% endif %}
+</form>
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-6 py-3">Placa</th>
+                    <th class="text-left px-6 py-3">Tamaño</th>
+                    <th class="text-left px-6 py-3">Tipo</th>
+                    <th class="text-left px-6 py-3">Estado</th>
+                    {% if 'administrador' in accesos_roles %}<th class="text-right px-6 py-3">Acciones</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for transporte in page_obj %}
+                <tr class="hover:bg-slate-50/60">
+                    <td class="px-6 py-4 font-black text-daryza-dark tracking-wider">{{ transporte.placa }}</td>
+                    <td class="px-6 py-4 text-slate-600">{{ transporte.tamano }}</td>
+                    <td class="px-6 py-4">
+                        {% if transporte.es_interno %}
+                        <span class="px-2.5 py-1 rounded-full bg-marca-claro text-marca text-[10px] font-black uppercase">Interno</span>
+                        {% else %}
+                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase">Externo</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if transporte.activo %}<span class="text-emerald-600 font-bold">Activo</span>{% else %}<span class="text-slate-400 font-bold">Inactivo</span>{% endif %}
+                    </td>
+                    {% if 'administrador' in accesos_roles %}
+                    <td class="px-6 py-4 text-right whitespace-nowrap">
+                        {% if transporte.es_interno %}
+                        <a href="{% url 'accesos:transporte_qr' transporte.pk %}" class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold text-marca hover:bg-marca-claro"><i class="fas fa-qrcode"></i> QR</a>
+                        {% endif %}
+                        <a href="{% url 'accesos:transporte_editar' transporte.pk %}" class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100"><i class="fas fa-pen"></i> Editar</a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 font-bold">No hay transportes{% if busqueda %} que coincidan con «{{ busqueda }}»{% endif %}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'accesos/_paginacion.html' %}
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}QR {{ transporte.placa }}{% endblock %}
+
+{% block content %}
+<div class="no-imprimir action-row justify-between mb-8">
+    <a href="{% url 'accesos:transportes_lista' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest">
+        <i class="fas fa-arrow-left"></i> Volver a Transportes
+    </a>
+    <div class="action-row">
+        <a href="{% url 'accesos:transporte_qr_png' transporte.pk %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all">
+            <i class="fas fa-download"></i> Descargar PNG
+        </a>
+        <button type="button" onclick="window.print()" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-marca/30">
+            <i class="fas fa-print"></i> Imprimir etiqueta
+        </button>
+    </div>
+</div>
+
+<!-- Etiqueta para pegar en el vehículo: el QR contiene la placa normalizada -->
+<div class="mx-auto w-full max-w-sm bg-white border-4 border-daryza-dark rounded-3xl p-8 text-center">
+    <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Daryza · Transporte interno</p>
+    <div class="my-6 flex justify-center [&>svg]:w-full [&>svg]:h-auto">{{ qr_svg|safe }}</div>
+    <p class="text-5xl font-black tracking-widest text-daryza-dark">{{ transporte.placa }}</p>
+    <p class="mt-2 text-xs font-bold text-slate-400 uppercase tracking-widest">{{ transporte.tamano }}</p>
+</div>
+
+<p class="no-imprimir mt-6 text-center text-xs text-slate-400">Contenido del QR: <code class="font-bold text-slate-600">{{ transporte.contenido_qr }}</code></p>
+{% endblock %}

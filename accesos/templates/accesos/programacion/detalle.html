@@ -1,0 +1,108 @@
+{% extends 'accesos/base_accesos.html' %}
+{% load auditoria_tags %}
+
+{% block titulo %}{{ programacion.codigo }}{% endblock %}
+
+{% block content %}
+{% with p=programacion %}
+<a href="{% url 'accesos:programacion_agenda' %}?fecha={{ p.fecha|date:'Y-m-d' }}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest mb-6">
+    <i class="fas fa-arrow-left"></i> Volver a la agenda del {{ p.fecha|date:"d/m/Y" }}
+</a>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="bg-daryza-dark p-8 text-white action-row justify-between">
+            <div>
+                <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">{{ p.codigo }} · CD {{ p.cd }}</p>
+                <h1 class="text-3xl font-black tracking-tight">{{ p.transporte.placa }} · {{ p.hora|time:"H:i" }}</h1>
+                <p class="text-slate-400 font-medium">{{ fecha_larga }}</p>
+            </div>
+            <div>{% include 'accesos/programacion/_estado.html' with codigo=estado_codigo %}</div>
+        </div>
+
+        <dl class="p-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo</dt><dd class="font-bold">{{ p.get_tipo_display }}</dd></div>
+            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">RUC / DNI</dt><dd class="font-bold">{{ p.documento }}</dd></div>
+            <div class="sm:col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Razón social</dt><dd class="font-bold">{{ p.razon_social }}</dd></div>
+            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Vehículo</dt><dd class="font-bold">{{ p.transporte.placa }} · {{ p.transporte.tamano }}{% if p.transporte.es_interno %} · interno{% endif %}</dd></div>
+            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{{ p.conductor.nombre_completo }} <span class="text-slate-400">({{ p.conductor.tipo_documento }} {{ p.conductor.numero_documento }})</span></dd></div>
+            <div class="sm:col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Motivo</dt><dd class="font-bold">{{ p.motivo }}</dd></div>
+            <div class="sm:col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Observación de Despacho</dt><dd class="font-medium text-slate-600">{{ p.observacion_despacho|default:"Ninguna" }}</dd></div>
+            {% if tramo %}
+            <div class="sm:col-span-2 p-4 rounded-2xl bg-marca-claro">
+                <dt class="text-[10px] font-black uppercase tracking-widest text-marca">Registro de portería</dt>
+                <dd class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Entrada</span><span class="font-black">{{ tramo.entrada_en|date:"d/m/Y H:i" }}</span></span>
+                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Salida</span><span class="font-black">{% if tramo.salida_en %}{{ tramo.salida_en|date:"d/m/Y H:i" }}{% else %}Sigue dentro{% endif %}</span></span>
+                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Permanencia</span><span class="font-black">{{ tramo_permanencia }}</span></span>
+                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Kilometraje</span><span class="font-black">{{ tramo.km_entrada }}</span></span>
+                </dd>
+                <dd class="mt-2 text-xs text-slate-500">Obs. entrada: {{ tramo.obs_entrada }}{% if tramo.salida_en %} · Obs. salida: {{ tramo.obs_salida }}{% endif %}</dd>
+                {% if 'administrador' in accesos_roles %}<dd class="mt-2"><a href="{% url 'accesos:tramo_detalle' tramo.pk %}" class="text-xs font-black text-marca hover:underline">Ver tramo y correcciones →</a></dd>{% endif %}
+            </div>
+            {% endif %}
+            {% if p.esta_cancelada %}
+            <div class="sm:col-span-2 p-4 rounded-2xl bg-slate-50">
+                <dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelada</dt>
+                <dd class="font-bold">{{ p.motivo_cancelacion }}</dd>
+                <dd class="text-xs text-slate-400 mt-1">Por {{ p.cancelado_por }} el {{ p.cancelado_en|date:"d/m/Y H:i" }}</dd>
+            </div>
+            {% endif %}
+            <div class="sm:col-span-2 text-xs text-slate-400">
+                Registrada por {{ p.creado_por }} el {{ p.creado_en|date:"d/m/Y H:i" }}{% if p.modificado_por %} · Última modificación de {{ p.modificado_por }} el {{ p.modificado_en|date:"d/m/Y H:i" }}{% endif %}
+            </div>
+        </dl>
+    </div>
+
+    <aside class="space-y-6">
+        <div class="bg-white rounded-3xl border border-slate-100 p-6 text-center">
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca mb-3">QR de la placa</h2>
+            <div class="mx-auto w-40 [&>svg]:w-full [&>svg]:h-auto">{{ qr_svg|safe }}</div>
+            <p class="mt-2 text-2xl font-black tracking-widest">{{ p.transporte.placa }}</p>
+            <a href="{% url 'accesos:programacion_pase' p.pk %}" class="mt-3 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-print"></i> Pase imprimible</a>
+        </div>
+        {% if accesos_puede_programar %}
+        <div class="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Acciones</h2>
+            {% if not motivo_no_editable %}
+            <a href="{% url 'accesos:programacion_editar' p.pk %}" class="flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-pen"></i> Editar</a>
+            {% else %}
+            <p class="text-xs text-slate-400"><i class="fas fa-lock mr-1"></i> {{ motivo_no_editable }}</p>
+            {% endif %}
+            <a href="{% url 'accesos:programacion_crear' %}?desde={{ p.pk }}" class="flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-marca-claro text-marca text-xs font-black uppercase tracking-widest hover:bg-marca-suave"><i class="fas fa-clone"></i> Nueva en otro horario</a>
+        </div>
+
+        {% if not motivo_no_cancelable %}
+        <form method="post" action="{% url 'accesos:programacion_cancelar' p.pk %}" class="bg-white rounded-3xl border border-rose-100 p-6 space-y-3">
+            {% csrf_token %}
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-rose-500">Cancelar programación</h2>
+            {% include 'accesos/maestros/_campo.html' with campo=form_cancelacion.motivo %}
+            <button type="submit" class="w-full px-5 py-3 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-black uppercase tracking-widest">Cancelar programación</button>
+        </form>
+        {% elif not p.esta_cancelada %}
+        <p class="text-xs text-slate-400 px-2"><i class="fas fa-lock mr-1"></i> {{ motivo_no_cancelable }}</p>
+        {% endif %}
+        {% endif %}
+
+        <div class="bg-white rounded-3xl border border-slate-100 p-6">
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca mb-4">Historial</h2>
+            <ol class="space-y-3 text-xs">
+                {% for registro in historial %}
+                <li>
+                    <p class="font-black text-slate-700">{{ registro.get_accion_display }} · {{ registro.autor }}</p>
+                    <p class="text-slate-400">{{ registro.fecha|date:"d/m/Y H:i" }}{% if registro.motivo %} · {{ registro.motivo }}{% endif %}</p>
+                    {% if registro.accion == 'MODIFICAR' %}
+                    <ul class="mt-1 text-slate-500">
+                        {% for campo, valor in registro.datos_despues.items %}{% if campo != 'modificado_por_id' %}<li>{{ campo }}: {{ valor|valor_auditoria }}</li>{% endif %}{% endfor %}
+                    </ul>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="text-slate-400">Sin registros.</li>
+                {% endfor %}
+            </ol>
+        </div>
+    </aside>
+</div>
+{% endwith %}
+{% endblock %}

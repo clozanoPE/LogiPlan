@@ -1,0 +1,217 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Portería CD {{ cd }}{% endblock %}
+
+{% block content %}
+{% include 'accesos/porteria/_barra.html' %}
+
+{% if registrado %}
+<!-- Confirmación grande: se oculta sola a los 3 segundos -->
+<div id="confirmacion" class="mb-6 p-8 rounded-3xl text-center text-white {% if registrado == 'ENTRADA' %}bg-marca{% else %}bg-sky-600{% endif %}">
+    <i class="fas fa-circle-check text-5xl"></i>
+    <p class="mt-3 text-3xl font-black">{{ registrado }} registrada</p>
+    <p class="text-xl font-bold opacity-90">{{ registrado_placa }}</p>
+</div>
+{% endif %}
+
+<!-- Paso 1: identificar el vehículo (lector QR físico, cámara o placa digitada) -->
+<form method="get" id="form-identificar" class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 mb-6">
+    <label for="campo-placa" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">Escanee el QR o digite la placa</label>
+    <div class="action-row">
+        <input id="campo-placa" type="text" name="placa" value="{{ texto }}" autocomplete="off" autocapitalize="characters"
+               {% if not resultado %}autofocus{% endif %} placeholder="F7J-011"
+               class="flex-1 text-4xl font-black tracking-widest uppercase px-6 py-5 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+        <button type="submit" class="px-8 py-5 rounded-2xl bg-slate-800 text-white text-lg font-black uppercase tracking-widest">Buscar</button>
+        <button type="button" id="boton-camara" class="px-8 py-5 rounded-2xl bg-marca-claro text-marca text-lg font-black uppercase tracking-widest"><i class="fas fa-camera mr-2"></i>Cámara</button>
+    </div>
+    <div id="lector-camara" class="hidden mt-4 mx-auto max-w-md rounded-2xl overflow-hidden"></div>
+    <p id="error-camara" class="hidden mt-4 p-3 rounded-xl bg-amber-50 text-amber-800 font-bold text-sm"></p>
+</form>
+
+{% if resultado %}
+    {% if resultado.accion == 'ENTRADA' %}
+    <!-- ENTRADA -->
+    <form method="post" action="{% url 'accesos:porteria_entrada' %}" id="form-entrada" class="bg-white rounded-3xl border-4 border-marca overflow-hidden">
+        {% csrf_token %}
+        <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+        <input type="hidden" name="placa" value="{{ texto }}">
+        <div class="bg-marca text-white p-6 action-row justify-between">
+            <div>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">Entrada</p>
+                <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
+                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }}{% if resultado.transporte.es_interno %} · interno{% endif %}</p>
+            </div>
+            <i class="fas fa-right-to-bracket text-6xl opacity-30"></i>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <fieldset>
+                <legend class="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">Programación</legend>
+                {% if not resultado.sugerida %}
+                <p class="mb-3 p-3 rounded-xl bg-amber-50 text-amber-800 font-bold text-sm">Ninguna programación está dentro de ±{{ ventana }} min. Elija la que corresponde y confírmela.</p>
+                {% endif %}
+                <div class="grid gap-3">
+                    {% for c in resultado.candidatas %}
+                    {% with p=c.programacion %}
+                    <label class="flex items-start gap-4 p-4 rounded-2xl border-2 border-slate-200 has-[:checked]:border-marca has-[:checked]:bg-marca-claro cursor-pointer">
+                        <input type="radio" name="programacion" value="{{ p.pk }}" class="mt-2 w-6 h-6 accent-[#ea580c]" required
+                               data-fuera="{% if c.en_ventana %}0{% else %}1{% endif %}" data-conductor="{{ p.conductor_id }}"
+                               {% if resultado.sugerida and p.pk == resultado.sugerida.programacion.pk %}checked{% endif %}>
+                        <span class="flex-1">
+                            <span class="flex flex-wrap items-baseline gap-x-3">
+                                <span class="text-3xl font-black text-daryza-dark">{{ p.hora|time:"H:i" }}</span>
+                                <span class="text-xs font-black text-slate-400">{{ p.codigo }}</span>
+                                {% if resultado.sugerida and p.pk == resultado.sugerida.programacion.pk %}<span class="px-2 py-0.5 rounded-full bg-marca text-white text-[10px] font-black uppercase">Sugerida</span>{% endif %}
+                                {% if not c.en_ventana %}<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">Fuera de ventana</span>{% endif %}
+                            </span>
+                            <span class="block font-bold text-slate-700">{{ p.get_tipo_display }} · {{ p.razon_social }}</span>
+                            <span class="block text-sm text-slate-500">{{ p.motivo }} · Conductor: {{ p.conductor.nombre_completo }}</span>
+                            <span class="block text-xs font-bold text-slate-400">{{ c.descripcion }}</span>
+                        </span>
+                    </label>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+                <label id="confirmar-fuera" class="hidden mt-3 flex items-center gap-3 p-4 rounded-2xl bg-amber-50 text-amber-900 font-bold">
+                    <input type="checkbox" name="confirmar_fuera_de_ventana" value="on" class="w-6 h-6">
+                    Confirmo que esta programación corresponde aunque está fuera de ±{{ ventana }} min.
+                </label>
+            </fieldset>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="campo-km" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
+                    <input id="campo-km" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
+                           class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+                </div>
+                <div>
+                    <label for="campo-obs-entrada" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
+                    <input id="campo-obs-entrada" type="text" name="obs" maxlength="500" placeholder="Ninguna"
+                           class="w-full text-xl font-bold px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+                </div>
+            </div>
+
+            <details class="rounded-2xl bg-slate-50 p-4">
+                <summary class="font-black text-slate-600 cursor-pointer">¿Llegó otro conductor?</summary>
+                <select name="conductor" id="campo-conductor" class="campo-accesos mt-3">
+                    <option value="">El conductor programado</option>
+                    {% for conductor in conductores %}<option value="{{ conductor.pk }}">{{ conductor.nombre_completo }} · {{ conductor.tipo_documento }} {{ conductor.numero_documento }}</option>{% endfor %}
+                </select>
+            </details>
+
+            <div class="action-row">
+                <a href="{% url 'accesos:porteria' %}" class="px-8 py-5 rounded-2xl text-center text-lg font-black uppercase tracking-widest text-slate-500 bg-slate-100">Cancelar</a>
+                <button type="submit" class="flex-1 px-8 py-5 rounded-2xl bg-marca hover:bg-marca-oscuro text-white text-2xl font-black uppercase tracking-widest shadow-lg shadow-marca/30">Registrar entrada</button>
+            </div>
+        </div>
+    </form>
+
+    {% elif resultado.accion == 'SALIDA' %}
+    <!-- SALIDA -->
+    {% with t=resultado.tramo_abierto %}
+    <form method="post" action="{% url 'accesos:porteria_salida' %}" class="bg-white rounded-3xl border-4 border-sky-600 overflow-hidden">
+        {% csrf_token %}
+        <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+        <input type="hidden" name="tramo" value="{{ t.pk }}">
+        <input type="hidden" name="placa" value="{{ texto }}">
+        <div class="bg-sky-600 text-white p-6 action-row justify-between">
+            <div>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">Salida · {{ numero_tramo }}.º tramo del día</p>
+                <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
+                <p class="font-bold opacity-90">{{ t.programacion.get_tipo_display }} · {{ t.programacion.razon_social }}</p>
+            </div>
+            <i class="fas fa-right-from-bracket text-6xl opacity-30"></i>
+        </div>
+        <div class="p-6 space-y-6">
+            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Entró</dt><dd class="text-2xl font-black">{{ t.entrada_en|date:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.entrada_en|date:"d/m/Y" }}</dd></div>
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Tiempo dentro</dt><dd class="text-2xl font-black {% if prolongada %}text-rose-600{% endif %}">{{ minutos_dentro }}</dd>{% if prolongada %}<dd class="text-xs font-black text-rose-600 uppercase">Permanencia prolongada</dd>{% endif %}</div>
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Programada</dt><dd class="text-2xl font-black">{{ t.programacion.hora|time:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.programacion.codigo }}</dd></div>
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{{ t.conductor.nombre_completo }}</dd></div>
+            </dl>
+            <div>
+                <label for="campo-obs-salida" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de salida</label>
+                <input id="campo-obs-salida" type="text" name="obs" maxlength="500" placeholder="Ninguna" autofocus
+                       class="w-full text-xl font-bold px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-sky-600 focus:outline-none">
+            </div>
+            <div class="action-row">
+                <a href="{% url 'accesos:porteria' %}" class="px-8 py-5 rounded-2xl text-center text-lg font-black uppercase tracking-widest text-slate-500 bg-slate-100">Cancelar</a>
+                <button type="submit" class="flex-1 px-8 py-5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-2xl font-black uppercase tracking-widest">Registrar salida</button>
+            </div>
+        </div>
+    </form>
+    {% endwith %}
+
+    {% else %}
+    <!-- BLOQUEO: no programado u otro CD -->
+    <div class="rounded-3xl p-8 text-center text-white {% if resultado.accion == 'OTRO_CD' %}bg-orange-500{% else %}bg-rose-600{% endif %}">
+        <i class="fas {% if resultado.accion == 'OTRO_CD' %}fa-triangle-exclamation{% else %}fa-ban{% endif %} text-6xl"></i>
+        <p class="mt-4 text-4xl font-black uppercase">{% if resultado.accion == 'OTRO_CD' %}Vehículo en otro CD{% else %}Vehículo no programado{% endif %}</p>
+        <p class="mt-3 text-xl font-bold">{{ resultado.mensaje }}</p>
+        <a href="{% url 'accesos:porteria' %}" class="inline-block mt-6 px-8 py-4 rounded-2xl bg-white/20 hover:bg-white/30 text-lg font-black uppercase tracking-widest">Volver a escanear</a>
+    </div>
+    {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    (() => {
+        // Confirmación grande: tras 3 s vuelve a la pantalla limpia de escaneo.
+        const confirmacion = document.getElementById('confirmacion');
+        if (confirmacion) {
+            setTimeout(() => { window.location.replace('{% url "accesos:porteria" %}'); }, 3000);
+        }
+
+        // Selección de programación: pide confirmación si está fuera de la ventana.
+        const formEntrada = document.getElementById('form-entrada');
+        if (formEntrada) {
+            const confirmar = document.getElementById('confirmar-fuera');
+            const casilla = confirmar.querySelector('input');
+            const actualizar = () => {
+                const elegida = formEntrada.querySelector('input[name="programacion"]:checked');
+                const fuera = elegida && elegida.dataset.fuera === '1';
+                confirmar.classList.toggle('hidden', !fuera);
+                casilla.required = fuera;
+                if (!fuera) casilla.checked = false;
+            };
+            formEntrada.querySelectorAll('input[name="programacion"]').forEach(r => r.addEventListener('change', actualizar));
+            actualizar();
+        }
+
+        // Evita registrar dos veces por doble toque.
+        document.querySelectorAll('form[method="post"]').forEach(form => {
+            form.addEventListener('submit', () => {
+                form.querySelectorAll('button[type="submit"]').forEach(b => { b.disabled = true; b.classList.add('opacity-60'); });
+            });
+        });
+
+        // Cámara de la tablet (el lector QR físico escribe directo en el campo y envía Enter).
+        const boton = document.getElementById('boton-camara');
+        const contenedor = document.getElementById('lector-camara');
+        const errorCamara = document.getElementById('error-camara');
+        const avisar = (texto) => { errorCamara.textContent = texto; errorCamara.classList.remove('hidden'); };
+        let lector = null;
+        boton.addEventListener('click', async () => {
+            errorCamara.classList.add('hidden');
+            if (lector) {
+                await lector.stop(); lector = null; contenedor.classList.add('hidden'); return;
+            }
+            if (typeof Html5Qrcode === 'undefined') { avisar('No se pudo cargar el lector de cámara. Digite la placa.'); return; }
+            contenedor.classList.remove('hidden');
+            lector = new Html5Qrcode('lector-camara');
+            try {
+                await lector.start({ facingMode: 'environment' }, { fps: 10, qrbox: 240 }, async (texto) => {
+                    await lector.stop(); lector = null;
+                    document.getElementById('campo-placa').value = texto;
+                    document.getElementById('form-identificar').submit();
+                });
+            } catch (error) {
+                contenedor.classList.add('hidden'); lector = null;
+                avisar('No se pudo abrir la cámara. Revise los permisos del navegador o digite la placa.');
+            }
+        });
+    })();
+</script>
+{% endblock %}

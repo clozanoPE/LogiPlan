@@ -1,0 +1,5 @@
+{# Etiqueta del estado de una fila de la carga masiva (vista previa o resultado). #}
+{% if fila.estado == 'OK' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black"><i class="fas fa-check"></i> {% if paso == 'resultado' %}{{ tipo.participio }}{% else %}Válida{% endif %}</span>
+{% elif fila.estado == 'AVISO' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black"><i class="fas fa-triangle-exclamation"></i> {% if paso == 'resultado' %}{{ tipo.participio }} con aviso{% else %}Válida con aviso{% endif %}</span>
+{% elif fila.estado == 'OMITIDA' %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-black"><i class="fas fa-forward"></i> Omitida</span>
+{% else %}<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[11px] font-black"><i class="fas fa-xmark"></i> Error</span>{% endif %}

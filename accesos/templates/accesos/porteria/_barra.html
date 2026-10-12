@@ -1,0 +1,15 @@
+{% with actual=request.resolver_match.url_name %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Portería</p>
+        <h1 class="text-3xl font-black tracking-tight text-daryza-dark">CD {{ cd }}</h1>
+        <p class="text-slate-500 font-bold">{{ dentro_ahora }} vehículo{{ dentro_ahora|pluralize }} dentro · capacidad {{ cd.capacidad_simultanea }}
+            {% if varios_cd %}· <a href="{% url 'accesos:porteria_cd' %}" class="text-marca hover:underline">cambiar CD</a>{% endif %}</p>
+    </div>
+    <nav class="flex flex-wrap gap-2" aria-label="Secciones de portería">
+        <a href="{% url 'accesos:porteria' %}" class="px-5 py-3 rounded-full text-sm font-black {% if actual == 'porteria' %}bg-marca text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}"><i class="fas fa-qrcode mr-1"></i> Escanear</a>
+        <a href="{% url 'accesos:porteria_dentro' %}" class="px-5 py-3 rounded-full text-sm font-black {% if actual == 'porteria_dentro' %}bg-marca text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}"><i class="fas fa-warehouse mr-1"></i> Dentro ahora ({{ dentro_ahora }})</a>
+        <a href="{% url 'accesos:porteria_programaciones' %}" class="px-5 py-3 rounded-full text-sm font-black {% if actual == 'porteria_programaciones' %}bg-marca text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}"><i class="fas fa-calendar-day mr-1"></i> Programaciones</a>
+    </nav>
+</div>
+{% endwith %}

@@ -1,0 +1,74 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Inicio{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <span class="inline-block px-3 py-1 bg-marca text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-md mb-3">CD Lurín · CD Punta Negra</span>
+    <h1 class="text-3xl font-black tracking-tight text-daryza-dark">Control de Ingresos y Salidas de Transportes</h1>
+    <p class="text-slate-500 font-medium mt-1">Seleccione una sección. Solo se muestran las que corresponden a su rol.</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% if 'administrador' in accesos_roles or 'despacho' in accesos_roles %}
+    <a href="{% url 'accesos:transportes_lista' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-truck text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Transportes</h2>
+        <p class="text-sm text-slate-500 mt-1">Maestro de placas y tamaños. {% if 'administrador' in accesos_roles %}Impresión de QR para internos.{% endif %}</p>
+    </a>
+    <a href="{% url 'accesos:conductores_lista' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-id-card text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Conductores</h2>
+        <p class="text-sm text-slate-500 mt-1">Maestro de conductores con DNI o Carné de Extranjería.</p>
+    </a>
+    {% endif %}
+
+    {% if 'administrador' in accesos_roles or 'despacho' in accesos_roles or 'consulta' in accesos_roles %}
+    <a href="{% url 'accesos:programacion_agenda' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-calendar-check text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Programaciones</h2>
+        <p class="text-sm text-slate-500 mt-1">Agenda por día y CD: fecha, horario y placa de cada ingreso esperado.</p>
+    </a>
+    {% endif %}
+
+    {% if 'vigilancia' in accesos_roles %}
+    <a href="{% url 'accesos:porteria' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-qrcode text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Portería</h2>
+        <p class="text-sm text-slate-500 mt-1">Escanee el QR o digite la placa: el sistema registra la entrada o la salida.</p>
+    </a>
+    {% endif %}
+
+    {% if accesos_ve_indicadores %}
+    <a href="{% url 'accesos:tablero_hoy' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-clock text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Hoy</h2>
+        <p class="text-sm text-slate-500 mt-1">Vehículos dentro ahora, ocupación de cada CD y avance de las programaciones del día.</p>
+    </a>
+    <a href="{% url 'accesos:dashboard' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-chart-column text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Dashboard</h2>
+        <p class="text-sm text-slate-500 mt-1">Dónde, cuándo y por qué se demoran los camiones: permanencia, puntualidad y horas pico.</p>
+    </a>
+    {% endif %}
+    {% if accesos_ve_tramos %}
+    <a href="{% url 'accesos:tramos_lista' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-right-left text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Tramos</h2>
+        <p class="text-sm text-slate-500 mt-1">Historial de ingresos y salidas con filtros y exportación a Excel.</p>
+    </a>
+    {% endif %}
+</div>
+
+{% if 'administrador' in accesos_roles %}
+<div class="mt-10 bg-white rounded-3xl border border-slate-100 p-6">
+    <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca mb-4">Parámetros vigentes</h2>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Ventana de sugerencia</dt><dd class="font-black">± {{ config.ventana_sugerencia_min }} min</dd></div>
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Tolerancia de puntualidad</dt><dd class="font-black">± {{ config.tolerancia_puntualidad_min }} min</dd></div>
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Permanencia prolongada</dt><dd class="font-black">{{ config.umbral_prolongada_min }} min</dd></div>
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Meta de permanencia</dt><dd class="font-black">{% if config.meta_permanencia_min %}{{ config.meta_permanencia_min }} min{% else %}Por definir{% endif %}</dd></div>
+    </dl>
+</div>
+{% endif %}
+{% endblock %}

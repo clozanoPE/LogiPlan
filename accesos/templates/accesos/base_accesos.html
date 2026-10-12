@@ -1,0 +1,286 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ea580c">
+    <title>{% block titulo %}Control de Accesos{% endblock %} | LogiPlan Daryza</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo7.png' %}">
+
+    <!-- Mismas dependencias por CDN que base.html (layout propio para no mostrar el menú de Planificación) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        daryza: {
+                            dark: '#1a1a1a'
+                        },
+                        // Naranja corporativo del módulo de Accesos (Planificación conserva su verde):
+                        // así se distingue de un vistazo en qué módulo de LogiPlan se está trabajando.
+                        marca: {
+                            DEFAULT: '#ea580c',
+                            oscuro: '#c2410c',
+                            suave: '#ffedd5',
+                            claro: '#fff7ed'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        /* Campos de formulario del módulo (widgets de Django con clase campo-accesos) */
+        .campo-accesos {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: .75rem;
+            padding: .75rem 1rem;
+            font-size: .95rem;
+            font-weight: 600;
+            background: #f8fafc;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .campo-accesos:focus {
+            outline: none;
+            border-color: #ea580c;
+            box-shadow: 0 0 0 3px rgba(234, 88, 12, .18);
+            background: #fff;
+        }
+        .action-row {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+        .action-row > * {
+            width: 100%;
+        }
+        @media (min-width: 640px) {
+            .action-row {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .action-row > * {
+                width: auto;
+            }
+        }
+        /* Panel de navegación móvil: nunca visible en escritorio aunque haya quedado abierto. */
+        #accesosNavPanel { display: none; }
+        #accesosNavPanel.abierto { display: block; animation: aparecer .2s ease-out; }
+        @keyframes aparecer { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+        @media (min-width: 1024px) { #accesosNavPanel { display: none !important; } }
+        /* Barras de desplazamiento con el naranja del módulo */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ea580c; border-radius: 10px; }
+        @media print {
+            .no-imprimir { display: none !important; }
+            body { background: #fff; }
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-900">
+{% timezone "America/Lima" %}
+
+    <div id="toast-container" class="no-imprimir fixed top-24 right-4 left-4 sm:left-auto sm:right-5 z-[100] flex flex-col gap-3 sm:w-80 pointer-events-none">
+        {% for message in messages %}
+            <div class="message-toast pointer-events-auto flex items-center p-4 rounded-lg shadow-xl border-l-4 animate-slide-in bg-white
+                {% if message.tags == 'success' %}border-emerald-500 text-emerald-800
+                {% elif message.tags == 'error' %}border-rose-500 text-rose-800
+                {% elif message.tags == 'warning' %}border-amber-500 text-amber-800
+                {% else %}border-blue-500 text-blue-800{% endif %}">
+                <div class="text-sm font-semibold">{{ message }}</div>
+                <button onclick="this.parentElement.remove()" class="ml-auto pl-3 text-slate-400 hover:text-slate-600" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        {% endfor %}
+    </div>
+
+    <header class="no-imprimir bg-white sticky top-0 z-50 shadow-sm border-b-4 border-marca">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between gap-3 py-3 lg:py-4">
+                <a href="{% url 'accesos:inicio' %}" class="flex items-center gap-3 min-w-0">
+                    <div class="bg-marca p-2.5 rounded-full flex items-center justify-center shadow-md shadow-marca/30 shrink-0">
+                        <i class="fas fa-truck-ramp-box text-white text-lg sm:text-xl"></i>
+                    </div>
+                    <div class="flex flex-col leading-none min-w-0">
+                        <span class="text-base sm:text-lg font-black tracking-tight text-daryza-dark truncate">CONTROL DE <span class="text-marca">ACCESOS</span></span>
+                        <span class="hidden sm:block text-[10px] uppercase tracking-widest text-slate-400 font-bold">LogiPlan · Daryza S.A.C.</span>
+                    </div>
+                </a>
+
+                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                    {% if accesos_ve_licencias %}{% include 'accesos/_campanita.html' %}{% endif %}
+                    <div class="hidden sm:flex flex-col items-end leading-tight">
+                        <span class="text-sm font-black text-daryza-dark">{{ user.get_full_name|default:user.username }}</span>
+                        <span class="text-[10px] text-marca font-extrabold uppercase tracking-wider">
+                            {% for rol in accesos_roles %}{{ rol }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                        </span>
+                    </div>
+                    <form action="{% url 'logout' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'login' %}">
+                        <button type="submit" class="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
+                                aria-label="{% if 'vigilancia' in accesos_roles %}Cambiar vigilante{% else %}Salir{% endif %}">
+                            <i class="fas fa-power-off"></i>
+                            <span class="hidden sm:inline">{% if 'vigilancia' in accesos_roles %}Cambiar vigilante{% else %}Salir{% endif %}</span>
+                        </button>
+                    </form>
+                    <button id="accesosNavBoton" type="button" class="lg:hidden w-11 h-11 rounded-full flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-marca-claro hover:text-marca"
+                            aria-expanded="false" aria-controls="accesosNavPanel" aria-label="Abrir menú">
+                        <i class="fas fa-bars text-lg" id="accesosNavIcono" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Menú de escritorio -->
+            <nav class="hidden lg:flex flex-wrap gap-2 pb-4" aria-label="Menú del módulo de Accesos">
+                {% include 'accesos/_menu.html' with movil=False %}
+            </nav>
+
+            <!-- Menú móvil (teléfono y tablet) -->
+            <nav id="accesosNavPanel" class="lg:hidden border-t border-slate-100 py-3" aria-label="Menú móvil del módulo de Accesos">
+                <p class="sm:hidden px-4 pb-2 text-xs font-bold text-slate-400">{{ user.get_full_name|default:user.username }} · <span class="text-marca uppercase">{% for rol in accesos_roles %}{{ rol }}{% if not forloop.last %} · {% endif %}{% endfor %}</span></p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {% include 'accesos/_menu.html' with movil=True %}
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Pie de página: el mismo de Planificación, con el naranja del módulo de Accesos -->
+    <footer class="no-imprimir bg-daryza-dark text-white py-10 border-t-4 border-marca">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg shadow-marca/30 overflow-hidden p-1">
+                        <img src="{% static 'img/logo7.png' %}" alt="Logo Daryza" class="w-11 h-11 object-contain">
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-bold tracking-tight text-lg">LOGIPLAN <span class="text-marca">ACCESOS</span></span>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Efficiency in Motion</span>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <p class="text-xs text-slate-400 font-medium leading-relaxed">
+                        Control de ingresos y salidas de transportes · hora de Lima.<br>
+                        &copy; 2026 <span class="text-white font-bold">Daryza S.A.C.</span> - Todos los derechos reservados.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-3">
+                    <span class="inline-flex items-center rounded-md bg-white/5 px-3 py-1.5 text-[10px] font-bold text-marca ring-1 ring-inset ring-white/10 uppercase tracking-widest">Control de Accesos</span>
+                    <span class="inline-flex items-center rounded-md bg-marca px-3 py-1.5 text-[10px] font-bold text-white uppercase tracking-widest">CD Lurín · CD Punta Negra</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.message-toast').forEach(toast => {
+            setTimeout(() => {
+                toast.style.transition = 'all 0.5s ease';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 5000);
+        });
+
+        // Menú móvil: abre/cierra, se cierra al tocar fuera o con Escape.
+        (() => {
+            const boton = document.getElementById('accesosNavBoton');
+            const panel = document.getElementById('accesosNavPanel');
+            const icono = document.getElementById('accesosNavIcono');
+            if (!boton || !panel) return;
+            const fijar = (abierto) => {
+                panel.classList.toggle('abierto', abierto);
+                boton.setAttribute('aria-expanded', abierto);
+                icono.classList.toggle('fa-bars', !abierto);
+                icono.classList.toggle('fa-xmark', abierto);
+            };
+            boton.addEventListener('click', (e) => { e.stopPropagation(); fijar(!panel.classList.contains('abierto')); });
+            document.addEventListener('click', (e) => { if (!panel.contains(e.target) && !boton.contains(e.target)) fijar(false); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fijar(false); });
+        })();
+
+        // Actualización automática (accesos/_autorefresco.html: Dashboard con hoy, «Hoy», «Dentro ahora»):
+        // recarga cada N s sin interrumpir. Espera si la pestaña está oculta, hay un menú o diálogo abierto,
+        // un campo con foco o el usuario usó la pantalla hace menos de 30 s. La URL (filtros) se conserva y
+        // la posición de desplazamiento se repone tras recargar.
+        (() => {
+            const clave = 'accesosScroll:' + location.pathname + location.search;
+            try {
+                const y = sessionStorage.getItem(clave);
+                if (y !== null) {
+                    sessionStorage.removeItem(clave);
+                    window.addEventListener('load', () => window.scrollTo(0, Number(y)));
+                }
+            } catch (e) { /* sin almacenamiento: se recarga igual, arriba de la página */ }
+            const marca = document.querySelector('[data-autorefresco]');
+            if (!marca) return;
+            const intervalo = (parseInt(marca.dataset.autorefresco, 10) || 60) * 1000;
+            const PAUSA_TRAS_USO = 30000;
+            const cargada = Date.now();
+            let ultimoUso = 0;
+            ['pointerdown', 'keydown', 'input', 'wheel', 'touchmove'].forEach((evento) =>
+                document.addEventListener(evento, () => { ultimoUso = Date.now(); }, { passive: true, capture: true }));
+            const ocupado = () => {
+                const activo = document.activeElement;
+                const campanita = document.getElementById('campanitaPanel');
+                return (activo && activo.matches('input, select, textarea, [contenteditable]'))
+                    || document.querySelector('dialog[open], #accesosNavPanel.abierto')
+                    || (campanita && !campanita.classList.contains('hidden'));
+            };
+            const recargar = () => {
+                try { sessionStorage.setItem(clave, String(window.scrollY)); } catch (e) { /* ídem */ }
+                window.location.reload();
+            };
+            setInterval(() => {
+                if (document.hidden || Date.now() - cargada < intervalo) return;
+                if (ocupado() || Date.now() - ultimoUso < PAUSA_TRAS_USO) return;
+                recargar();
+            }, 5000);
+            marca.querySelectorAll('[data-actualizar-ahora]').forEach((boton) => boton.addEventListener('click', recargar));
+        })();
+        {% if accesos_ve_licencias %}
+
+        // Campanita de licencias: mismo comportamiento que el menú móvil.
+        (() => {
+            const boton = document.getElementById('campanitaBoton');
+            const panel = document.getElementById('campanitaPanel');
+            if (!boton || !panel) return;
+            const fijar = (abierto) => {
+                panel.classList.toggle('hidden', !abierto);
+                boton.setAttribute('aria-expanded', abierto);
+            };
+            boton.addEventListener('click', (e) => { e.stopPropagation(); fijar(panel.classList.contains('hidden')); });
+            document.addEventListener('click', (e) => { if (!panel.contains(e.target) && !boton.contains(e.target)) fijar(false); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fijar(false); });
+        })();
+        {% endif %}
+    </script>
+    {% block scripts %}{% endblock %}
+{% endtimezone %}
+</body>
+</html>

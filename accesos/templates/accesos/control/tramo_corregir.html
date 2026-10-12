@@ -1,0 +1,39 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Corregir tramo{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <a href="{% url 'accesos:tramo_detalle' tramo.pk %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest mb-6">
+        <i class="fas fa-arrow-left"></i> Volver al tramo
+    </a>
+    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div class="bg-daryza-dark p-8 text-white">
+            <h1 class="text-2xl font-black tracking-tight">Corregir tramo de {{ tramo.transporte.placa }}</h1>
+            <p class="text-slate-400 text-sm font-medium mt-1">Horas en hora de Lima. Se recalculan permanencia y puntualidad; el cambio y el motivo quedan en la auditoría.</p>
+        </div>
+        <form method="post" class="p-8 space-y-6" novalidate>
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+            <p class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold">{{ error }}</p>
+            {% endfor %}
+            {% include 'accesos/maestros/_campo.html' with campo=form.programacion %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {% include 'accesos/maestros/_campo.html' with campo=form.entrada_en %}
+                {% if form.salida_en %}{% include 'accesos/maestros/_campo.html' with campo=form.salida_en %}{% endif %}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {% include 'accesos/maestros/_campo.html' with campo=form.km_entrada %}
+                {% include 'accesos/maestros/_campo.html' with campo=form.conductor %}
+            </div>
+            {% include 'accesos/maestros/_campo.html' with campo=form.obs_entrada %}
+            {% if form.obs_salida %}{% include 'accesos/maestros/_campo.html' with campo=form.obs_salida %}{% endif %}
+            {% include 'accesos/maestros/_campo.html' with campo=form.motivo %}
+            <div class="action-row justify-end pt-4 border-t border-slate-100">
+                <a href="{% url 'accesos:tramo_detalle' tramo.pk %}" class="px-6 py-3 rounded-full text-center text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cancelar</a>
+                <button type="submit" class="px-6 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest">Guardar corrección</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

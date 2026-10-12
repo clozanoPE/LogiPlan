@@ -1,0 +1,157 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}{{ tipo.titulo_pantalla }}{% endblock %}
+
+{% block content %}
+<a href="{% url destino %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest mb-6">
+    <i class="fas fa-arrow-left"></i> Volver a {{ tipo.destino_titulo }}
+</a>
+
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">{{ tipo.titulo_pantalla }}</h1>
+        <p class="text-slate-500 text-sm font-medium">Suba la plantilla con varios registros a la vez. Cada fila se valida con las mismas reglas del registro manual.</p>
+    </div>
+    <a href="{% url 'accesos:carga_plantilla' tipo.clave %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-arrow-down"></i> Descargar plantilla</a>
+</div>
+
+{# Pasos #}
+<ol class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-sm">
+    <li class="flex items-center gap-3 p-4 rounded-2xl border {% if paso == 'subir' %}border-marca bg-marca-claro{% else %}border-slate-100 bg-white{% endif %}">
+        <span class="w-8 h-8 shrink-0 rounded-full {% if paso == 'subir' %}bg-marca text-white{% else %}bg-slate-100 text-slate-500{% endif %} flex items-center justify-center font-black">1</span>
+        <span class="font-bold text-slate-700">Descargue la plantilla y llénela</span>
+    </li>
+    <li class="flex items-center gap-3 p-4 rounded-2xl border {% if paso == 'vista_previa' %}border-marca bg-marca-claro{% else %}border-slate-100 bg-white{% endif %}">
+        <span class="w-8 h-8 shrink-0 rounded-full {% if paso == 'vista_previa' %}bg-marca text-white{% else %}bg-slate-100 text-slate-500{% endif %} flex items-center justify-center font-black">2</span>
+        <span class="font-bold text-slate-700">Revise la vista previa (aún no se graba)</span>
+    </li>
+    <li class="flex items-center gap-3 p-4 rounded-2xl border {% if paso == 'resultado' %}border-marca bg-marca-claro{% else %}border-slate-100 bg-white{% endif %}">
+        <span class="w-8 h-8 shrink-0 rounded-full {% if paso == 'resultado' %}bg-marca text-white{% else %}bg-slate-100 text-slate-500{% endif %} flex items-center justify-center font-black">3</span>
+        <span class="font-bold text-slate-700">Confirme: se graban solo las filas válidas</span>
+    </li>
+</ol>
+
+{% if paso == 'subir' %}
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <form method="post" enctype="multipart/form-data" class="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="previsualizar">
+        <label for="archivo" class="block text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Archivo Excel (.xlsx)</label>
+        <input id="archivo" type="file" name="archivo" accept=".xlsx" required
+               class="block w-full text-sm text-slate-600 file:mr-4 file:py-3 file:px-5 file:rounded-full file:border-0 file:bg-marca-claro file:text-marca file:font-black file:text-xs file:uppercase file:tracking-widest hover:file:bg-marca-suave">
+        <p class="text-xs text-slate-500">Máximo {{ max_filas }} filas. Use la hoja «Datos» de la plantilla sin cambiar los encabezados.</p>
+        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">
+            <i class="fas fa-magnifying-glass"></i> Revisar archivo
+        </button>
+    </form>
+
+    <div class="lg:col-span-3 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="p-6 pb-3">
+            <p class="text-[11px] font-black uppercase tracking-[0.2em] text-marca">Columnas de la plantilla</p>
+            <p class="text-sm text-slate-500 mt-1">{{ tipo.nota }}</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                    <tr><th class="text-left px-6 py-3">Columna</th><th class="text-left px-4 py-3">Obligatoria</th><th class="text-left px-6 py-3">Formato</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for col in tipo.columnas %}
+                    <tr>
+                        <td class="px-6 py-3 font-mono font-bold text-slate-700 whitespace-nowrap">{{ col.nombre }}</td>
+                        <td class="px-4 py-3">{% if col.obligatoria %}<span class="text-marca font-black">Sí</span>{% else %}<span class="text-slate-400">No</span>{% endif %}</td>
+                        <td class="px-6 py-3 text-slate-600">{{ col.formato }}{% if col.lista %}{% for nombre, valores in listas.items %}{% if nombre == col.lista %} <span class="text-slate-400">({{ valores|join:", " }})</span>{% endif %}{% endfor %}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+{# Vista previa o resultado #}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">{% if paso == 'resultado' %}{{ tipo.participio }}s{% else %}Se grabarán{% endif %}</p>
+        <p class="text-3xl font-black text-emerald-600">{% if paso == 'resultado' %}{{ conteo.grabadas }}{% else %}{{ conteo.grabables }}{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Con aviso</p>
+        <p class="text-3xl font-black text-amber-600">{{ conteo.AVISO }}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Omitidas</p>
+        <p class="text-3xl font-black text-slate-500">{{ conteo.OMITIDA }}</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Con error</p>
+        <p class="text-3xl font-black text-rose-600">{{ conteo.ERROR }}</p>
+    </div>
+</div>
+
+<div class="action-row justify-between items-center mb-4">
+    <p class="text-sm text-slate-500"><i class="fas fa-file-excel text-emerald-600"></i> <span class="font-bold text-slate-700">{{ archivo }}</span> · {{ conteo.total }} fila{{ conteo.total|pluralize }} con datos</p>
+    {% if paso == 'vista_previa' %}
+    <div class="action-row">
+        <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="cancelar">
+            <button type="submit" class="w-full px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all">Cancelar</button>
+        </form>
+        {% if conteo.grabables %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="confirmar">
+            <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">
+                <i class="fas fa-check"></i> Grabar {{ conteo.grabables }} fila{{ conteo.grabables|pluralize }} válida{{ conteo.grabables|pluralize }}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="action-row">
+        <a href="{% url 'accesos:carga_masiva' tipo.clave %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-upload"></i> Cargar otro archivo</a>
+        <a href="{% url destino %}" class="inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">Ver {{ tipo.destino_titulo|lower }}</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if paso == 'vista_previa' and conteo.ERROR %}
+<p class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-800 text-sm font-bold">Las filas con error no se grabarán. Puede grabar ahora las válidas y luego corregir y volver a subir solo las que fallaron.</p>
+{% endif %}
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="hidden sm:table-cell text-left px-4 py-3">Fila</th>
+                    <th class="hidden sm:table-cell text-left px-4 py-3">Estado</th>
+                    <th class="text-left px-4 py-3">Datos</th>
+                    <th class="hidden md:table-cell text-left px-4 py-3">Detalle</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for fila in filas %}
+                <tr class="align-top {% if fila.estado == 'ERROR' %}bg-rose-50/40{% endif %}">
+                    <td class="hidden sm:table-cell px-4 py-3 font-black text-slate-500">{{ fila.numero }}</td>
+                    <td class="hidden sm:table-cell px-4 py-3 whitespace-nowrap">
+                        {% include 'accesos/carga/_estado_fila.html' %}
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">
+                        {# En el teléfono, la fila y su estado van dentro de esta celda (sus columnas se ocultan). #}
+                        <div class="sm:hidden flex items-center gap-2 mb-2"><span class="font-black text-slate-500">Fila {{ fila.numero }}</span>{% include 'accesos/carga/_estado_fila.html' %}</div>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 md:min-w-[16rem] break-words">
+                            {% for nombre, valor in fila.valores.items %}{% if valor != '' and valor is not False %}<span><span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{{ nombre }}</span> <span class="font-semibold">{% if valor is True %}SI{% else %}{{ valor }}{% endif %}</span></span>{% endif %}{% endfor %}
+                        </div>
+                        {# En pantallas angostas el detalle va debajo de los datos (la columna se oculta). #}
+                        {% if fila.mensajes %}<div class="md:hidden mt-2 text-xs {% if fila.estado == 'ERROR' %}text-rose-700 font-semibold{% elif fila.estado == 'AVISO' %}text-amber-800{% else %}text-slate-500{% endif %}">{% for mensaje in fila.mensajes %}<p>{{ mensaje }}</p>{% endfor %}</div>{% endif %}
+                    </td>
+                    <td class="hidden md:table-cell px-4 py-3 {% if fila.estado == 'ERROR' %}text-rose-700 font-semibold{% elif fila.estado == 'AVISO' %}text-amber-800{% else %}text-slate-500{% endif %}">
+                        {% for mensaje in fila.mensajes %}<p>{{ mensaje }}</p>{% empty %}<span class="text-slate-300">—</span>{% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
