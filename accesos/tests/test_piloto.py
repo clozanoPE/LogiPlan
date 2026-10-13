@@ -1,7 +1,12 @@
 """
-Piloto del módulo (ACCESOS_USUARIOS_PILOTO): solo los usuarios listados usan Accesos, aunque otros tengan
-rol o sean superusuarios; Planificación sigue igual para todos. '*' = lo planificado (todos los que tengan rol).
+Usuarios del módulo (ACCESOS_USUARIOS_PILOTO): '*' (por defecto desde el 13/10/2026) = todos los que tengan rol;
+con una lista, solo los usuarios listados usan Accesos, aunque otros tengan rol o sean superusuarios.
+Planificación sigue igual para todos.
 """
+import importlib
+import os
+from unittest import mock
+
 from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -71,6 +76,15 @@ class PilotoTests(UsuariosMixin, TestCase):
 
 class PilotoPorDefectoTests(TestCase):
 
-    def test_con_base_local_no_hay_restriccion(self):
-        # Con la base local (desarrollo y pruebas) el módulo queda abierto; en Railway, solo 'clozano'.
+    def test_liberado_por_defecto_tambien_con_base_remota(self):
+        # Liberado el 13/10/2026: sin la variable, el módulo queda abierto a todos los que tengan rol, también en
+        # Railway (base remota). La variable ACCESOS_USUARIOS_PILOTO sigue sirviendo para volver a restringirlo.
         self.assertEqual(settings.ACCESOS_USUARIOS_PILOTO, '*')
+        entorno = {k: v for k, v in os.environ.items() if k != 'ACCESOS_USUARIOS_PILOTO'}
+        entorno['MYSQLHOST'] = 'mysql.railway.internal'
+        modulo = importlib.import_module('core.settings')
+        try:
+            with mock.patch.dict(os.environ, entorno, clear=True):
+                self.assertEqual(importlib.reload(modulo).ACCESOS_USUARIOS_PILOTO, '*')
+        finally:
+            importlib.reload(modulo)

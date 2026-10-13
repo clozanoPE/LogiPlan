@@ -102,12 +102,10 @@ DATABASES = {
     }
 }
 
-# Piloto del módulo de Control de Accesos: solo estos usuarios (separados por coma) lo usan; '*' = todos los
-# que tengan un rol del módulo (lo planificado). Mientras dure el piloto, con una base que no es local
-# (Railway) el valor por defecto es solo 'clozano'; en local y en las pruebas, '*'. Se cambia sin desplegar con
-# la variable ACCESOS_USUARIOS_PILOTO (p. ej. '*' para liberar, o 'clozano,jllanos').
-_BASE_LOCAL = DATABASES['default']['HOST'] in ('127.0.0.1', 'localhost', '::1')
-ACCESOS_USUARIOS_PILOTO = os.getenv('ACCESOS_USUARIOS_PILOTO', '*' if _BASE_LOCAL else 'clozano')
+# Usuarios que usan el módulo de Control de Accesos: '*' = todos los que tengan un rol del módulo (liberado el
+# 13/10/2026; antes fue un piloto solo para 'clozano'). Para volver a restringirlo sin desplegar, definir en
+# Railway la variable ACCESOS_USUARIOS_PILOTO con una lista separada por comas (p. ej. 'clozano,jllanos').
+ACCESOS_USUARIOS_PILOTO = os.getenv('ACCESOS_USUARIOS_PILOTO', '*')
 
 
 
