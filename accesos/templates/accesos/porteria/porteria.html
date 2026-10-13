@@ -7,9 +7,9 @@
 
 {% if registrado %}
 <!-- Confirmación grande: se oculta sola a los 3 segundos -->
-<div id="confirmacion" class="mb-6 p-8 rounded-3xl text-center text-white {% if registrado == 'ENTRADA' %}bg-marca{% else %}bg-sky-600{% endif %}">
+<div id="confirmacion" class="mb-6 p-8 rounded-3xl text-center text-white {% if registrado == 'ENTRADA' or registrado == 'INICIO' %}bg-marca{% elif registrado == 'POST_RUTA' %}bg-emerald-600{% elif registrado == 'AVERIA' %}bg-rose-600{% else %}bg-sky-600{% endif %}">
     <i class="fas fa-circle-check text-5xl"></i>
-    <p class="mt-3 text-3xl font-black">{{ registrado }} registrada</p>
+    <p class="mt-3 text-3xl font-black">{% if registrado == 'ENTRADA' %}ENTRADA registrada{% elif registrado == 'SALIDA' %}SALIDA registrada{% elif registrado == 'PRE_RUTA' %}SALIDA A RUTA registrada{% elif registrado == 'INICIO' %}INICIO DE JORNADA registrado{% elif registrado == 'POST_RUTA' %}FIN DE JORNADA registrado{% elif registrado == 'AVERIA' %}INGRESO POR AVERÍA registrado{% else %}Registro guardado{% endif %}</p>
     <p class="text-xl font-bold opacity-90">{{ registrado_placa }}</p>
 </div>
 {% endif %}
@@ -103,8 +103,147 @@
                 <a href="{% url 'accesos:porteria' %}" class="px-8 py-5 rounded-2xl text-center text-lg font-black uppercase tracking-widest text-slate-500 bg-slate-100">Cancelar</a>
                 <button type="submit" class="flex-1 px-8 py-5 rounded-2xl bg-marca hover:bg-marca-oscuro text-white text-2xl font-black uppercase tracking-widest shadow-lg shadow-marca/30">Registrar entrada</button>
             </div>
+            {% if resultado.permite_post_ruta %}
+            <!-- Unidad propia en ruta: en vez de una visita, puede cerrar su jornada o ingresar por avería -->
+            <div class="pt-4 border-t border-slate-100">
+                <p class="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">¿No viene a esta ruta?</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <a href="?placa={{ texto|urlencode }}&modo=post_ruta" class="px-6 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border-2 border-emerald-200 hover:bg-emerald-100"><i class="fas fa-flag-checkered mr-2"></i>Fin de jornada (Post-Ruta)</a>
+                    <a href="?placa={{ texto|urlencode }}&modo=averia" class="px-6 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-rose-700 bg-rose-50 border-2 border-rose-200 hover:bg-rose-100"><i class="fas fa-screwdriver-wrench mr-2"></i>Ingreso por avería</a>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </form>
+
+    {% elif resultado.accion == 'POST_RUTA' %}
+    <!-- FIN DE JORNADA (POST-RUTA) o INGRESO POR AVERÍA -->
+    <form method="post" action="{% url 'accesos:porteria_post_ruta' %}" id="form-post-ruta" class="bg-white rounded-3xl border-4 {% if modo == 'averia' %}border-rose-600{% else %}border-emerald-600{% endif %} overflow-hidden">
+        {% csrf_token %}
+        <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+        <input type="hidden" name="placa" value="{{ texto }}">
+        <div id="cabecera-post-ruta" class="{% if modo == 'averia' %}bg-rose-600{% else %}bg-emerald-600{% endif %} text-white p-6 action-row justify-between">
+            <div>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80" id="titulo-post-ruta">{% if modo == 'averia' %}Ingreso por avería{% elif resultado.reingreso %}Reingreso · jornada ya cerrada{% else %}Fin de jornada · Post-Ruta{% endif %}</p>
+                <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
+                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia</p>
+            </div>
+            <i class="fas fa-flag-checkered text-6xl opacity-30"></i>
+        </div>
+        <div class="p-6 space-y-6">
+            {% if not resultado.reingreso %}
+            <p class="p-4 rounded-2xl font-bold text-sm {% if fuera_de_horario %}bg-amber-50 text-amber-900{% else %}bg-emerald-50 text-emerald-900{% endif %}">
+                <i class="fas fa-clock mr-1"></i>
+                Cierre operativo: {{ resultado.jornada.hora_cierre|time:"H:i" }} (tolerancia hasta {{ jornada_limite_cierre|time:"H:i" }}).
+                {% if fuera_de_horario %}Este retorno quedará como <span class="font-black">fuera de horario</span>.{% endif %}
+            </p>
+            {% endif %}
+            {% if resultado.pendientes %}
+            <div class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold">
+                <p><i class="fas fa-triangle-exclamation mr-1"></i> Tiene {{ resultado.pendientes|length }} {% if resultado.pendientes|length == 1 %}programación pendiente{% else %}programaciones pendientes{% endif %} hoy. Al registrar <span id="efecto-pendientes">{% if modo == 'averia' %}la avería se cancelarán{% else %}el fin de jornada quedarán como «No atendida»{% endif %}</span>:</p>
+                <ul class="mt-2 list-disc list-inside font-medium">
+                    {% for p in resultado.pendientes %}<li>{{ p.hora|time:"H:i" }} · {{ p.codigo }} · CD {{ p.cd }} · {{ p.motivo }}</li>{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="campo-km-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
+                    <input id="campo-km-post" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
+                           class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 focus:outline-none">
+                </div>
+                <div>
+                    <label for="campo-obs-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
+                    <input id="campo-obs-post" type="text" name="obs" maxlength="500" placeholder="Ninguna"
+                           class="w-full text-xl font-bold px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 focus:outline-none">
+                </div>
+            </div>
+
+            {% if resultado.permite_averia %}
+            <div class="rounded-2xl border-2 {% if modo == 'averia' %}border-rose-300 bg-rose-50{% else %}border-slate-200 bg-slate-50{% endif %} p-4" id="bloque-averia">
+                <label class="flex items-center gap-3 font-black text-rose-700 cursor-pointer">
+                    <input type="checkbox" name="averia" value="on" id="casilla-averia" class="w-6 h-6 accent-[#e11d48]" {% if modo == 'averia' %}checked{% endif %}>
+                    <i class="fas fa-screwdriver-wrench"></i> Ingresa por avería o falla (el vehículo queda NO DISPONIBLE)
+                </label>
+                <div id="campos-averia" class="{% if modo != 'averia' %}hidden{% endif %} mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="campo-averia-tipo" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">Tipo *</label>
+                        <select name="averia_tipo" id="campo-averia-tipo" class="campo-accesos">
+                            <option value="">Seleccione el tipo</option>
+                            {% for tipo in tipos_incidencia %}<option value="{{ tipo.pk }}">{{ tipo }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="campo-averia-descripcion" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">¿Qué pasó? *</label>
+                        <input type="text" name="averia_descripcion" id="campo-averia-descripcion" maxlength="500" class="campo-accesos" placeholder="Ej.: Falla de frenos">
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <details class="rounded-2xl bg-slate-50 p-4">
+                <summary class="font-black text-slate-600 cursor-pointer">¿Llegó otro conductor?</summary>
+                <select name="conductor" class="campo-accesos mt-3">
+                    <option value="">El conductor de su última ruta</option>
+                    {% for conductor in conductores %}<option value="{{ conductor.pk }}">{{ conductor.nombre_completo }} · {{ conductor.tipo_documento }} {{ conductor.numero_documento }}</option>{% endfor %}
+                </select>
+            </details>
+
+            <div class="action-row">
+                <a href="{% url 'accesos:porteria' %}" class="px-8 py-5 rounded-2xl text-center text-lg font-black uppercase tracking-widest text-slate-500 bg-slate-100">Cancelar</a>
+                <button type="submit" id="boton-post-ruta" class="flex-1 px-8 py-5 rounded-2xl {% if modo == 'averia' %}bg-rose-600 hover:bg-rose-700{% else %}bg-emerald-600 hover:bg-emerald-700{% endif %} text-white text-2xl font-black uppercase tracking-widest">{% if modo == 'averia' %}Registrar ingreso por avería{% elif resultado.reingreso %}Registrar reingreso{% else %}Registrar fin de jornada{% endif %}</button>
+            </div>
+        </div>
+    </form>
+
+    {% elif resultado.accion == 'INICIO_JORNADA' %}
+    <!-- INICIO DE JORNADA: unidad propia con jornada y sin registro dentro del CD -->
+    <div class="bg-white rounded-3xl border-4 border-marca overflow-hidden">
+        <div class="bg-marca text-white p-6 action-row justify-between">
+            <div>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">Inicio de jornada · Pre-Ruta {{ resultado.jornada.hora_inicio|time:"H:i" }}</p>
+                <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
+                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia · {{ resultado.jornada.conductor.nombre_completo }}</p>
+            </div>
+            <i class="fas fa-sun text-6xl opacity-30"></i>
+        </div>
+        <div class="p-6 space-y-6">
+            <p class="p-4 rounded-2xl bg-sky-50 text-sky-900 font-bold">No figura dentro del CD. ¿El vehículo está <span class="font-black">ingresando</span> o <span class="font-black">saliendo</span>?</p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <form method="post" action="{% url 'accesos:porteria_inicio_jornada' %}" class="rounded-3xl border-2 border-marca/40 p-5 space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+                    <input type="hidden" name="placa" value="{{ texto }}">
+                    <input type="hidden" name="sentido" value="ingresa">
+                    <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-to-bracket text-marca mr-2"></i>Está ingresando</p>
+                    <p class="text-sm text-slate-500">Durmió fuera del CD: su Pre-Ruta empieza ahora.</p>
+                    <div>
+                        <label for="campo-km-inicio" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
+                        <input id="campo-km-inicio" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
+                               class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+                    </div>
+                    <input type="text" name="obs" maxlength="500" placeholder="Observación (opcional)" class="campo-accesos">
+                    <select name="conductor" class="campo-accesos" aria-label="Conductor">
+                        <option value="">El conductor previsto</option>
+                        {% for conductor in conductores %}<option value="{{ conductor.pk }}">{{ conductor.nombre_completo }} · {{ conductor.tipo_documento }} {{ conductor.numero_documento }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="w-full px-6 py-4 rounded-2xl bg-marca hover:bg-marca-oscuro text-white text-xl font-black uppercase tracking-widest">Registrar ingreso</button>
+                </form>
+                <form method="post" action="{% url 'accesos:porteria_inicio_jornada' %}" class="rounded-3xl border-2 border-sky-200 p-5 space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+                    <input type="hidden" name="placa" value="{{ texto }}">
+                    <input type="hidden" name="sentido" value="sale">
+                    <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-from-bracket text-sky-600 mr-2"></i>Está saliendo</p>
+                    <p class="text-sm text-slate-500">Durmió en el CD pero su ingreso no quedó registrado: se registra su salida a ruta con la Pre-Ruta desde las {{ resultado.jornada.hora_inicio|time:"H:i" }}.</p>
+                    <input type="text" name="obs" maxlength="500" placeholder="Observación de salida (opcional)" class="campo-accesos">
+                    <button type="submit" class="w-full px-6 py-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xl font-black uppercase tracking-widest">Registrar salida a ruta</button>
+                </form>
+            </div>
+            <a href="{% url 'accesos:porteria' %}" class="block px-8 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-slate-500 bg-slate-100">Cancelar</a>
+        </div>
+    </div>
 
     {% elif resultado.accion == 'SALIDA' %}
     <!-- SALIDA -->
@@ -116,22 +255,42 @@
         <input type="hidden" name="placa" value="{{ texto }}">
         <div class="bg-sky-600 text-white p-6 action-row justify-between">
             <div>
-                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">Salida · {{ numero_tramo }}.º tramo del día</p>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">
+                    {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' or resultado.tipo_salida == 'PRE_RUTA' %}Salida a ruta · fin de la Pre-Ruta
+                    {% elif resultado.tipo_salida == 'TRAS_CIERRE' %}Salida después del fin de jornada
+                    {% elif resultado.tipo_salida == 'NO_DISPONIBLE' %}Salida de vehículo no disponible (avería)
+                    {% else %}Salida · {{ numero_tramo }}.º tramo del día{% endif %}</p>
                 <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
-                <p class="font-bold opacity-90">{{ t.programacion.get_tipo_display }} · {{ t.programacion.razon_social }}</p>
+                <p class="font-bold opacity-90">{% if t.es_programado %}{{ t.programacion.get_tipo_display }} · {{ t.programacion.razon_social }}{% else %}Flota propia · {{ t.get_clase_display }}{% endif %}</p>
             </div>
             <i class="fas fa-right-from-bracket text-6xl opacity-30"></i>
         </div>
         <div class="p-6 space-y-6">
+            {% if resultado.salida_pide_motivo %}
+            <p class="p-4 rounded-2xl bg-amber-50 text-amber-900 font-bold"><i class="fas fa-triangle-exclamation mr-1"></i>
+                {% if resultado.tipo_salida == 'NO_DISPONIBLE' %}El vehículo está NO DISPONIBLE ({{ incidencia.codigo }} · {{ incidencia.tipo }}). Indique el motivo de la salida (p. ej. traslado al taller).
+                {% else %}La unidad ya cerró su jornada. Indique el motivo de la salida: quedará registrado.{% endif %}</p>
+            {% elif resultado.tipo_salida == 'SIN_PRE_RUTA' %}
+            <p class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold"><i class="fas fa-circle-info mr-1"></i> Su última visita de otro día quedó abierta (no registró su Post-Ruta). La salida se registra igual y queda para revisión del Administrador.</p>
+            {% endif %}
             <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' %}
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta desde</dt><dd class="text-2xl font-black">{{ resultado.jornada.hora_inicio|time:"H:i" }}</dd><dd class="text-xs text-slate-400">durmió en el CD</dd></div>
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta</dt><dd class="text-2xl font-black">{{ minutos_pre_ruta }}</dd><dd class="text-xs text-slate-400">meta {{ resultado.jornada.meta_pre_ruta_min }} min</dd></div>
+                {% else %}
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Entró</dt><dd class="text-2xl font-black">{{ t.entrada_en|date:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.entrada_en|date:"d/m/Y" }}</dd></div>
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Tiempo dentro</dt><dd class="text-2xl font-black {% if prolongada %}text-rose-600{% endif %}">{{ minutos_dentro }}</dd>{% if prolongada %}<dd class="text-xs font-black text-rose-600 uppercase">Permanencia prolongada</dd>{% endif %}</div>
+                {% endif %}
+                {% if t.programacion_id %}
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Programada</dt><dd class="text-2xl font-black">{{ t.programacion.hora|time:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.programacion.codigo }}</dd></div>
-                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{{ t.conductor.nombre_completo }}</dd></div>
+                {% else %}
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Tramo</dt><dd class="text-2xl font-black">{{ t.get_clase_display }}</dd><dd class="text-xs text-slate-400">sin programación</dd></div>
+                {% endif %}
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{% if resultado.tipo_salida == 'PRE_RUTA_AUTO' %}{{ resultado.jornada.conductor.nombre_completo }}{% else %}{{ t.conductor.nombre_completo }}{% endif %}</dd></div>
             </dl>
             <div>
-                <label for="campo-obs-salida" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de salida</label>
-                <input id="campo-obs-salida" type="text" name="obs" maxlength="500" placeholder="Ninguna" autofocus
+                <label for="campo-obs-salida" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">{% if resultado.salida_pide_motivo %}Motivo de la salida *{% else %}Observación de salida{% endif %}</label>
+                <input id="campo-obs-salida" type="text" name="obs" maxlength="500" {% if resultado.salida_pide_motivo %}required placeholder="Ej.: Traslado al taller"{% else %}placeholder="Ninguna"{% endif %} autofocus
                        class="w-full text-xl font-bold px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-sky-600 focus:outline-none">
             </div>
             <div class="action-row">
@@ -178,6 +337,32 @@
             };
             formEntrada.querySelectorAll('input[name="programacion"]').forEach(r => r.addEventListener('change', actualizar));
             actualizar();
+        }
+
+        // Post-Ruta: la casilla de avería muestra sus campos y cambia el color y el texto del botón.
+        const casillaAveria = document.getElementById('casilla-averia');
+        if (casillaAveria) {
+            const campos = document.getElementById('campos-averia');
+            const boton = document.getElementById('boton-post-ruta');
+            const cabecera = document.getElementById('cabecera-post-ruta');
+            const titulo = document.getElementById('titulo-post-ruta');
+            const efecto = document.getElementById('efecto-pendientes');
+            const formulario = document.getElementById('form-post-ruta');
+            const actualizarAveria = () => {
+                const averia = casillaAveria.checked;
+                campos.classList.toggle('hidden', !averia);
+                campos.querySelectorAll('select, input').forEach(c => { c.required = averia; });
+                [boton, cabecera].forEach(el => {
+                    el.classList.toggle('bg-rose-600', averia); el.classList.toggle('bg-emerald-600', !averia);
+                });
+                boton.classList.toggle('hover:bg-rose-700', averia); boton.classList.toggle('hover:bg-emerald-700', !averia);
+                formulario.classList.toggle('border-rose-600', averia); formulario.classList.toggle('border-emerald-600', !averia);
+                boton.textContent = averia ? 'Registrar ingreso por avería' : 'Registrar fin de jornada';
+                titulo.textContent = averia ? 'Ingreso por avería' : 'Fin de jornada · Post-Ruta';
+                if (efecto) efecto.textContent = averia ? 'la avería se cancelarán' : 'el fin de jornada quedarán como «No atendida»';
+            };
+            casillaAveria.addEventListener('change', actualizarAveria);
+            actualizarAveria();
         }
 
         // Evita registrar dos veces por doble toque.

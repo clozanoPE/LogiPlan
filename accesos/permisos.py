@@ -14,22 +14,25 @@ GRUPO_ADMINISTRADOR = 'Accesos - Administrador'
 GRUPO_DESPACHO = 'Accesos - Despacho'
 GRUPO_VIGILANCIA = 'Accesos - Vigilancia'
 GRUPO_CONSULTA = 'Accesos - Consulta'
+GRUPO_PANTALLA = 'Accesos - Pantalla'  # usuario de una pantalla de TV: solo abre el modo TV de sus CD
 
 ADMINISTRADOR = 'administrador'
 DESPACHO = 'despacho'
 VIGILANCIA = 'vigilancia'
 CONSULTA = 'consulta'
+PANTALLA = 'pantalla'
 
 GRUPO_PLANEAMIENTO = 'Planeamiento'  # grupo existente de Planificación
 
 # Grupos propios del módulo. Solo estos cuentan para el aislamiento (solo_accesos).
-GRUPOS_ACCESOS = (GRUPO_ADMINISTRADOR, GRUPO_DESPACHO, GRUPO_VIGILANCIA, GRUPO_CONSULTA)
+GRUPOS_ACCESOS = (GRUPO_ADMINISTRADOR, GRUPO_DESPACHO, GRUPO_VIGILANCIA, GRUPO_CONSULTA, GRUPO_PANTALLA)
 
 ROL_POR_GRUPO = {
     GRUPO_ADMINISTRADOR: ADMINISTRADOR,
     GRUPO_DESPACHO: DESPACHO,
     GRUPO_VIGILANCIA: VIGILANCIA,
     GRUPO_CONSULTA: CONSULTA,
+    GRUPO_PANTALLA: PANTALLA,
     GRUPO_PLANEAMIENTO: DESPACHO,  # Planeamiento = Despacho en Accesos
 }
 
@@ -55,6 +58,11 @@ def roles_de(user):
     if user.is_superuser:
         roles.add(ADMINISTRADOR)
     return roles
+
+
+def solo_pantalla(user):
+    """True si el único rol del usuario es Pantalla (usuario de una TV): solo ve el modo TV."""
+    return roles_de(user) == {PANTALLA}
 
 
 def tiene_rol(user, *roles):

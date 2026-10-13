@@ -1,11 +1,12 @@
 """
-Modelos del módulo de Control de Accesos de Transporte (Fase F1: catálogos, maestros,
-configuración y auditoría). Programación y Tramo llegan en F2 y F3.
+Modelos del módulo de Control de Accesos de Transporte: catálogos, maestros, configuración,
+programaciones (F2), tramos (F3), jornada de la flota propia e incidencias (F6) y auditoría.
 
 Ningún modelo de esta app tiene relación con `planificacion`; la única relación externa
 es hacia el usuario de Django (auth_user).
 """
 import re
+from datetime import time
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -145,6 +146,24 @@ class ConfiguracionAccesos(models.Model):
     licencias_revisadas_el = models.DateField(
         null=True, blank=True, editable=False, verbose_name="Última revisión automática de licencias",
     )
+    # Jornada de la flota propia (Pre-Ruta y Post-Ruta). Cada jornada guarda una copia de estos valores
+    # al crearse: un cambio aquí rige para las jornadas nuevas y no altera el histórico.
+    hora_pre_ruta = models.TimeField(
+        default=time(6, 30), verbose_name="Hora de inicio de la Pre-Ruta",
+        help_text="Inicio automático de la jornada de cada unidad propia con programación INTERNO.",
+    )
+    meta_pre_ruta_min = models.PositiveSmallIntegerField(
+        default=60, verbose_name="Meta de la Pre-Ruta (min)",
+        help_text="Minutos para salir a ruta desde el inicio de la Pre-Ruta; después, alerta.",
+    )
+    hora_cierre_operativo = models.TimeField(
+        default=time(16, 0), verbose_name="Hora de cierre operativo",
+        help_text="Hora de retorno esperada de la flota propia (Post-Ruta).",
+    )
+    tolerancia_cierre_min = models.PositiveSmallIntegerField(
+        default=15, verbose_name="Tolerancia del cierre operativo (min)",
+        help_text="Un retorno después de la hora de cierre más esta tolerancia es «fuera de horario».",
+    )
     modificado_en = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -155,6 +174,7 @@ class ConfiguracionAccesos(models.Model):
             models.CheckConstraint(condition=Q(umbral_prolongada_min__gt=0), name='accesos_config_umbral_positivo'),
             models.CheckConstraint(condition=Q(sesion_vigilancia_horas__gt=0), name='accesos_config_sesion_positiva'),
             models.CheckConstraint(condition=Q(aviso_licencia_dias__gt=0), name='accesos_config_aviso_licencia_positivo'),
+            models.CheckConstraint(condition=Q(meta_pre_ruta_min__gt=0), name='accesos_config_meta_pre_ruta_positiva'),
         ]
 
     def __str__(self):
@@ -169,6 +189,36 @@ class ConfiguracionAccesos(models.Model):
         super().clean()
         if self.ruc_empresa and not (self.ruc_empresa.isdigit() and len(self.ruc_empresa) == 11):
             raise ValidationError({'ruc_empresa': "El RUC debe tener 11 dígitos."})
+
+
+class Feriado(models.Model):
+    """Día no laborable (además de los domingos): no se programa, no hay jornada y el dashboard
+    lo muestra como «Sin actividad»."""
+    fecha = models.DateField(unique=True)
+    descripcion = models.CharField(max_length=100, verbose_name="Descripción")
+
+    class Meta:
+        verbose_name = "Feriado"
+        verbose_name_plural = "Feriados"
+        ordering = ['fecha']
+
+    def __str__(self):
+        return f"{self.fecha:%d/%m/%Y} · {self.descripcion}"
+
+
+class TipoIncidencia(models.Model):
+    """Tipo de no disponibilidad de un vehículo (avería mecánica, siniestro, etc.)."""
+    nombre = models.CharField(max_length=60, unique=True)
+    orden = models.PositiveSmallIntegerField(default=0)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Tipo de incidencia"
+        verbose_name_plural = "Tipos de incidencia"
+        ordering = ['orden', 'nombre']
+
+    def __str__(self):
+        return self.nombre
 
 
 # --- MAESTROS ---
@@ -396,6 +446,11 @@ class Programacion(models.Model):
                                       null=True, blank=True)
     cancelado_en = models.DateTimeField(null=True, blank=True)
     motivo_cancelacion = models.TextField(blank=True)
+    # Cancelada por la avería (no disponibilidad) del vehículo: separa esta causa en los indicadores.
+    incidencia = models.ForeignKey('Incidencia', on_delete=models.PROTECT, related_name='programaciones_canceladas',
+                                   null=True, blank=True)
+    # La unidad cerró su jornada (Post-Ruta) sin atenderla: se muestra «No atendida» desde ese momento.
+    no_atendida_por_cierre = models.BooleanField(default=False, verbose_name="No atendida por cierre de jornada")
 
     creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -443,6 +498,140 @@ class Programacion(models.Model):
         if errores:
             raise ValidationError(errores)
 
+    # Campos que no cambian la jornada: el estado que sigue al tramo (En planta, Cerrada) no la afecta.
+    CAMPOS_SIN_EFECTO_EN_JORNADA = {'estado', 'modificado_en', 'no_atendida_por_cierre'}
+
+    def save(self, *args, **kwargs):
+        """Al guardar se sincroniza la jornada de la placa en ese día (y en el anterior si cambió de placa
+        o de fecha): la primera programación INTERNO crea la Pre-Ruta; sin ninguna activa, se anula."""
+        campos = kwargs.get('update_fields')
+        if campos is not None and set(campos) <= self.CAMPOS_SIN_EFECTO_EN_JORNADA and not self.esta_cancelada:
+            return super().save(*args, **kwargs)
+        anterior = None
+        if self.pk:
+            anterior = Programacion.objects.filter(pk=self.pk).values_list('transporte_id', 'fecha').first()
+        super().save(*args, **kwargs)
+        from . import jornadas  # import diferido: jornadas usa estos modelos
+        jornadas.sincronizar(self.transporte_id, self.fecha)
+        if anterior and anterior != (self.transporte_id, self.fecha):
+            jornadas.sincronizar(*anterior)
+
+
+# --- INCIDENCIAS (NO DISPONIBILIDAD) ---
+
+class Incidencia(models.Model):
+    """Avería o falla que deja al vehículo NO DISPONIBLE: mientras esté abierta, la placa no aparece para
+    programar. `abierta` vale TRUE o NULL (como en los tramos) para que la base de datos asegure una sola
+    incidencia abierta por transporte."""
+
+    class Origen(models.TextChoices):
+        PORTERIA = 'PORTERIA', 'Portería (ingreso por avería)'
+        MANUAL = 'MANUAL', 'Registro de Despacho o Administrador'
+
+    transporte = models.ForeignKey(Transporte, on_delete=models.PROTECT, related_name='incidencias')
+    tipo = models.ForeignKey(TipoIncidencia, on_delete=models.PROTECT, verbose_name="Tipo")
+    descripcion = models.TextField(verbose_name="Descripción")
+    origen = models.CharField(max_length=10, choices=Origen.choices, default=Origen.MANUAL)
+    cd = models.ForeignKey(CentroDistribucion, on_delete=models.PROTECT, null=True, blank=True, verbose_name="CD")
+    inicio = models.DateTimeField(verbose_name="Inicio")
+    fin = models.DateTimeField(null=True, blank=True, verbose_name="Fin (habilitado)")
+    abierta = models.BooleanField(null=True, default=True, editable=False)
+    registrada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    cerrada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+',
+                                    null=True, blank=True)
+    observacion_cierre = models.TextField(blank=True, verbose_name="Observación al habilitar")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Incidencia de no disponibilidad"
+        verbose_name_plural = "Incidencias de no disponibilidad"
+        ordering = ['-inicio', '-id']
+        constraints = [
+            models.UniqueConstraint(fields=['transporte', 'abierta'], name='accesos_incidencia_una_abierta'),
+            models.CheckConstraint(condition=Q(abierta__isnull=True) | Q(abierta=True),
+                                   name='accesos_incidencia_abierta_true_o_null'),
+            models.CheckConstraint(condition=Q(fin__isnull=True) | Q(fin__gte=models.F('inicio')),
+                                   name='accesos_incidencia_fin_posterior'),
+        ]
+
+    def __str__(self):
+        return f"{self.codigo} {self.transporte} · {self.tipo}"
+
+    @property
+    def codigo(self):
+        return f"INC-{self.pk:06d}" if self.pk else "INC-nueva"
+
+    @property
+    def esta_abierta(self):
+        return bool(self.abierta)
+
+
+# --- JORNADA DE LA FLOTA PROPIA ---
+
+class Jornada(models.Model):
+    """El día de una unidad propia: empieza con la Pre-Ruta (automática, a la hora configurada) y termina
+    con la Post-Ruta (la entrada que registra Vigilancia cuando ya no le quedan programaciones).
+
+    Se crea sola con la primera programación INTERNO de la placa en el día (una por placa y fecha) y
+    se anula si se cancelan todas. Guarda una copia de los horarios vigentes al crearse. Los tramos
+    PRE_RUTA y POST_RUTA solo se graban cuando ocurren (salida y entrada reales)."""
+
+    class Estado(models.TextChoices):
+        PLANIFICADA = 'PLANIFICADA', 'Planificada'   # todavía no sale a ruta
+        EN_RUTA = 'EN_RUTA', 'En ruta'               # registró su primera salida
+        CERRADA = 'CERRADA', 'Cerrada'               # Post-Ruta registrada o cerrada por avería
+        ANULADA = 'ANULADA', 'Anulada'               # sin programaciones INTERNO activas
+
+    class MotivoCierre(models.TextChoices):
+        NORMAL = 'NORMAL', 'Post-Ruta'
+        AVERIA = 'AVERIA', 'Avería'
+
+    transporte = models.ForeignKey(Transporte, on_delete=models.PROTECT, related_name='jornadas')
+    fecha = models.DateField(db_index=True)
+    cd = models.ForeignKey(CentroDistribucion, on_delete=models.PROTECT, verbose_name="CD")
+    conductor = models.ForeignKey(Conductor, on_delete=models.PROTECT, related_name='jornadas',
+                                  help_text="Conductor previsto: el de la primera programación del día.")
+    estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PLANIFICADA, db_index=True)
+
+    # Copia de la configuración al crearse.
+    hora_inicio = models.TimeField(verbose_name="Inicio de la Pre-Ruta")
+    meta_pre_ruta_min = models.PositiveSmallIntegerField()
+    hora_cierre = models.TimeField(verbose_name="Cierre operativo")
+    tolerancia_cierre_min = models.PositiveSmallIntegerField()
+
+    programada_tarde = models.BooleanField(default=False,
+                                           help_text="La primera ruta INTERNO se registró después del inicio.")
+    inicio_real = models.DateTimeField(null=True, blank=True, verbose_name="Inicio real de la Pre-Ruta")
+    primera_salida = models.DateTimeField(null=True, blank=True, verbose_name="Salida a ruta")
+    post_ruta_en = models.DateTimeField(null=True, blank=True, verbose_name="Post-Ruta")
+    motivo_cierre = models.CharField(max_length=10, choices=MotivoCierre.choices, blank=True)
+    incidencia = models.ForeignKey(Incidencia, on_delete=models.PROTECT, related_name='jornadas',
+                                   null=True, blank=True)
+    ingreso_desde_afuera = models.BooleanField(default=False,
+                                               help_text="Inició la jornada entrando al CD (no durmió en él).")
+    salida_anticipada = models.BooleanField(default=False, help_text="Salió antes de la hora de la Pre-Ruta.")
+    salida_sin_pre_ruta = models.BooleanField(
+        default=False, help_text="Su primera salida cerró un tramo programado que quedó abierto desde otro día.")
+    pernocto_fuera = models.BooleanField(default=False, help_text="Salió del CD después de su Post-Ruta.")
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+    modificado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Jornada de flota propia"
+        verbose_name_plural = "Jornadas de flota propia"
+        ordering = ['-fecha', 'transporte__placa_normalizada']
+        constraints = [
+            models.UniqueConstraint(fields=['transporte', 'fecha'], name='accesos_jornada_una_por_dia'),
+        ]
+
+    def __str__(self):
+        return f"Jornada {self.transporte} {self.fecha:%d/%m/%Y}"
+
+    @property
+    def codigo(self):
+        return f"JOR-{self.pk:06d}" if self.pk else "JOR-nueva"
+
 
 # --- TRAMO ---
 
@@ -453,8 +642,21 @@ class Tramo(models.Model):
     a la vez (MySQL no admite índices únicos parciales, por eso se usan campos TRUE/NULL):
     - `abierto` = TRUE mientras el vehículo está dentro; único por transporte.
     - `vigente` = TRUE si el tramo es válido (NULL si se anuló); único por programación.
+
+    Clases: PROGRAMADO (una visita programada; lo de siempre) y los de la jornada de la flota propia,
+    que no tienen programación: PRE_RUTA (desde la hora de la Pre-Ruta hasta la primera salida) y
+    POST_RUTA (desde el retorno de fin de jornada; queda abierto mientras la unidad duerme en el CD).
     """
-    programacion = models.ForeignKey(Programacion, on_delete=models.PROTECT, related_name='tramos')
+
+    class Clase(models.TextChoices):
+        PROGRAMADO = 'PROGRAMADO', 'Programado'
+        PRE_RUTA = 'PRE_RUTA', 'Pre-Ruta'
+        POST_RUTA = 'POST_RUTA', 'Post-Ruta'
+
+    clase = models.CharField(max_length=10, choices=Clase.choices, default=Clase.PROGRAMADO, db_index=True)
+    programacion = models.ForeignKey(Programacion, on_delete=models.PROTECT, related_name='tramos',
+                                     null=True, blank=True)
+    jornada = models.ForeignKey(Jornada, on_delete=models.PROTECT, related_name='tramos', null=True, blank=True)
     transporte = models.ForeignKey(Transporte, on_delete=models.PROTECT, related_name='tramos')
     cd = models.ForeignKey(CentroDistribucion, on_delete=models.PROTECT, verbose_name="CD")
     conductor = models.ForeignKey(Conductor, on_delete=models.PROTECT, related_name='tramos',
@@ -463,9 +665,12 @@ class Tramo(models.Model):
     entrada_en = models.DateTimeField(verbose_name="Entrada")
     fecha_local_entrada = models.DateField(db_index=True)
     hora_local_entrada = models.TimeField()
-    km_entrada = models.PositiveIntegerField(verbose_name="Kilometraje de entrada")
+    # Vacío solo en una Pre-Ruta sin kilometraje previo conocido.
+    km_entrada = models.PositiveIntegerField(null=True, blank=True, verbose_name="Kilometraje de entrada")
     obs_entrada = models.TextField(default='Ninguna', verbose_name="Observación de entrada")
-    vigilante_entrada = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    # Vacío = entrada registrada por el sistema (inicio automático de la Pre-Ruta).
+    vigilante_entrada = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+',
+                                          null=True, blank=True)
 
     salida_en = models.DateTimeField(null=True, blank=True, verbose_name="Salida")
     fecha_local_salida = models.DateField(null=True, blank=True)
@@ -477,7 +682,9 @@ class Tramo(models.Model):
     vigente = models.BooleanField(null=True, default=True, editable=False)
 
     minutos_permanencia = models.PositiveIntegerField(null=True, blank=True)
-    desviacion_llegada_min = models.IntegerField(help_text="Llegada menos hora programada (negativo = adelantado).")
+    # Solo en los tramos programados (Pre-Ruta y Post-Ruta no tienen hora programada).
+    desviacion_llegada_min = models.IntegerField(null=True, blank=True,
+                                                 help_text="Llegada menos hora programada (negativo = adelantado).")
     tamano_snapshot = models.ForeignKey(TamanoVehiculo, on_delete=models.PROTECT, related_name='+')
     tipo_snapshot = models.CharField(max_length=10, choices=Programacion.Tipo.choices)
 
@@ -485,6 +692,10 @@ class Tramo(models.Model):
     km_inconsistente = models.BooleanField(default=False)
     corregido = models.BooleanField(default=False)
     cierre_administrativo = models.BooleanField(default=False)
+    cierre_automatico = models.BooleanField(
+        default=False, help_text="Salida puesta por el sistema al iniciar la Pre-Ruta (fin de la pernocta).")
+    salida_tras_cierre = models.BooleanField(default=False, help_text="Salió del CD después de su Post-Ruta.")
+    dia_no_laborable = models.BooleanField(default=False, help_text="Movimiento en domingo o feriado.")
 
     class Meta:
         verbose_name = "Tramo"
@@ -520,6 +731,21 @@ class Tramo(models.Model):
     def entre_dias(self):
         return bool(self.fecha_local_salida and self.fecha_local_salida != self.fecha_local_entrada)
 
+    @property
+    def es_programado(self):
+        return self.clase == self.Clase.PROGRAMADO
+
+    @property
+    def es_de_jornada(self):
+        return self.clase != self.Clase.PROGRAMADO
+
+    @property
+    def descripcion(self):
+        """Texto corto para listas: la razón social y el motivo, o la clase si es de la jornada."""
+        if self.programacion_id:
+            return self.programacion.razon_social
+        return f"{self.get_clase_display()} · flota propia"
+
 
 # --- AUDITORÍA ---
 
@@ -536,6 +762,8 @@ class RegistroAuditoria(models.Model):
         ANULAR = 'ANULAR', 'Anular'
         CIERRE_ADMIN = 'CIERRE_ADMIN', 'Cierre administrativo'
         CONFIG = 'CONFIG', 'Configuración'
+        INCIDENCIA = 'INCIDENCIA', 'Incidencia (no disponible)'
+        HABILITAR = 'HABILITAR', 'Habilitar vehículo'
 
     fecha = models.DateTimeField(auto_now_add=True, db_index=True)
     # Vacío = acción automática del sistema (p. ej. la desactivación de avisos de licencias vencidas).

@@ -1,0 +1,231 @@
+{# Pestaña «Flota propia». Se incluye dentro de un <script>. #}
+(() => {
+    const datos = JSON.parse(document.getElementById('datos-dashboard').textContent);
+    const flota = datos.flota;
+    const css = getComputedStyle(document.querySelector('.viz'));
+    const color = (nombre) => css.getPropertyValue(nombre).trim();
+    // Los nombres los escriben usuarios: se escapan antes de insertarlos como HTML.
+    const escapar = (s) => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const filtrar = (cambios) => {
+        const url = new URL(window.location.href);
+        Object.entries(cambios).forEach(([clave, valor]) => {
+            if (valor === null || valor === undefined || valor === '') url.searchParams.delete(clave);
+            else url.searchParams.set(clave, valor);
+        });
+        window.location.href = url.toString();
+    };
+    const tooltip = document.getElementById('tooltip-flota');
+    const mostrar = (e, html) => {
+        tooltip.innerHTML = html;
+        tooltip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 260)}px`;
+        tooltip.style.top = `${e.clientY + 14}px`;
+        tooltip.classList.remove('hidden');
+    };
+    const ocultar = () => tooltip && tooltip.classList.add('hidden');
+
+    // ---------- Línea de tiempo del día (Gantt en HTML) ----------
+    const gantt = flota.gantt;
+    const contenedorGantt = document.getElementById('gantt');
+    if (gantt && contenedorGantt) {
+        if (!gantt.filas.length) {
+            contenedorGantt.innerHTML = '<p class="p-6 text-center text-sm font-bold text-slate-400">No hay jornadas de la flota propia este día con estos filtros.</p>';
+        } else {
+            const ancho = gantt.hasta - gantt.desde;
+            const pos = (m) => `${((Math.max(gantt.desde, Math.min(gantt.hasta, m)) - gantt.desde) / ancho * 100).toFixed(2)}%`;
+            const horas = [];
+            for (let h = gantt.desde; h <= gantt.hasta; h += 60) horas.push(h);
+            // Rótulos de hora cada 2 h si el espacio no alcanza (tablet y teléfono).
+            const pasoRotulo = (Math.max(contenedorGantt.clientWidth, 736) - 150) / (horas.length - 1) < 52 ? 2 : 1;
+            const colores = { pre: color('--pre-ruta'), visita: color('--visita'), post: color('--post-ruta') };
+            const marcas = gantt.marcas.filter(m => m.minuto >= gantt.desde && m.minuto <= gantt.hasta);
+            const lineasMarcas = marcas.map(m => `<div class="absolute top-0 bottom-0 w-px ${m.critica ? 'bg-rose-400' : 'bg-slate-300'}" style="left:${pos(m.minuto)}"></div>`).join('')
+                + (gantt.ahora !== null ? `<div class="absolute top-0 bottom-0 w-0.5 bg-daryza-dark" style="left:${pos(gantt.ahora)}"></div>` : '');
+            // Estilos en línea: Tailwind (CDN) puede no generar a tiempo clases arbitrarias insertadas por JavaScript.
+            const columnas = 'display:grid;grid-template-columns:8.5rem 1fr;column-gap:.75rem;align-items:center';
+            let html = `<div style="min-width:46rem">
+                <div style="${columnas};align-items:end" class="mb-1">
+                    <div></div>
+                    <div class="relative h-10">${horas.filter((h, i) => i % pasoRotulo === 0).map(h => `<span class="absolute bottom-0 -translate-x-1/2 text-[10px] font-black text-slate-400" style="left:${pos(h)}">${hhmm(h)}</span>`).join('')}
+                        ${marcas.filter(m => m.etiqueta).map(m => `<span class="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[10px] font-black text-slate-500" style="left:${pos(m.minuto)}">${escapar(m.etiqueta)}</span>`).join('')}
+                        ${gantt.ahora !== null && !marcas.some(m => m.etiqueta && Math.abs(m.minuto - gantt.ahora) < 75) ? `<span class="absolute top-0 -translate-x-1/2 text-[10px] font-black text-daryza-dark" style="left:${pos(gantt.ahora)}">Ahora ${hhmm(gantt.ahora)}</span>` : ''}
+                        </div>
+                </div>`;
+            gantt.filas.forEach((f, i) => {
+                const enRuta = f.en_ruta ? `<div class="absolute top-1/2 h-0.5 -translate-y-1/2 bg-slate-400" style="left:${pos(f.en_ruta[0])};width:calc(${pos(f.en_ruta[1])} - ${pos(f.en_ruta[0])})"></div>` : '';
+                const segmentos = f.segmentos.map((s, j) => `<div class="segmento absolute top-1.5 bottom-1.5 rounded-[4px] ${s.abierto ? 'opacity-80' : ''}" data-fila="${i}" data-seg="${j}"
+                        style="left:${pos(s.desde)};width:max(3px, calc(${pos(s.hasta)} - ${pos(s.desde)}));background:${colores[s.tipo]};box-shadow:0 0 0 2px var(--superficie)"></div>`).join('');
+                html += `<div class="fila-filtrable py-1.5 border-t border-slate-100 hover:bg-marca-claro rounded-xl" style="${columnas}" data-placa="${escapar(f.placa_valor)}">
+                    <div class="pl-2 min-w-0">
+                        <p class="font-black tracking-wider text-daryza-dark text-sm">${escapar(f.placa)}</p>
+                        <p class="text-[10px] font-bold text-slate-500 truncate">${escapar(f.conductor)}</p>
+                        <p class="text-[10px] font-black ${f.alerta ? 'text-rose-600' : 'text-marca'} uppercase">${f.alerta ? '<i class="fas fa-triangle-exclamation"></i> ' : ''}${escapar(f.estado)}</p>
+                    </div>
+                    <div class="relative h-10 rounded-lg bg-slate-50 gantt-pista" style="--horas:${horas.length - 1}">${lineasMarcas}${enRuta}${segmentos}</div>
+                </div>`;
+            });
+            contenedorGantt.innerHTML = html + '</div>';
+            contenedorGantt.addEventListener('mousemove', (e) => {
+                const seg = e.target.closest('.segmento');
+                if (!seg) { ocultar(); return; }
+                const f = gantt.filas[+seg.dataset.fila], s = f.segmentos[+seg.dataset.seg];
+                mostrar(e, `<p class="font-black">${escapar(f.placa)} · ${escapar(s.etiqueta)}</p><p>Entrada ${escapar(s.entrada)} · salida ${escapar(s.salida)}</p>`
+                    + `<p>${s.hasta - s.desde} min</p>${s.tipo === 'pre' && f.pre_ruta_min !== null ? `<p>Pre-Ruta: ${f.pre_ruta_min} min</p>` : ''}`
+                    + `${s.tipo === 'post' && f.exceso_min ? `<p class="text-rose-300">Fuera de horario: +${f.exceso_min} min (operativo)</p>` : ''}`);
+            });
+            contenedorGantt.addEventListener('mouseleave', ocultar);
+            contenedorGantt.addEventListener('click', (e) => {
+                const fila = e.target.closest('[data-placa]');
+                if (fila) filtrar({ placa: fila.dataset.placa });
+            });
+        }
+    }
+
+    // ---------- Matriz placa × día ----------
+    const matriz = flota.matriz;
+    const contenedorMatriz = document.getElementById('matriz-flota');
+    if (matriz && contenedorMatriz) {
+        if (!matriz.filas.length) {
+            contenedorMatriz.innerHTML = '<p class="p-6 text-center text-sm font-bold text-slate-400">No hay jornadas en el rango con estos filtros.</p>';
+        } else {
+            const ICONOS = { ok: 'fa-check', critico: 'fa-clock', serio: 'fa-screwdriver-wrench', aviso: 'fa-triangle-exclamation', curso: 'fa-route' };
+            let html = '<table class="text-center border-separate border-spacing-[3px]"><thead><tr><th></th>'
+                + matriz.dias.map(d => `<th class="px-0.5 text-[10px] font-black ${d.no_laborable ? 'text-slate-300' : 'text-slate-400'}"><span class="block">${d.dia}</span>${d.etiqueta}</th>`).join('') + '</tr></thead><tbody>';
+            matriz.filas.forEach((f, i) => {
+                html += `<tr><th class="pr-3 text-left"><button type="button" class="font-black tracking-wider text-sm text-daryza-dark hover:text-marca whitespace-nowrap" data-placa="${escapar(f.valor)}">${escapar(f.placa)}</button></th>`;
+                f.celdas.forEach((c, j) => {
+                    const dia = matriz.dias[j];
+                    if (dia.no_laborable) { html += `<td class="estado-sin w-7 h-7 rounded-md" data-fila="${i}" data-dia="${j}"></td>`; return; }
+                    if (!c) { html += `<td class="w-7 h-7 rounded-md" style="background:var(--vacio)" data-fila="${i}" data-dia="${j}"></td>`; return; }
+                    html += `<td class="mapa-celda estado-${c.clase} w-7 h-7 rounded-md text-[10px]" data-fila="${i}" data-dia="${j}"><i class="fas ${ICONOS[c.clase] || 'fa-circle'}"></i></td>`;
+                });
+                html += '</tr>';
+            });
+            contenedorMatriz.innerHTML = html + '</tbody></table>';
+            contenedorMatriz.addEventListener('mousemove', (e) => {
+                const td = e.target.closest('td[data-dia]');
+                if (!td) { ocultar(); return; }
+                const f = matriz.filas[+td.dataset.fila], d = matriz.dias[+td.dataset.dia], c = f.celdas[+td.dataset.dia];
+                mostrar(e, `<p class="font-black">${escapar(f.placa)} · ${d.dia} ${d.etiqueta}</p><p>${d.no_laborable ? 'Sin actividad (' + escapar(d.no_laborable) + ')' : (c ? escapar(c.texto) : 'Sin jornada')}</p>`);
+            });
+            contenedorMatriz.addEventListener('mouseleave', ocultar);
+            contenedorMatriz.addEventListener('click', (e) => {
+                const placa = e.target.closest('[data-placa]');
+                if (placa) { filtrar({ placa: placa.dataset.placa }); return; }
+                const td = e.target.closest('td.mapa-celda');
+                if (td) { const d = matriz.dias[+td.dataset.dia].fecha; filtrar({ desde: d, hasta: d, placa: matriz.filas[+td.dataset.fila].valor }); }
+            });
+        }
+    }
+
+    // ---------- Ranking por placa o conductor ----------
+    let dimension = 'placa', orden = 'fuera_de_horario', descendente = true;
+    const cuerpo = document.querySelector('#ranking-flota tbody');
+    const pct = (v) => (v === null || v === undefined ? '—' : `${v} %`);
+    function pintarRanking() {
+        const filas = [...flota['ranking_' + dimension]].sort((a, b) => {
+            const x = a[orden] ?? -1, y = b[orden] ?? -1;
+            return (typeof x === 'string' ? x.localeCompare(y) : x - y) * (descendente ? -1 : 1);
+        });
+        document.getElementById('ranking-flota-nombre').textContent = dimension === 'placa' ? 'Placa' : 'Conductor';
+        document.querySelectorAll('#ranking-flota .col-placa').forEach(el => el.classList.toggle('!hidden', dimension !== 'placa'));
+        document.querySelectorAll('#ranking-flota th[data-orden]').forEach(th => {
+            th.textContent = th.textContent.replace(/ [▼▲]$/, '') + (th.dataset.orden === orden ? (descendente ? ' ▼' : ' ▲') : '');
+        });
+        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-bold">Sin jornadas con estos filtros.</td></tr>'; return; }
+        const activo = String(datos.filtros[dimension] ?? '');
+        cuerpo.innerHTML = filas.map(f => `<tr class="fila-filtrable ${activo === String(f.valor) ? 'bg-marca-claro' : 'hover:bg-marca-claro'}" data-valor="${escapar(f.valor)}" title="Filtrar todo el dashboard por ${escapar(f.nombre)}">
+            <td class="px-3 py-3 font-black text-daryza-dark whitespace-nowrap">${escapar(f.nombre)}</td>
+            <td class="px-3 py-3 text-right font-bold">${f.jornadas}</td>
+            <td class="px-3 py-3 text-right whitespace-nowrap ${f.pre_ruta_promedio > (flota.pre_ruta.meta || 60) ? 'font-black text-rose-700' : ''}">${f.pre_ruta_promedio === null ? '—' : f.pre_ruta_promedio + ' min'}</td>
+            <td class="hidden sm:table-cell px-3 py-3 text-right">${pct(f.pct_pre_ruta_a_tiempo)}</td>
+            <td class="px-3 py-3 text-right">${pct(f.pct_cierre_en_horario)}</td>
+            <td class="px-3 py-3 text-right font-black whitespace-nowrap ${f.fuera_de_horario ? 'text-rose-700' : 'text-slate-400'}">${f.fuera_de_horario ? '<i class="fas fa-clock mr-1"></i>' : ''}${f.fuera_de_horario}</td>
+            <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap col-placa ${dimension !== 'placa' ? '!hidden' : ''}">${f.minutos_sobre_cierre !== undefined ? f.minutos_sobre_cierre + ' min' : ''}</td>
+            <td class="hidden md:table-cell px-3 py-3 text-right">${f.por_averia}</td></tr>`).join('');
+    }
+    cuerpo.addEventListener('click', (e) => {
+        const fila = e.target.closest('tr[data-valor]');
+        if (fila) filtrar({ [dimension]: fila.dataset.valor });
+    });
+    document.querySelectorAll('.pestana-flota').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('.pestana-flota').forEach(b => b.setAttribute('aria-selected', b === boton));
+        dimension = boton.dataset.dimension;
+        if (dimension !== 'placa' && orden === 'minutos_sobre_cierre') orden = 'fuera_de_horario';
+        pintarRanking();
+    }));
+    document.querySelectorAll('#ranking-flota th[data-orden]').forEach(th => th.addEventListener('click', () => {
+        descendente = th.dataset.orden === orden ? !descendente : th.dataset.orden !== 'nombre';
+        orden = th.dataset.orden; pintarRanking();
+    }));
+    pintarRanking();
+
+    // ---------- Gráficos (Chart.js) ----------
+    if (typeof Chart === 'undefined') return;
+    const movil = window.matchMedia('(max-width: 640px)').matches;
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.font.size = movil ? 11 : 12;
+    Chart.defaults.color = color('--texto-2');
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1a1a1a';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    const grilla = { color: color('--grilla') };
+    const manito = (evento, elementos) => { evento.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; };
+    const sinDatos = (id, texto) => {
+        const lienzo = document.getElementById(id);
+        if (!lienzo) return;
+        lienzo.parentElement.innerHTML = `<div class="h-full min-h-[8rem] flex flex-col items-center justify-center text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 p-4"><i class="fas fa-chart-simple text-2xl text-slate-300"></i><p class="mt-2 text-sm font-bold text-slate-400">${texto}</p></div>`;
+    };
+
+    // Hora de retorno: banda de cada bloque (anticipado gris, en horario azul, fuera de horario rojo).
+    const ret = flota.retorno;
+    const BANDAS = { anticipado: ['#a3a29c', 'Fin anticipado'], en_horario: [color('--serie-1'), 'En horario'], fuera: [color('--critico'), 'Fuera de horario'] };
+    if (!ret.conteos.some(v => v > 0)) sinDatos('grafico-retorno', 'Todavía no hay retornos (Post-Ruta) con estos filtros.');
+    else new Chart(document.getElementById('grafico-retorno'), {
+        type: 'bar',
+        data: { labels: ret.etiquetas, datasets: [{ label: 'Retornos', data: ret.conteos, borderRadius: 4, borderSkipped: 'start',
+            backgroundColor: ret.bandas.map(b => BANDAS[b][0]), borderColor: color('--superficie'), borderWidth: 2 }] },
+        options: { scales: { y: { beginAtZero: true, grid: grilla, ticks: { precision: 0 }, title: { display: !movil, text: 'retornos' } },
+                             x: { grid: { display: false }, ticks: { maxRotation: 50 } } },
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { title: (c) => `${c[0].label}–${ret.etiquetas[c[0].dataIndex + 1] || ''}`,
+                                        label: (c) => `${c.raw} retornos · ${BANDAS[ret.bandas[c.dataIndex]][1]}` } } } },
+    });
+
+    // Duración de la Pre-Ruta (rangos). Clic = ver las jornadas de ese rango no aplica: solo informa.
+    const pre = flota.pre_ruta;
+    if (!pre.conteos.some(v => v > 0)) sinDatos('grafico-pre-ruta', 'Todavía no hay salidas a ruta con estos filtros.');
+    else new Chart(document.getElementById('grafico-pre-ruta'), {
+        type: 'bar',
+        data: { labels: pre.etiquetas, datasets: [{ label: 'Jornadas', data: pre.conteos, borderRadius: 4, borderSkipped: 'start',
+            backgroundColor: pre.sobre_meta.map(s => (s ? color('--critico') : color('--serie-1'))), borderColor: color('--superficie'), borderWidth: 2 }] },
+        options: { scales: { y: { beginAtZero: true, grid: grilla, ticks: { precision: 0 }, title: { display: !movil, text: 'jornadas' } },
+                             x: { grid: { display: false } } },
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: (c) => `${c.raw} jornadas${pre.sobre_meta[c.dataIndex] ? ' · sobre la meta' : ''}` } } } },
+    });
+
+    // Tendencia: dos porcentajes en el mismo eje (0–100 %). Clic = ese día o esa semana.
+    const tend = flota.tendencia;
+    if (tend) {
+        if (!tend.cierre.some(v => v !== null) && !tend.pre_ruta.some(v => v !== null)) sinDatos('grafico-tendencia-flota', 'Sin jornadas terminadas en el rango.');
+        else new Chart(document.getElementById('grafico-tendencia-flota'), {
+            type: 'line',
+            data: { labels: tend.etiquetas, datasets: [
+                { label: 'Cierre en horario', data: tend.cierre, borderColor: color('--serie-1'), backgroundColor: color('--serie-1'),
+                  borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25 },
+                { label: 'Pre-Ruta a tiempo', data: tend.pre_ruta, borderColor: color('--serie-2'), backgroundColor: color('--serie-2'),
+                  borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25, pointStyle: 'rectRot' } ] },
+            options: { interaction: { mode: 'index', intersect: false }, onHover: manito,
+                onClick: (e, el) => {
+                    if (!el.length) return;
+                    const valor = tend.valores[el[0].index];
+                    if (!tend.semanal) filtrar({ desde: valor, hasta: valor });
+                    else { const fin = new Date(valor + 'T00:00:00'); fin.setDate(fin.getDate() + 6); filtrar({ desde: valor, hasta: fin.toISOString().slice(0, 10) }); }
+                },
+                scales: { y: { min: 0, max: 100, grid: grilla, ticks: { callback: v => `${v} %` } }, x: { grid: { display: false }, ticks: { maxRotation: 50, autoSkip: true } } },
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw ?? '—'} %`, footer: (items) => `${tend.fuera[items[0].dataIndex]} fuera de horario` } } } },
+        });
+    }
+})();

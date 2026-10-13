@@ -1,0 +1,221 @@
+{# Gráficos de la pestaña «Operación en planta». Se incluye dentro de un <script>. #}
+(() => {
+    const datos = JSON.parse(document.getElementById('datos-dashboard').textContent);
+    const css = getComputedStyle(document.querySelector('.viz'));
+    const color = (nombre) => css.getPropertyValue(nombre).trim();
+    const duracion = (m) => {
+        if (m === null || m === undefined) return '—';
+        const h = Math.floor(m / 60), r = m % 60;
+        return h ? `${h} h ${String(r).padStart(2, '0')} min` : `${r} min`;
+    };
+    // Los nombres (razón social, motivo…) los escriben usuarios: se escapan antes de insertarlos como HTML.
+    const escapar = (s) => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const RAMPA = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+
+    // Filtrado cruzado: cambia parámetros de la URL y recarga; todos los paneles se recalculan con ellos.
+    const filtrar = (cambios) => {
+        const url = new URL(window.location.href);
+        Object.entries(cambios).forEach(([clave, valor]) => {
+            if (valor === null || valor === undefined || valor === '') url.searchParams.delete(clave);
+            else url.searchParams.set(clave, valor);
+        });
+        window.location.href = url.toString();
+    };
+
+    // ---------- Mapa de calor ----------
+    const mapa = datos.mapa;
+    const METRICAS = {
+        llegadas: { pregunta: '¿Cuándo se congestiona el CD? Camiones que llegaron en cada bloque.', formato: v => `${v}` },
+        promedio: { pregunta: '¿A qué hora se quedan más tiempo? Permanencia promedio (min) de los que llegaron en cada bloque.', formato: v => duracion(v) },
+        pct_demora: { pregunta: '¿Cuándo se producen las demoras? % de tramos de cada bloque que superaron el límite.', formato: v => `${v} %` },
+    };
+    const tablaMapa = document.getElementById('mapa');
+    const tooltip = document.getElementById('tooltip-mapa');
+    const filtroDia = datos.filtros.dia, filtroHora = datos.filtros.hora;
+    function pintarMapa(metrica) {
+        const valores = mapa.celdas.flat().map(c => c[metrica]).filter(v => v !== null && v > 0);
+        const maximo = valores.length ? Math.max(...valores) : 0;
+        document.getElementById('mapa-pregunta').textContent = METRICAS[metrica].pregunta;
+        document.getElementById('leyenda-min').textContent = metrica === 'promedio' ? '0 min' : '0';
+        document.getElementById('leyenda-max').textContent = maximo ? METRICAS[metrica].formato(maximo) : '';
+        document.getElementById('leyenda-escala').innerHTML = RAMPA.map(c => `<span class="flex-1" style="background:${c}"></span>`).join('');
+        if (!mapa.horas.length) { tablaMapa.innerHTML = '<tr><td class="p-6 text-slate-400 font-bold">Sin llegadas con estos filtros.</td></tr>'; return; }
+        let html = '<thead><tr><th></th>' + mapa.horas.map(h => `<th class="px-1 pb-1 font-black text-slate-400">${String(h).padStart(2, '0')}h</th>`).join('') + '</tr></thead><tbody>';
+        mapa.celdas.forEach((fila, dia) => {
+            html += `<tr><th class="pr-3 text-left font-black text-slate-500 whitespace-nowrap">${mapa.dias[dia].slice(0, 3)}<span class="hidden sm:inline">${mapa.dias[dia].slice(3)}</span></th>`;
+            fila.forEach((celda, i) => {
+                const valor = celda[metrica];
+                let fondo = color('--vacio'), tinta = '#a3a29c', texto = '';
+                if (celda.llegadas) {
+                    const paso = maximo ? Math.min(RAMPA.length - 1, Math.floor((valor || 0) / maximo * (RAMPA.length - 1) + 0.0001)) : 0;
+                    fondo = RAMPA[paso]; tinta = paso >= 3 ? '#ffffff' : '#0b0b0b';
+                    texto = metrica === 'llegadas' ? valor : (valor === null ? '' : Math.round(valor));
+                }
+                const activa = filtroDia === dia && filtroHora === mapa.horas[i] ? ' activa' : '';
+                html += `<td class="mapa-celda${activa} min-w-[2.4rem] w-10 sm:w-11 h-9 sm:h-10 rounded-md font-black" style="background:${fondo};color:${tinta}" data-dia="${dia}" data-i="${i}">${texto}</td>`;
+            });
+            html += '</tr>';
+        });
+        tablaMapa.innerHTML = html + '</tbody>';
+    }
+    tablaMapa.addEventListener('mousemove', (e) => {
+        const td = e.target.closest('td.mapa-celda');
+        if (!td) { tooltip.classList.add('hidden'); return; }
+        const dia = +td.dataset.dia, i = +td.dataset.i, celda = mapa.celdas[dia][i], hora = mapa.horas[i];
+        tooltip.innerHTML = `<p class="font-black">${mapa.dias[dia]} · ${String(hora).padStart(2, '0')}:00–${String(hora + 1).padStart(2, '0')}:00</p>` +
+            (celda.llegadas ? `<p>${celda.llegadas} llegada${celda.llegadas === 1 ? '' : 's'}</p><p>Permanencia promedio: ${duracion(celda.promedio)}</p><p>Con demora: ${celda.pct_demora ?? 0} %</p><p class="text-orange-300 mt-1">Toque para filtrar</p>` : '<p>Sin llegadas</p>');
+        tooltip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 200)}px`; tooltip.style.top = `${e.clientY + 14}px`;
+        tooltip.classList.remove('hidden');
+    });
+    tablaMapa.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+    tablaMapa.addEventListener('click', (e) => {
+        const td = e.target.closest('td.mapa-celda');
+        if (!td || !mapa.celdas[+td.dataset.dia][+td.dataset.i].llegadas) return;
+        filtrar({ dia: td.dataset.dia, hora: mapa.horas[+td.dataset.i] });
+    });
+    document.querySelectorAll('[data-metrica]').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('[data-metrica]').forEach(b => b.setAttribute('aria-selected', b === boton));
+        pintarMapa(boton.dataset.metrica);
+    }));
+    pintarMapa('llegadas');
+
+    // ---------- Rankings ----------
+    let dimension = Object.keys(datos.dimensiones)[0], orden = 'promedio', descendente = true;
+    const cuerpo = document.querySelector('#ranking tbody');
+    function pintarRanking() {
+        const filas = [...datos.rankings[dimension]].sort((a, b) => {
+            const x = a[orden] ?? -1, y = b[orden] ?? -1;
+            return (typeof x === 'string' ? x.localeCompare(y) : x - y) * (descendente ? -1 : 1);
+        });
+        document.getElementById('ranking-nombre').textContent = datos.dimensiones[dimension];
+        document.querySelectorAll('#ranking th[data-orden]').forEach(th => {
+            th.textContent = th.textContent.replace(/ [▼▲]$/, '') + (th.dataset.orden === orden ? (descendente ? ' ▼' : ' ▲') : '');
+        });
+        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">Sin tramos cerrados con estos filtros.</td></tr>'; return; }
+        const escala = Math.max(datos.limite, ...filas.map(f => f.promedio)) * 1.08;
+        const marca = datos.limite / escala * 100;
+        cuerpo.innerHTML = filas.map((f, i) => {
+            const demora = f.promedio > datos.limite;
+            const activa = String(datos.filtros[dimension] ?? '') === String(f.valor);
+            return `<tr class="fila-filtrable ${activa ? 'bg-marca-claro' : 'hover:bg-marca-claro'}" data-valor="${escapar(f.valor)}" title="Filtrar todo el dashboard por ${escapar(f.nombre)}">
+                <td class="px-3 py-3 text-slate-400 font-black">${i + 1}</td>
+                <td class="px-3 py-3 font-black text-daryza-dark whitespace-nowrap">${escapar(f.nombre)}</td>
+                <td class="px-3 py-3 text-right font-bold">${f.tramos}</td>
+                <td class="px-3 py-3">
+                    <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-1 sm:gap-3">
+                        <div class="relative flex-1 h-3 rounded-full bg-slate-100 min-w-[5rem]">
+                            <div class="h-3 rounded-full" style="width:${f.promedio / escala * 100}%;background:${demora ? color('--critico') : color('--serie-1')}"></div>
+                            <div class="absolute -top-1 -bottom-1 w-0.5 bg-slate-800" style="left:${marca}%"></div>
+                        </div>
+                        <span class="sm:w-24 sm:text-right font-black whitespace-nowrap" style="color:${demora ? color('--critico') : color('--texto-1')}">${demora ? '<i class="fas fa-triangle-exclamation mr-1"></i>' : ''}${duracion(f.promedio)}</span>
+                    </div>
+                </td>
+                <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap">${duracion(f.p90)}</td>
+                <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap">${duracion(f.maximo)}</td>
+                <td class="px-3 py-3 text-right font-bold whitespace-nowrap">${f.demoras} <span class="text-slate-400">(${f.pct_demora ?? 0} %)</span></td>
+                <td class="hidden lg:table-cell px-3 py-3 text-right whitespace-nowrap">${f.pct_retraso ?? 0} %</td>
+                <td class="hidden lg:table-cell px-3 py-3 text-right whitespace-nowrap">${f.total_horas} h</td>
+            </tr>`;
+        }).join('');
+    }
+    cuerpo.addEventListener('click', (e) => {
+        const fila = e.target.closest('tr[data-valor]');
+        if (fila) filtrar({ [dimension]: fila.dataset.valor });
+    });
+    document.querySelectorAll('.pestana-ranking').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('.pestana-ranking').forEach(b => b.setAttribute('aria-selected', b === boton));
+        dimension = boton.dataset.dimension; pintarRanking();
+    }));
+    document.querySelectorAll('#ranking th[data-orden]').forEach(th => th.addEventListener('click', () => {
+        descendente = th.dataset.orden === orden ? !descendente : th.dataset.orden !== 'nombre';
+        orden = th.dataset.orden; pintarRanking();
+    }));
+    pintarRanking();
+
+    // ---------- Gráficos (Chart.js) ----------
+    if (typeof Chart === 'undefined') return;
+    const movil = window.matchMedia('(max-width: 640px)').matches;
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.font.size = movil ? 11 : 12;
+    Chart.defaults.color = color('--texto-2');
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1a1a1a';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    const grilla = { color: color('--grilla') };
+    const manito = (evento, elementos) => { evento.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; };
+    // Sin datos: en vez de ejes vacíos, un mensaje claro en el lugar del gráfico.
+    const sinDatos = (id, texto) => {
+        const contenedor = document.getElementById(id).parentElement;
+        contenedor.innerHTML = `<div class="h-full min-h-[8rem] flex flex-col items-center justify-center text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 p-4"><i class="fas fa-chart-simple text-2xl text-slate-300"></i><p class="mt-2 text-sm font-bold text-slate-400">${texto}</p></div>`;
+    };
+    const SIN_CERRADOS = 'Todavía no hay tramos cerrados con estos filtros: la permanencia se calcula cuando el vehículo sale.';
+
+    // Tendencia: clic en un punto = esa hora, ese día o esa semana.
+    const tend = datos.tendencia;
+    const referencia = datos.meta || datos.limite;
+    if (!tend.promedio.some(v => v !== null)) sinDatos('grafico-tendencia', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-tendencia'), {
+        type: 'line',
+        data: { labels: tend.etiquetas, datasets: [
+            { label: 'Permanencia promedio', data: tend.promedio, borderColor: color('--serie-1'), backgroundColor: color('--serie-1'),
+              borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25 },
+            { label: datos.meta ? 'Meta' : 'Límite de demora', data: tend.etiquetas.map(() => referencia), borderColor: color('--texto-2'),
+              borderDash: [6, 6], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 } ] },
+        options: { interaction: { mode: 'index', intersect: false }, onHover: manito,
+            onClick: (e, elementos) => {
+                if (!elementos.length) return;
+                const valor = tend.valores[elementos[0].index];
+                if (tend.unidad === 'hora') filtrar({ hora: valor });
+                else if (tend.unidad === 'dia') filtrar({ desde: valor, hasta: valor });
+                else { const fin = new Date(valor + 'T00:00:00'); fin.setDate(fin.getDate() + 6); filtrar({ desde: valor, hasta: fin.toISOString().slice(0, 10) }); }
+            },
+            scales: { y: { beginAtZero: true, grid: grilla, title: { display: !movil, text: 'minutos' } }, x: { grid: { display: false }, ticks: { maxRotation: 50, autoSkip: true } } },
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? `Promedio: ${duracion(c.raw)} · ${tend.tramos[c.dataIndex]} tramos · ${tend.pct_demora[c.dataIndex] ?? 0} % con demora` : `${c.dataset.label}: ${c.raw} min` } } } },
+    });
+
+    // Distribución: clic en una barra = ese rango de permanencia.
+    const dist = datos.distribucion;
+    if (!dist.conteos.some(v => v > 0)) sinDatos('grafico-distribucion', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-distribucion'), {
+        type: 'bar',
+        data: { labels: dist.etiquetas, datasets: [{ label: 'Tramos', data: dist.conteos, borderRadius: 4, borderSkipped: 'start',
+            backgroundColor: dist.sobre_limite.map((s, i) => (datos.filtros.rango !== undefined && datos.filtros.rango !== i) ? '#d6d5d0' : (s ? color('--critico') : color('--serie-1'))),
+            borderColor: color('--superficie'), borderWidth: 2 }] },
+        options: { onHover: manito, onClick: (e, el) => { if (el.length) filtrar({ rango: el[0].index }); },
+            scales: { y: { beginAtZero: true, grid: grilla, ticks: { precision: 0 }, title: { display: !movil, text: 'tramos' } }, x: { grid: { display: false }, ticks: { maxRotation: 45 } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} tramos${dist.sobre_limite[c.dataIndex] ? ' · con demora' : ''}` } } } },
+    });
+
+    // Puntualidad (divergente: adelantado azul · puntual gris · retrasado rojo). Clic = ese grupo y esa llegada.
+    const SERIES_PUNTUALIDAD = [['ADELANTADO', 'Adelantado', '--adelantado'], ['PUNTUAL', 'Puntual', '--puntual'], ['RETRASADO', 'Retrasado', '--retrasado']];
+    const puntualidad = (id, d) => new Chart(document.getElementById(id), {
+        type: 'bar',
+        data: { labels: d.grupos, datasets: SERIES_PUNTUALIDAD.map(([clave, etiqueta, variable]) => ({
+            label: etiqueta, data: d[clave], backgroundColor: color(variable), borderColor: color('--superficie'), borderWidth: 2, borderRadius: 4 })) },
+        options: { indexAxis: 'y', onHover: manito,
+            onClick: (e, el) => { if (el.length) filtrar({ [d.param]: d.valores[el[0].index], llegada: SERIES_PUNTUALIDAD[el[0].datasetIndex][0] }); },
+            scales: { x: { stacked: true, max: 100, grid: grilla, ticks: { callback: v => `${v} %` } }, y: { stacked: true, grid: { display: false } } },
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw ?? 0} %`, footer: (items) => `${d.totales[items[0].dataIndex]} tramos` } } } },
+    });
+    if (datos.puntualidad_cd.grupos.length) {
+        puntualidad('grafico-puntualidad-cd', datos.puntualidad_cd);
+        puntualidad('grafico-puntualidad-tipo', datos.puntualidad_tipo);
+    } else {
+        sinDatos('grafico-puntualidad-cd', 'Sin llegadas con estos filtros.');
+        document.getElementById('grafico-puntualidad-tipo').parentElement.remove();
+    }
+
+    // Efecto del retraso. Clic = esa categoría de llegada.
+    const llegada = datos.segun_llegada;
+    if (!llegada.promedio.some(v => v !== null)) sinDatos('grafico-llegada', SIN_CERRADOS);
+    else new Chart(document.getElementById('grafico-llegada'), {
+        type: 'bar',
+        data: { labels: ['Adelantado', 'Puntual', 'Retrasado'], datasets: [{ label: 'Permanencia promedio', data: llegada.promedio,
+            backgroundColor: SERIES_PUNTUALIDAD.map(s => color(s[2])), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 90 }] },
+        options: { onHover: manito, onClick: (e, el) => { if (el.length) filtrar({ llegada: llegada.categorias[el[0].index] }); },
+            scales: { y: { beginAtZero: true, grid: grilla, title: { display: !movil, text: 'minutos' } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${duracion(c.raw)} en promedio · ${llegada.tramos[c.dataIndex]} tramos` } } } },
+    });
+})();

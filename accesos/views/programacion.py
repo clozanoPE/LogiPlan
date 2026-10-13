@@ -10,7 +10,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import auditoria, consultas, qr, servicios, tiempo
+from .. import auditoria, consultas, jornadas, qr, servicios, tiempo
 from ..forms import CancelacionForm, ConductorRapidoForm, ProgramacionForm, TransporteForm
 from ..models import CentroDistribucion, ConfiguracionAccesos, Programacion, RegistroAuditoria, TamanoVehiculo
 from ..permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, rol_requerido
@@ -56,7 +56,10 @@ def agenda(request):
             'canceladas': sum(1 for p in del_cd if p.esta_cancelada),
         })
 
+    cd_ids = {int(filtros['cd'])} if filtros['cd'].isdigit() else None
     return render(request, 'accesos/programacion/agenda.html', {
+        'jornadas_dia': jornadas.jornadas_del_dia(fecha, ahora, cd_ids=cd_ids),
+        'no_laborable': jornadas.no_laborables_entre(fecha, fecha).get(fecha),
         'fecha': fecha, 'fecha_larga': tiempo.fecha_larga(fecha), 'es_hoy': fecha == hoy,
         'dia_anterior': fecha - timedelta(days=1), 'dia_siguiente': fecha + timedelta(days=1),
         'programaciones': programaciones, 'resumen': resumen, 'filtros': filtros,
@@ -127,6 +130,13 @@ def editar(request, pk):
     return _render_form(request, form, programacion)
 
 
+def _estado_jornada(jornada, ahora):
+    abierto = jornada.transporte.tramos.filter(abierto=True).first()
+    return jornadas.estado_visible(jornada, ahora, dentro=abierto is not None,
+                                   en_visita=bool(abierto and abierto.es_programado),
+                                   no_disponible=jornadas.incidencia_abierta(jornada.transporte_id) is not None)
+
+
 @rol_requerido(ADMINISTRADOR, DESPACHO, CONSULTA)
 def detalle(request, pk):
     programacion = get_object_or_404(
@@ -136,8 +146,12 @@ def detalle(request, pk):
     )
     ahora = tiempo.ahora()
     tramo = servicios.tramo_vigente(programacion)
+    jornada = (jornadas.jornada_vigente(programacion.transporte_id, programacion.fecha)
+               if programacion.tipo == Programacion.Tipo.INTERNO else None)
     return render(request, 'accesos/programacion/detalle.html', {
         'programacion': programacion,
+        'jornada': jornada,
+        'jornada_estado': _estado_jornada(jornada, ahora) if jornada else None,
         'tramo': tramo,
         'qr_svg': qr.svg(programacion.transporte.contenido_qr, escala=5),
         'tramo_permanencia': servicios.formato_duracion(servicios.minutos_dentro(tramo, ahora)) if tramo else None,

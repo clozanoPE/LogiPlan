@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import carga, control, dashboard, inicio, maestros, porteria, programacion
+from .views import carga, control, dashboard, flota, inicio, maestros, porteria, programacion, tv
 
 app_name = 'accesos'
 
@@ -12,11 +12,16 @@ urlpatterns = [
     path('porteria/cd/', porteria.elegir_cd, name='porteria_cd'),
     path('porteria/entrada/', porteria.registrar_entrada, name='porteria_entrada'),
     path('porteria/salida/', porteria.registrar_salida, name='porteria_salida'),
+    path('porteria/inicio-jornada/', porteria.registrar_inicio_jornada, name='porteria_inicio_jornada'),
+    path('porteria/post-ruta/', porteria.registrar_post_ruta, name='porteria_post_ruta'),
     path('porteria/dentro/', porteria.dentro_ahora, name='porteria_dentro'),
     path('porteria/programaciones/', porteria.programaciones_hoy, name='porteria_programaciones'),
 
-    # --- DASHBOARD DE GERENCIA (F5) ---
+    # --- DASHBOARD DE GERENCIA (F5, F6.3) Y MODO TV (F6.4) ---
     path('dashboard/', dashboard.dashboard, name='dashboard'),
+    path('tv/', tv.elegir, name='tv_elegir'),
+    path('tv/<slug:codigo>/', tv.tv, name='tv'),
+    path('tv/<slug:codigo>/datos/', tv.tv_datos, name='tv_datos'),
 
     # --- CONTROL Y CORRECCIONES (F4) ---
     path('hoy/', control.tablero_hoy, name='tablero_hoy'),
@@ -26,6 +31,7 @@ urlpatterns = [
     path('tramos/<int:pk>/corregir/', control.tramo_corregir, name='tramo_corregir'),
     path('tramos/<int:pk>/anular/', control.tramo_anular, name='tramo_anular'),
     path('tramos/<int:pk>/cierre/', control.tramo_cierre, name='tramo_cierre'),
+    path('tramos/<int:pk>/convertir-post-ruta/', control.tramo_convertir_post_ruta, name='tramo_convertir_post_ruta'),
     path('auditoria/', control.auditoria_lista, name='auditoria_lista'),
 
     # --- PROGRAMACIONES (F2) ---
@@ -35,6 +41,11 @@ urlpatterns = [
     path('programaciones/<int:pk>/editar/', programacion.editar, name='programacion_editar'),
     path('programaciones/<int:pk>/cancelar/', programacion.cancelar, name='programacion_cancelar'),
     path('programaciones/<int:pk>/pase/', programacion.pase, name='programacion_pase'),
+
+    # --- DISPONIBILIDAD DE FLOTA (F6: averías) ---
+    path('flota/disponibilidad/', flota.disponibilidad, name='flota_disponibilidad'),
+    path('flota/no-disponible/', flota.registrar_no_disponible, name='flota_registrar'),
+    path('flota/incidencias/<int:pk>/habilitar/', flota.habilitar, name='flota_habilitar'),
 
     # --- MAESTROS ---
     path('transportes/', maestros.transportes_lista, name='transportes_lista'),

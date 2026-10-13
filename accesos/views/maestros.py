@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import auditoria, licencias, qr, tiempo
+from .. import auditoria, jornadas, licencias, qr, tiempo
 from ..forms import (ConductorForm, ConductorRapidoForm, TransporteForm, etiqueta_conductor,
                      etiqueta_transporte)
 from ..models import ConfiguracionAccesos, Conductor, Transporte, normalizar_placa
@@ -45,7 +45,7 @@ def transportes_lista(request):
     if busqueda:
         transportes = transportes.filter(placa_normalizada__icontains=normalizar_placa(busqueda))
     return render(request, 'accesos/maestros/transporte_lista.html', {
-        **paginar(request, transportes), 'busqueda': busqueda,
+        **paginar(request, transportes), 'busqueda': busqueda, 'no_disponibles': jornadas.ids_no_disponibles(),
     })
 
 

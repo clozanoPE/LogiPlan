@@ -24,7 +24,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from . import auditoria, licencias, servicios, tiempo
+from . import auditoria, jornadas, licencias, servicios, tiempo
 from .forms import ConductorForm, ProgramacionForm, TransporteForm
 from .models import (CATEGORIAS_LICENCIA, CATEGORIAS_LICENCIA_ESPECIAL, CentroDistribucion, Conductor,
                      ConfiguracionAccesos, Programacion, TamanoVehiculo, TipoDocumentoIdentidad, Transporte,
@@ -582,8 +582,10 @@ class CargaProgramaciones(TipoCarga):
     titulo = 'Programaciones'
     singular = 'programación'
     nota = ("La placa y el conductor deben existir y estar activos en los maestros (cárguelos primero). "
-            "Se aplican las mismas reglas que en la pantalla: fecha y hora futuras (hora de Lima), RUC válido, "
-            "la placa no se repite en la misma fecha y hora. Los avisos de capacidad no impiden grabar.")
+            "Se aplican las mismas reglas que en la pantalla: fecha y hora futuras (hora de Lima), sin domingos ni "
+            "feriados, RUC válido, la placa no se repite en la misma fecha y hora, INTERNO solo con transportes "
+            "propios y disponibles. La primera ruta INTERNO de una placa en el día crea su Pre-Ruta automática. "
+            "Los avisos de capacidad no impiden grabar.")
     columnas = [
         Columna('cd', 'cd', True, "Código o nombre del CD: uno de la lista.", 'LURIN', lista='cds'),
         Columna('fecha', 'fecha', True, "Fecha de la cita: DD/MM/AAAA (también acepta AAAAMMDD).",
@@ -622,7 +624,8 @@ class CargaProgramaciones(TipoCarga):
             conductores.setdefault(conductor.numero_documento, []).append(conductor)
         return {'cds': cds, 'tipos': {clave(v): v for v, _ in Programacion.Tipo.choices},
                 'transportes': {t.placa_normalizada: t for t in Transporte.objects.select_related('tamano')},
-                'conductores': conductores, 'config': ConfiguracionAccesos.obtener()}
+                'conductores': conductores, 'config': ConfiguracionAccesos.obtener(),
+                'no_disponibles': jornadas.ids_no_disponibles()}
 
     def validar(self, fila, contexto, vistos, ahora):
         v = fila.valores
@@ -638,6 +641,9 @@ class CargaProgramaciones(TipoCarga):
             fila.error(f"La placa {v['placa']} no está registrada en Transportes.")
         elif not transporte.activo:
             fila.error(f"La placa {v['placa']} está inactiva.")
+        elif transporte.pk in contexto['no_disponibles']:
+            fila.error(f"La placa {v['placa']} no está disponible (avería registrada): no se puede programar hasta "
+                       "que se habilite.")
         conductor = self._conductor(fila, contexto)
         if fila.estado == ERROR:
             return fila
@@ -658,6 +664,13 @@ class CargaProgramaciones(TipoCarga):
         if avisos:
             fila.estado = AVISO
             fila.mensajes.extend(avisos)
+        if tipo == Programacion.Tipo.INTERNO:
+            # Informativo: la primera ruta INTERNO de la placa en el día crea su Pre-Ruta automática.
+            dia = (transporte.pk, fila.form.cleaned_data['fecha'])
+            existe = dia in contexto.setdefault('jornadas_vistas', set()) or jornadas.jornada_vigente(*dia)
+            contexto['jornadas_vistas'].add(dia)
+            fila.mensajes.append("Pre-Ruta del día: ya existe." if existe else
+                                 f"Se creará la Pre-Ruta automática ({contexto['config'].hora_pre_ruta:%H:%M}).")
         return fila
 
     def _conductor(self, fila, contexto):
@@ -681,7 +694,9 @@ class CargaProgramaciones(TipoCarga):
     def despues_de_grabar(self, fila, objeto):
         # Avisos recalculados ya con las filas anteriores del archivo grabadas (capacidad, misma placa).
         avisos = servicios.avisos(objeto, ConfiguracionAccesos.obtener())
-        fila.mensajes = [f"{objeto.codigo} registrada."] + avisos
+        pre_ruta = [m.replace('Se creará', 'Se creó') for m in fila.mensajes
+                    if m.startswith(('Pre-Ruta del día', 'Se creará la Pre-Ruta'))]
+        fila.mensajes = [f"{objeto.codigo} registrada."] + avisos + pre_ruta
         fila.estado = AVISO if avisos else OK
 
 

@@ -191,13 +191,20 @@ class EstadoYAvisosTests(ProgramacionBase):
         lejana = self.crear(transporte=self.externo.pk, hora='11:00')
         self.assertEqual(servicios.avisos(lejana, config), [])
 
-    def test_r6_misma_placa_cerca_en_otro_cd_y_r7_interno_con_externo(self):
+    def test_r6_misma_placa_cerca_en_otro_cd(self):
         config = ConfiguracionAccesos.obtener()
         self.crear(hora='09:00', cd=self.lurin.pk)
-        otra = self.crear(hora='09:30', cd=self.punta_negra.pk, tipo='INTERNO', documento='', razon_social='')
+        otra = self.crear(hora='09:30', cd=self.punta_negra.pk)
         avisos = servicios.avisos(otra, config)
         self.assertTrue(any('también está programada' in a for a in avisos))
-        self.assertTrue(any('no está marcado como transporte interno' in a for a in avisos))
+
+    def test_r7_bloquea_interno_con_transporte_externo(self):
+        form = ProgramacionForm(data=self.datos(tipo='INTERNO', documento='', razon_social=''), ahora=tiempo.ahora())
+        self.assertFalse(form.is_valid())
+        self.assertIn('transporte propio', ' '.join(form.errors['transporte']))
+        interna = ProgramacionForm(data=self.datos(tipo='INTERNO', transporte=self.f7j.pk, documento='',
+                                                   razon_social=''), ahora=tiempo.ahora())
+        self.assertTrue(interna.is_valid(), interna.errors)
 
 
 class VistasYPermisosTests(ProgramacionBase):
@@ -222,12 +229,14 @@ class VistasYPermisosTests(ProgramacionBase):
 
     def test_alta_desde_la_vista_audita_y_avisa(self):
         self.entrar(self.despacho)
+        # Ruta INTERNO a las 07:00: la unidad todavía estará en su Pre-Ruta (06:30 + 60 min).
         respuesta = self.client.post(reverse('accesos:programacion_crear'),
-                                     self.datos(tipo='INTERNO', documento='', razon_social=''), follow=True)
+                                     self.datos(tipo='INTERNO', transporte=self.f7j.pk, hora='07:00', documento='',
+                                                razon_social=''), follow=True)
         programacion = Programacion.objects.get()
         self.assertEqual(respuesta.redirect_chain[-1][0], reverse('accesos:programacion_detalle', args=[programacion.pk]))
         self.assertTrue(RegistroAuditoria.objects.filter(entidad='Programacion', accion='CREAR').exists())
-        self.assertContains(respuesta, 'no está marcado como transporte interno')
+        self.assertContains(respuesta, 'estará en su Pre-Ruta')
 
     def test_nueva_en_otro_horario_copia_los_datos(self):
         base = self.crear(motivo='Entrega de insumos')

@@ -7,7 +7,7 @@ from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
 from .. import carga_masiva
-from ..models import Conductor, Programacion, RegistroAuditoria, Transporte
+from ..models import Conductor, Jornada, Programacion, RegistroAuditoria, Transporte
 from .test_programacion import HOY, MANANA, RUC_DARYZA, ProgramacionBase
 
 
@@ -209,7 +209,7 @@ class CargaProgramacionesTests(CargaBase):
             self.fila(placa='NOE-000', hora='12:00'),                        # 7 placa no registrada
             self.fila(conductor_documento='11112222', hora='13:00'),         # 8 conductor inactivo
             self.fila(hora='10:00'),                                         # 9 ya programada en la base
-            self.fila(tipo='INTERNO', hora='14:00', ruc_dni='', razon_social=''),  # 10 aviso R7 (no interno)
+            self.fila(tipo='INTERNO', hora='14:00', ruc_dni='', razon_social=''),  # 10 R7: INTERNO con externo
             self.fila(cd='CALLAO', tipo='OTRO', hora='15:00'),               # 11 CD y tipo inválidos
             self.fila(fecha=20261008, hora=0.6875),                          # 12 AAAAMMDD y hora como fracción (16:30)
             self.fila(hora='25:99'),                                         # 13 hora inválida
@@ -217,7 +217,7 @@ class CargaProgramacionesTests(CargaBase):
         respuesta = self.previsualizar('programaciones', archivo)
         estados = dict(self.estados(respuesta))
         self.assertEqual(estados, {2: 'OK', 3: 'OK', 4: 'ERROR', 5: 'ERROR', 6: 'ERROR', 7: 'ERROR', 8: 'ERROR',
-                                   9: 'ERROR', 10: 'AVISO', 11: 'ERROR', 12: 'OK', 13: 'ERROR'})
+                                   9: 'ERROR', 10: 'ERROR', 11: 'ERROR', 12: 'OK', 13: 'ERROR'})
         mensajes = {f.numero: ' '.join(f.mensajes) for f in respuesta.context['filas']}
         self.assertIn('fila 2', mensajes[4])
         self.assertIn(programada.codigo, mensajes[9])
@@ -225,11 +225,12 @@ class CargaProgramacionesTests(CargaBase):
         self.assertIn('inactivo', mensajes[8])
         self.assertIn('CALLAO', mensajes[11])
         self.assertIn('OTRO', mensajes[11])
+        self.assertIn('transporte propio', mensajes[10])
         self.assertEqual(Programacion.objects.count(), 1)  # la vista previa no graba
 
         respuesta = self.confirmar('programaciones')
-        self.assertEqual(respuesta.context['conteo']['grabadas'], 4)
-        self.assertEqual(Programacion.objects.count(), 5)
+        self.assertEqual(respuesta.context['conteo']['grabadas'], 3)
+        self.assertEqual(Programacion.objects.count(), 4)
         interna = Programacion.objects.get(transporte=self.f7j)
         self.assertEqual((interna.cd, interna.documento, interna.razon_social),
                          (self.punta_negra, RUC_DARYZA, 'Daryza S.A.C.'))
@@ -237,7 +238,9 @@ class CargaProgramacionesTests(CargaBase):
         nuevas = Programacion.objects.exclude(pk=programada.pk)
         self.assertTrue(all(p.creado_por == self.despacho and p.estado == 'PROGRAMADA' for p in nuevas))
         self.assertEqual(RegistroAuditoria.objects.filter(entidad='Programacion', motivo='Carga masiva: semana.xlsx')
-                         .count(), 4)
+                         .count(), 3)
+        # La ruta INTERNO creó la Pre-Ruta automática de la placa propia ese día.
+        self.assertTrue(Jornada.objects.filter(transporte=self.f7j, fecha=MANANA, estado='PLANIFICADA').exists())
         # El resultado informa el código de cada programación registrada y los errores.
         self.assertContains(respuesta, nuevas.order_by('pk').first().codigo)
         self.assertContains(respuesta, 'no está registrada')

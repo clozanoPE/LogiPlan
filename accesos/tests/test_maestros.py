@@ -15,7 +15,8 @@ class DatosInicialesTests(TestCase):
         from django.contrib.auth.models import Group
         self.assertEqual(
             set(Group.objects.filter(name__startswith='Accesos - ').values_list('name', flat=True)),
-            {'Accesos - Administrador', 'Accesos - Despacho', 'Accesos - Vigilancia', 'Accesos - Consulta'},
+            {'Accesos - Administrador', 'Accesos - Despacho', 'Accesos - Vigilancia', 'Accesos - Consulta',
+             'Accesos - Pantalla'},
         )
         self.assertEqual(CentroDistribucion.objects.get(codigo='LURIN').capacidad_simultanea, 5)
         self.assertEqual(CentroDistribucion.objects.get(codigo='PUNTA_NEGRA').capacidad_simultanea, 3)

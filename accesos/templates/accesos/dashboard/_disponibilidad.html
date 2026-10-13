@@ -1,0 +1,130 @@
+{# Pestaña «Disponibilidad»: averías (vehículo no disponible) de la flota propia. #}
+{% with d=flota.disponibilidad c=flota.cambios_disp %}
+<!-- Indicadores -->
+<div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-circle-check mr-1 text-marca"></i>Disponibilidad</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if d.pct_disponibilidad is not None %}{{ d.pct_disponibilidad|floatformat:1 }} %{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">días-unidad sin avería · {{ d.flota }} unidades propias activas · {{ d.dias }} días laborables</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=c.pct_disponibilidad %}
+    </div>
+    <div class="bg-white rounded-3xl border {% if d.no_disponibles_ahora %}border-rose-200{% else %}border-slate-100{% endif %} p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-screwdriver-wrench mr-1 text-marca"></i>No disponibles ahora</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black {% if d.no_disponibles_ahora %}text-rose-700{% else %}text-daryza-dark{% endif %}">{{ d.no_disponibles_ahora }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if d.afectadas_futuras %}<span class="text-amber-700">{{ d.afectadas_futuras }} {% if d.afectadas_futuras == 1 %}programación{% else %}programaciones{% endif %} por reasignar</span>{% else %}sin programaciones afectadas{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-car-burst mr-1 text-marca"></i>Averías</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ d.averias }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">iniciadas en el periodo</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=c.averias %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-wrench mr-1 text-marca"></i>Tiempo de reparación</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if d.reparacion_promedio_h is not None %}{{ d.reparacion_promedio_h|floatformat:1 }} h{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">promedio, de la avería a la habilitación (averías cerradas)</p>
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-calendar-xmark mr-1 text-marca"></i>Días fuera de servicio</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ d.dias_unidad_fuera }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">días-unidad laborables con avería abierta</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=c.dias_unidad_fuera %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-ban mr-1 text-marca"></i>Rutas canceladas</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ d.canceladas_por_averia }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">programaciones canceladas por estas averías</p>
+    </div>
+</div>
+
+<!-- Línea de tiempo de averías -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
+    <div class="action-row justify-between mb-3">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">¿Cuándo estuvo cada unidad fuera de servicio?</h2>
+            <p class="text-xs text-slate-500">Del {{ desde|date:"d/m" }} al {{ hasta|date:"d/m" }}. Barra sólida: avería cerrada; con borde rojo: sigue abierta. Toque la placa para filtrarla.</p>
+        </div>
+        {% if accesos_lectura %}<a href="{% url 'accesos:flota_disponibilidad' %}" class="text-xs font-black text-marca hover:underline whitespace-nowrap">{% if accesos_puede_programar %}Gestionar averías{% else %}Ver averías{% endif %} →</a>{% endif %}
+    </div>
+    {% if d.linea %}
+    <div class="space-y-2">
+        {% for fila in d.linea %}
+        <div class="grid grid-cols-[6.5rem_1fr] gap-3 items-center">
+            <button type="button" data-placa="{{ fila.valor }}" class="text-left font-black tracking-wider text-sm text-daryza-dark hover:text-marca">{{ fila.placa }}</button>
+            <div class="relative h-7 rounded-lg bg-slate-50">
+                {% for b in fila.barras %}
+                <div class="absolute top-1 bottom-1 rounded-[4px] {% if b.abierta %}ring-2 ring-rose-500{% endif %}" style="left: {{ b.izquierda|stringformat:'s' }}%; width: {{ b.ancho|stringformat:'s' }}%; background: var(--serio)" title="{{ b.texto }}"></div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="p-6 text-center text-sm font-bold text-slate-400 rounded-2xl bg-slate-50"><i class="fas fa-circle-check text-emerald-600 mr-1"></i> Sin averías en el periodo con estos filtros.</p>
+    {% endif %}
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">Disponibilidad día a día</h2>
+        <p class="text-xs text-slate-500 mb-4">% de la flota propia sin avería en cada día laborable.</p>
+        <div class="h-64"><canvas id="grafico-disponibilidad" role="img" aria-label="Disponibilidad por día"></canvas></div>
+    </section>
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿Qué tipo de averías?</h2>
+        <p class="text-xs text-slate-500 mb-4">Averías iniciadas en el periodo, por tipo.</p>
+        <div class="h-64"><canvas id="grafico-tipos" role="img" aria-label="Averías por tipo"></canvas></div>
+    </section>
+</div>
+
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mb-6">
+    <div class="p-4 sm:p-6 pb-2">
+        <h2 class="text-lg font-black text-daryza-dark">Unidades con más días fuera de servicio</h2>
+        <p class="text-xs text-slate-500">«Días entre averías» = días laborables disponibles ÷ averías del periodo (más alto es mejor).</p>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-5 py-3">Placa</th><th class="text-right px-5 py-3">Averías</th><th class="text-right px-5 py-3">Días fuera</th><th class="text-right px-5 py-3">Días entre averías</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in d.ranking %}
+                <tr class="hover:bg-marca-claro">
+                    <td class="px-5 py-3 font-black tracking-wider whitespace-nowrap">{{ f.placa }}</td>
+                    <td class="px-5 py-3 text-right font-bold">{{ f.averias }}</td>
+                    <td class="px-5 py-3 text-right font-black {% if f.dias_fuera %}text-rose-700{% endif %}">{{ f.dias_fuera }}</td>
+                    <td class="px-5 py-3 text-right">{% if f.entre_averias is not None %}{{ f.entre_averias|floatformat:1 }}{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 font-bold">Ninguna unidad estuvo fuera de servicio en el periodo.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <h2 class="px-4 sm:px-6 pt-6 text-lg font-black text-daryza-dark">Averías del periodo</h2>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm mt-3">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-4 py-3">Código</th><th class="text-left px-4 py-3">Placa</th><th class="text-left px-4 py-3">Tipo</th><th class="text-left px-4 py-3">Inicio</th><th class="text-left px-4 py-3">Habilitado</th><th class="hidden md:table-cell text-left px-4 py-3">Descripción</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for i in d.incidencias %}
+                <tr>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{{ i.codigo }}</td>
+                    <td class="px-4 py-3 font-black tracking-wider whitespace-nowrap">{{ i.transporte.placa }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ i.tipo }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{{ i.inicio|date:"d/m/Y H:i" }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{% if i.fin %}{{ i.fin|date:"d/m/Y H:i" }}{% else %}<span class="estado-critico inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase"><i class="fas fa-circle-exclamation"></i> Abierta</span>{% endif %}</td>
+                    <td class="hidden md:table-cell px-4 py-3 text-slate-600">{{ i.descripcion }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 font-bold">Sin averías en el periodo.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endwith %}

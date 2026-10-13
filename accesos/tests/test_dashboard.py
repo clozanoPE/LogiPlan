@@ -99,7 +99,8 @@ class IndicadoresTests(DatosDelMartes):
     def test_dashboard_en_pantalla(self):
         for usuario in (self.consulta, self.vigilante):
             self.entrar(usuario)
-            respuesta = self.client.get(reverse('accesos:dashboard'), {'desde': '2026-10-06', 'hasta': '2026-10-07'})
+            respuesta = self.client.get(reverse('accesos:dashboard'),
+                                        {'desde': '2026-10-06', 'hasta': '2026-10-07', 'vista': 'planta'})
             self.assertEqual(respuesta.status_code, 200)
             self.assertContains(respuesta, 'OTR-001')
             self.assertContains(respuesta, 'Mapa de calor')

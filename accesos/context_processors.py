@@ -2,7 +2,7 @@ import os
 
 from django.utils.functional import SimpleLazyObject
 
-from .permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, roles_de, solo_accesos
+from .permisos import ADMINISTRADOR, CONSULTA, DESPACHO, PANTALLA, VIGILANCIA, roles_de, solo_accesos
 
 VALORES_FALSOS = {'0', 'false', 'no', 'off'}
 
@@ -22,6 +22,11 @@ def _alertas_licencias():
     return licencias.alertas()
 
 
+def _avisos_flota():
+    from . import jornadas, tiempo
+    return jornadas.avisos_flota(tiempo.ahora())
+
+
 def accesos(request):
     user = getattr(request, 'user', None)
     roles = roles_de(user) if user is not None else set()
@@ -36,8 +41,12 @@ def accesos(request):
         # Consulta de tramos: Vigilancia también, en solo lectura y limitada a sus CD.
         'accesos_ve_tramos': bool(roles & {ADMINISTRADOR, DESPACHO, CONSULTA, VIGILANCIA}),
         'accesos_enlace_visible': bool(roles) and modulo_visible(),
+        # Modo TV por CD (F6.4).
+        'accesos_ve_tv': bool(roles & {ADMINISTRADOR, DESPACHO, CONSULTA, PANTALLA}),
         # Campanita de vencimiento de licencias (Administrador y Despacho). Perezosa: solo consulta la
         # base cuando una plantilla del módulo la usa, nunca en las pantallas de Planificación.
         'accesos_ve_licencias': ve_licencias,
         'accesos_alertas_licencias': SimpleLazyObject(_alertas_licencias) if ve_licencias else [],
+        # Avisos de la flota propia en la misma campanita: averías abiertas y jornadas sin Post-Ruta.
+        'accesos_alertas_flota': SimpleLazyObject(_avisos_flota) if ve_licencias else [],
     }

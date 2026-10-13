@@ -1,10 +1,10 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from . import licencias, servicios, tiempo
+from . import jornadas, licencias, servicios, tiempo
 from .models import (CATEGORIAS_LICENCIA, CATEGORIAS_LICENCIA_ESPECIAL, CentroDistribucion, Conductor,
-                     ConfiguracionAccesos, Programacion, TamanoVehiculo, TipoDocumentoIdentidad, Transporte,
-                     normalizar_licencia)
+                     ConfiguracionAccesos, Programacion, TamanoVehiculo, TipoDocumentoIdentidad, TipoIncidencia,
+                     Transporte, normalizar_licencia)
 
 CLASE_CAMPO = 'campo-accesos'
 
@@ -119,7 +119,8 @@ class ConductorRapidoForm(ConductorForm):
 
 
 class ProgramacionForm(forms.ModelForm):
-    """Alta y edición de programaciones (R1, R7, R8, R9). Las advertencias (R5, R6) se
+    """Alta y edición de programaciones (R1, R7, R8, R9 y, desde F6: no se programa en domingos ni
+    feriados, ni con un transporte no disponible; R7 bloquea). Las advertencias (R5, R6, Pre-Ruta) se
     calculan después de guardar con servicios.avisos() y no impiden guardar."""
 
     class Meta:
@@ -147,7 +148,10 @@ class ProgramacionForm(forms.ModelForm):
         self.config = ConfiguracionAccesos.obtener()
         instancia = self.instance
         self.fields['cd'].queryset = _activos_mas_actual(CentroDistribucion, instancia.cd_id)
-        self.fields['transporte'].queryset = _activos_mas_actual(Transporte, instancia.transporte_id).select_related('tamano')
+        # Solo transportes activos y disponibles (sin avería abierta), más el ya asignado.
+        no_disponibles = jornadas.ids_no_disponibles() - {instancia.transporte_id}
+        self.fields['transporte'].queryset = (_activos_mas_actual(Transporte, instancia.transporte_id)
+                                              .exclude(pk__in=no_disponibles).select_related('tamano'))
         self.fields['conductor'].queryset = _activos_mas_actual(Conductor, instancia.conductor_id)
         self.fields['transporte'].label_from_instance = etiqueta_transporte
         self.fields['conductor'].label_from_instance = etiqueta_conductor
@@ -176,6 +180,22 @@ class ProgramacionForm(forms.ModelForm):
                 servicios.validar_horario_futuro(fecha, hora, self.ahora)
             except ValidationError as error:
                 self.add_error('hora', error)
+        if fecha and (not self.instance.pk or 'fecha' in self.changed_data):
+            no_laborable = jornadas.motivo_no_laborable(fecha)
+            if no_laborable:
+                self.add_error('fecha', f"{no_laborable} No se programa en domingos ni feriados.")
+
+        transporte = datos.get('transporte')
+        if transporte:
+            # R7 (bloqueante): una programación INTERNO usa un transporte propio.
+            if tipo == Programacion.Tipo.INTERNO and not transporte.es_interno:
+                self.add_error('transporte', f"Una programación INTERNO requiere un transporte propio: {transporte} no "
+                                             "está marcado como transporte interno.")
+            cambio_placa = not self.instance.pk or 'transporte' in self.changed_data
+            incidencia = jornadas.incidencia_abierta(transporte.pk) if cambio_placa else None
+            if incidencia:
+                self.add_error('transporte', f"{jornadas.texto_no_disponible(incidencia)} No se puede programar hasta "
+                                             "que se habilite.")
         return datos
 
     def _post_clean(self):
@@ -213,6 +233,67 @@ class SalidaForm(forms.Form):
     obs = forms.CharField(required=False, max_length=500, label="Observación de salida")
 
 
+class InicioJornadaForm(forms.Form):
+    """Unidad propia con jornada y sin tramo abierto: el vigilante indica si ENTRA (viene de afuera) o
+    SALE (durmió en el CD sin registro previo). Al entrar se pide el kilometraje."""
+    INGRESA = 'ingresa'
+    SALE = 'sale'
+    transporte = forms.IntegerField(widget=forms.HiddenInput)
+    sentido = forms.ChoiceField(choices=[(INGRESA, 'Ingresa'), (SALE, 'Sale')])
+    km = forms.IntegerField(required=False, min_value=0, max_value=9_999_999, label="Kilometraje")
+    obs = forms.CharField(required=False, max_length=500, label="Observación")
+    conductor = forms.IntegerField(required=False)
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get('sentido') == self.INGRESA and datos.get('km') is None:
+            self.add_error('km', "Ingrese el kilometraje.")
+        return datos
+
+
+class PostRutaForm(forms.Form):
+    """Entrada de fin de jornada (Post-Ruta). Con «avería», el vehículo queda no disponible."""
+    transporte = forms.IntegerField(widget=forms.HiddenInput)
+    km = forms.IntegerField(min_value=0, max_value=9_999_999, label="Kilometraje",
+                            error_messages={'required': 'Ingrese el kilometraje.'})
+    obs = forms.CharField(required=False, max_length=500, label="Observación de entrada")
+    conductor = forms.IntegerField(required=False)
+    averia = forms.BooleanField(required=False)
+    averia_tipo = forms.IntegerField(required=False)
+    averia_descripcion = forms.CharField(required=False, max_length=500)
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get('averia'):
+            if not datos.get('averia_tipo'):
+                self.add_error('averia_tipo', "Elija el tipo de avería o falla.")
+            if not (datos.get('averia_descripcion') or '').strip():
+                self.add_error('averia_descripcion', "Describa la avería o falla.")
+        return datos
+
+
+class NoDisponibilidadForm(forms.Form):
+    """Despacho o Administrador registra la avería de un vehículo (en ruta o detectada en el CD)."""
+    transporte = forms.ModelChoiceField(queryset=Transporte.objects.none(), label="Placa",
+                                        widget=forms.Select(attrs={'class': CLASE_CAMPO}))
+    tipo = forms.ModelChoiceField(queryset=TipoIncidencia.objects.filter(activo=True), label="Tipo",
+                                  empty_label="Seleccione el tipo", widget=forms.Select(attrs={'class': CLASE_CAMPO}))
+    descripcion = forms.CharField(label="Descripción", max_length=500, widget=forms.Textarea(
+        attrs={'class': CLASE_CAMPO, 'rows': 2, 'placeholder': 'Ej.: Falla de frenos en ruta a Chorrillos.'}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['transporte'].queryset = (Transporte.objects.filter(activo=True)
+                                              .exclude(pk__in=jornadas.ids_no_disponibles()).select_related('tamano'))
+        self.fields['transporte'].label_from_instance = etiqueta_transporte
+        self.fields['transporte'].empty_label = "Seleccione la placa"
+
+
+class HabilitarForm(forms.Form):
+    observacion = forms.CharField(label="Observación", required=False, max_length=500, widget=forms.TextInput(
+        attrs={'class': CLASE_CAMPO, 'placeholder': 'Ej.: Reparado en taller, operativo.'}))
+
+
 class CampoFechaHora(forms.DateTimeField):
     widget = forms.DateTimeInput(format='%Y-%m-%dT%H:%M', attrs={'type': 'datetime-local', 'class': CLASE_CAMPO})
 
@@ -228,6 +309,11 @@ class MotivoForm(forms.Form):
 
 class CierreAdministrativoForm(MotivoForm):
     salida_en = CampoFechaHora(label="Hora de salida estimada")
+
+
+class ConvertirPostRutaForm(MotivoForm):
+    """La última visita de una unidad propia quedó abierta porque se quedó a dormir sin Post-Ruta."""
+    fin_atencion = CampoFechaHora(label="Fin de la atención (inicio de la Post-Ruta)")
 
 
 class CorreccionTramoForm(MotivoForm):
@@ -258,3 +344,7 @@ class CorreccionTramoForm(MotivoForm):
             # Un tramo abierto se cierra con el cierre administrativo, no aquí.
             del self.fields['salida_en']
             del self.fields['obs_salida']
+        if tramo.es_de_jornada:
+            # Pre-Ruta y Post-Ruta no tienen programación; la Pre-Ruta puede no tener kilometraje.
+            del self.fields['programacion']
+            self.fields['km_entrada'].required = False

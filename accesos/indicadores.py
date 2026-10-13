@@ -64,7 +64,10 @@ def _puntualidad(tramo, config):
 # TRAMOS_DE_PERMANENCIA). «llegada» y «rango» solo existen en los tramos.
 
 def tramos_del_periodo(desde, hasta, filtros, config=None):
-    tramos = (Tramo.objects.filter(vigente=True, fecha_local_entrada__range=(desde, hasta))
+    # Solo las visitas programadas: la Pre-Ruta y la Post-Ruta (con la pernocta) se miden aparte, en la
+    # jornada de la flota propia; mezclarlas distorsionaría la permanencia y la puntualidad.
+    tramos = (Tramo.objects.filter(vigente=True, clase=Tramo.Clase.PROGRAMADO,
+                                   fecha_local_entrada__range=(desde, hasta))
               .select_related('cd', 'transporte', 'tamano_snapshot', 'programacion', 'conductor'))
     if filtros.get('cd'):
         tramos = tramos.filter(cd_id=filtros['cd'])

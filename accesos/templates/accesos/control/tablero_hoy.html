@@ -11,6 +11,7 @@
     <a href="{% url 'accesos:tramos_lista' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-list"></i> Ver tramos</a>
 </div>
 
+{% if no_laborable %}<p class="mb-6 p-4 rounded-2xl bg-slate-100 text-slate-600 font-bold"><i class="fas fa-calendar-xmark mr-1"></i> Hoy no es laborable ({{ no_laborable }}): sin actividad programada.</p>{% endif %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
     {% for c in centros %}
     <div class="bg-white rounded-3xl border {% if c.saturado %}border-rose-300{% else %}border-slate-100{% endif %} p-6">
@@ -19,6 +20,7 @@
             <p class="text-5xl font-black {% if c.saturado %}text-rose-600{% else %}text-daryza-dark{% endif %}">{{ c.dentro }}</p>
             <p class="pb-2 text-slate-400 font-bold">/ {{ c.cd.capacidad_simultanea }} dentro ahora{% if c.saturado %} · <span class="text-rose-600">sobre la capacidad</span>{% endif %}</p>
         </div>
+        {% if c.flota_dentro %}<p class="text-xs font-bold text-slate-500"><span class="text-daryza-dark">{{ c.en_atencion }}</span> en atención · <span class="text-emerald-700">{{ c.flota_dentro }}</span> de la flota propia (Pre-Ruta o pernocta)</p>{% endif %}
         <dl class="mt-4 grid grid-cols-3 gap-3 text-center">
             <div class="rounded-2xl bg-slate-50 p-3"><dt class="text-[10px] font-black uppercase text-slate-400">Programadas</dt><dd class="text-2xl font-black">{{ c.programadas }}</dd></div>
             <div class="rounded-2xl bg-marca-claro p-3"><dt class="text-[10px] font-black uppercase text-marca">Atendidas</dt><dd class="text-2xl font-black">{{ c.atendidas }}</dd></div>
@@ -27,6 +29,22 @@
     </div>
     {% endfor %}
 </div>
+
+{% if jornadas_dia %}
+<section class="mb-4 bg-white rounded-3xl border border-emerald-100 shadow-sm p-5 sm:p-6">
+    <div class="action-row justify-between mb-4">
+        <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-700"><i class="fas fa-truck mr-1"></i> Flota propia hoy · {{ resumen_flota.total }} jornada{{ resumen_flota.total|pluralize }}</h2>
+        {% if resumen_flota.alertas %}<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-black uppercase"><i class="fas fa-triangle-exclamation mr-1"></i>{{ resumen_flota.alertas }} con alerta</span>{% endif %}
+    </div>
+    <dl class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-4">
+        {% for g in resumen_flota.grupos %}
+        <div class="rounded-2xl {% if g.clave == 'no_disponibles' and g.total %}bg-rose-50{% else %}bg-slate-50{% endif %} p-3"><dt class="text-[10px] font-black uppercase text-slate-400">{{ g.etiqueta }}</dt><dd class="text-2xl font-black">{{ g.total }}</dd></div>
+        {% endfor %}
+    </dl>
+    <p class="text-xs text-slate-500">Pre-Ruta automática desde las {{ jornadas_dia.0.hora_inicio|time:"H:i" }} (meta {{ jornadas_dia.0.meta_pre_ruta_min }} min) · cierre operativo {{ jornadas_dia.0.hora_cierre|time:"H:i" }}, tolerancia {{ jornadas_dia.0.tolerancia_cierre_min }} min.{% if resumen_flota.pre_ruta_excedida %} <span class="font-black text-amber-700">{{ resumen_flota.pre_ruta_excedida }} siguen en Pre-Ruta pasada la meta.</span>{% endif %}{% if resumen_flota.sin_retorno %} <span class="font-black text-rose-600">{{ resumen_flota.sin_retorno }} sin retorno pasada la tolerancia.</span>{% endif %}</p>
+</section>
+{% include 'accesos/programacion/_jornadas.html' with no_laborable=None sin_encabezado=True %}
+{% endif %}
 
 <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
     <h2 class="px-6 pt-6 text-[11px] font-black uppercase tracking-[0.3em] text-marca">Vehículos dentro ahora</h2>
@@ -40,7 +58,7 @@
                 <tr class="{% if t.prolongada %}bg-rose-50/60{% endif %}">
                     <td class="px-5 py-4">{% if cds_tramos is None or t.cd_id in cds_tramos %}<a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a>{% else %}<span class="font-black tracking-wider">{{ t.transporte.placa }}</span>{% endif %}<span class="block text-[11px] text-slate-400 font-bold">{{ t.transporte.tamano }}</span></td>
                     <td class="px-5 py-4 font-semibold">{{ t.cd }}</td>
-                    <td class="px-5 py-4">{{ t.programacion.razon_social }}<span class="block text-xs text-slate-400">{{ t.programacion.motivo }}</span></td>
+                    <td class="px-5 py-4">{% if t.es_programado %}{{ t.programacion.razon_social }}<span class="block text-xs text-slate-400">{{ t.programacion.motivo }}</span>{% else %}<span class="font-bold text-emerald-700">Flota propia · {% if t.clase == 'POST_RUTA' %}pernocta (Post-Ruta){% else %}{{ t.get_clase_display }}{% endif %}</span><span class="block text-xs text-slate-400">{{ t.conductor.nombre_completo }}</span>{% endif %}</td>
                     <td class="px-5 py-4 font-bold">{{ t.entrada_en|date:"d/m H:i" }}</td>
                     <td class="px-5 py-4 font-black {% if t.prolongada %}text-rose-600{% elif t.sobre_meta %}text-amber-600{% endif %}">
                         {{ t.tiempo_dentro }}

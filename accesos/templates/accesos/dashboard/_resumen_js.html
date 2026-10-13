@@ -1,0 +1,21 @@
+{# Mini tendencias (sparklines) de las tarjetas del resumen. Se incluye dentro de un <script>. #}
+(() => {
+    document.querySelectorAll('svg.sparkline').forEach((svg) => {
+        const valores = svg.dataset.serie.split(',').map((v) => (v === 'None' || v === '' ? null : Number(v)));
+        const reales = valores.filter((v) => v !== null);
+        if (reales.length < 2) { svg.remove(); return; }
+        // Escala fija: 0–100 en porcentajes y desde 0 en conteos y minutos, para no exagerar variaciones pequeñas.
+        const min = 0, max = svg.dataset.escala === 'pct' ? 100 : Math.max(...reales, 1);
+        const x = (i) => (valores.length === 1 ? 48 : 2 + (i * 92) / (valores.length - 1));
+        const y = (v) => (max === min ? 16 : 28 - ((v - min) * 24) / (max - min));
+        let d = '', abierto = false;
+        valores.forEach((v, i) => {
+            if (v === null) { abierto = false; return; }
+            d += `${abierto ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+            abierto = true;
+        });
+        const ultimo = valores.map((v, i) => [v, i]).filter(([v]) => v !== null).pop();
+        svg.innerHTML = `<path d="${d}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`
+            + `<circle cx="${x(ultimo[1])}" cy="${y(ultimo[0])}" r="3" fill="#2a78d6" stroke="#fff" stroke-width="1.5"/>`;
+    });
+})();

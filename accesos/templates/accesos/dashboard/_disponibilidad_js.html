@@ -1,0 +1,46 @@
+{# Pestaña «Disponibilidad». Se incluye dentro de un <script>. #}
+(() => {
+    const datos = JSON.parse(document.getElementById('datos-dashboard').textContent);
+    const flota = datos.flota;
+    document.querySelectorAll('[data-placa]').forEach(boton => boton.addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('placa', boton.dataset.placa);
+        window.location.href = url.toString();
+    }));
+    if (typeof Chart === 'undefined') return;
+    const css = getComputedStyle(document.querySelector('.viz'));
+    const color = (nombre) => css.getPropertyValue(nombre).trim();
+    const movil = window.matchMedia('(max-width: 640px)').matches;
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.font.size = movil ? 11 : 12;
+    Chart.defaults.color = color('--texto-2');
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1a1a1a';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    const grilla = { color: color('--grilla') };
+    const sinDatos = (id, texto) => {
+        const lienzo = document.getElementById(id);
+        lienzo.parentElement.innerHTML = `<div class="h-full min-h-[8rem] flex flex-col items-center justify-center text-center rounded-2xl bg-slate-50 border border-dashed border-slate-200 p-4"><i class="fas fa-chart-simple text-2xl text-slate-300"></i><p class="mt-2 text-sm font-bold text-slate-400">${texto}</p></div>`;
+    };
+
+    const tend = flota.disponibilidad_tendencia;
+    if (tend.valores.length < 2) sinDatos('grafico-disponibilidad', tend.valores.length ? `Hoy: ${tend.valores[0] ?? '—'} % de la flota disponible. Elija un rango de varios días para ver la tendencia.` : 'Sin días laborables en el rango.');
+    else new Chart(document.getElementById('grafico-disponibilidad'), {
+        type: 'line',
+        data: { labels: tend.etiquetas, datasets: [{ label: 'Disponibilidad', data: tend.valores, borderColor: color('--serie-1'),
+            backgroundColor: color('--serie-1'), borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 12, tension: .2 }] },
+        options: { interaction: { mode: 'index', intersect: false },
+            scales: { y: { suggestedMin: 80, max: 100, grid: grilla, ticks: { callback: v => `${v} %` } }, x: { grid: { display: false }, ticks: { maxRotation: 50, autoSkip: true } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} % disponible` } } } },
+    });
+
+    const tipos = flota.por_tipo;
+    if (!tipos.conteos.length) sinDatos('grafico-tipos', 'Sin averías en el periodo.');
+    else new Chart(document.getElementById('grafico-tipos'), {
+        type: 'bar',
+        data: { labels: tipos.etiquetas, datasets: [{ label: 'Averías', data: tipos.conteos, backgroundColor: color('--serie-1'),
+            borderRadius: 4, borderSkipped: 'start', borderColor: color('--superficie'), borderWidth: 2, maxBarThickness: 36 }] },
+        options: { indexAxis: 'y', scales: { x: { beginAtZero: true, grid: grilla, ticks: { precision: 0 } }, y: { grid: { display: false } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} avería${c.raw === 1 ? '' : 's'}` } } } },
+    });
+})();

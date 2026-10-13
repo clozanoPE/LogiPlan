@@ -1,6 +1,6 @@
 from django.contrib.auth.models import Group, User
 
-from ..models import TamanoVehiculo, TipoDocumentoIdentidad
+from ..models import Feriado, TamanoVehiculo, TipoDocumentoIdentidad
 from ..permisos import GRUPO_ADMINISTRADOR, GRUPO_CONSULTA, GRUPO_DESPACHO, GRUPO_VIGILANCIA
 
 CLAVE = 'clave-de-prueba-123'
@@ -19,6 +19,9 @@ class UsuariosMixin:
 
     @classmethod
     def setUpTestData(cls):
+        # Las fechas fijas de las pruebas no dependen del catálogo de feriados que carga la migración
+        # (el 08/10/2026 es feriado); las pruebas de días no laborables crean los suyos.
+        Feriado.objects.all().delete()
         cls.admin_accesos = crear_usuario('admin_accesos', GRUPO_ADMINISTRADOR, is_staff=True)
         cls.despacho = crear_usuario('despacho', 'Planeamiento', GRUPO_DESPACHO)
         cls.vigilante = crear_usuario('vigilante', GRUPO_VIGILANCIA)

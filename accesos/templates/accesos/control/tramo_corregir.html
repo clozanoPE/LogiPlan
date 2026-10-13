@@ -17,7 +17,7 @@
             {% for error in form.non_field_errors %}
             <p class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold">{{ error }}</p>
             {% endfor %}
-            {% include 'accesos/maestros/_campo.html' with campo=form.programacion %}
+            {% if form.programacion %}{% include 'accesos/maestros/_campo.html' with campo=form.programacion %}{% endif %}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {% include 'accesos/maestros/_campo.html' with campo=form.entrada_en %}
                 {% if form.salida_en %}{% include 'accesos/maestros/_campo.html' with campo=form.salida_en %}{% endif %}

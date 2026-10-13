@@ -1,0 +1,35 @@
+{# Jornadas de la flota propia del día (Pre-Ruta automática y Post-Ruta). Las crea el sistema con la primera ruta INTERNO. #}
+{% if no_laborable %}
+<p class="mb-4 p-4 rounded-2xl bg-slate-100 text-slate-600 font-bold"><i class="fas fa-calendar-xmark mr-1"></i> Día no laborable ({{ no_laborable }}): no se programa ni hay jornada de la flota propia.</p>
+{% endif %}
+{% if jornadas_dia %}
+<section class="mb-6 bg-white rounded-3xl border border-emerald-100 shadow-sm overflow-hidden">
+    {% if not sin_encabezado %}
+    <div class="px-5 pt-5 pb-2 action-row justify-between">
+        <div>
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-700"><i class="fas fa-truck mr-1"></i> Flota propia · {{ jornadas_dia|length }} jornada{{ jornadas_dia|length|pluralize }}</h2>
+            <p class="text-xs text-slate-500">Pre-Ruta automática desde las {{ jornadas_dia.0.hora_inicio|time:"H:i" }} y Post-Ruta al volver sin rutas pendientes (cierre operativo {{ jornadas_dia.0.hora_cierre|time:"H:i" }}). No se programan.</p>
+        </div>
+    </div>
+    {% endif %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-4 py-3">Placa</th><th class="text-left px-4 py-3">Estado</th><th class="text-left px-4 py-3">Pre-Ruta</th><th class="text-left px-4 py-3">Post-Ruta</th><th class="hidden md:table-cell text-left px-4 py-3">Conductor previsto</th><th class="hidden sm:table-cell text-left px-4 py-3">CD</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for j in jornadas_dia %}
+                <tr class="{% if j.estado_v.alerta %}bg-amber-50/50{% endif %}">
+                    <td class="px-4 py-3 font-black tracking-wider whitespace-nowrap">{{ j.transporte.placa }}{% if j.programada_tarde %}<span class="block text-[10px] font-bold text-slate-400 tracking-normal">programada tarde</span>{% endif %}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{% include 'accesos/_estado_jornada.html' with estado=j.estado_v %}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{% if j.primera_salida %}<span class="font-bold">{{ j.inicio_real|date:"H:i" }}–{{ j.primera_salida|date:"H:i" }}</span> <span class="text-xs {% if j.minutos_pre_ruta > j.meta_pre_ruta_min %}text-amber-700 font-black{% else %}text-slate-400{% endif %}">{{ j.minutos_pre_ruta }} min</span>{% else %}<span class="text-slate-400">desde {{ j.hora_inicio|time:"H:i" }}</span>{% endif %}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">{% if j.post_ruta_en %}<span class="font-bold">{{ j.post_ruta_en|date:"H:i" }}</span>{% if j.minutos_sobre_cierre %} <span class="text-xs font-black text-rose-600">+{{ j.minutos_sobre_cierre }} min</span>{% endif %}{% elif j.motivo_cierre == 'AVERIA' %}<span class="text-rose-600 font-bold">Avería</span>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+                    <td class="hidden md:table-cell px-4 py-3 text-slate-600">{{ j.conductor.nombre_completo }}</td>
+                    <td class="hidden sm:table-cell px-4 py-3">{{ j.cd }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}

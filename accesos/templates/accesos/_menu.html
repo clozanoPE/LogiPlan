@@ -12,6 +12,9 @@
 {% if accesos_lectura %}
 <a href="{% url 'accesos:programacion_agenda' %}" class="{{ base_clase }} {% if actual|slice:':12' == 'programacion' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-calendar-check w-4 text-center"></i> Programaciones</a>
 {% endif %}
+{% if accesos_lectura %}
+<a href="{% url 'accesos:flota_disponibilidad' %}" class="{{ base_clase }} {% if actual|slice:':5' == 'flota' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-screwdriver-wrench w-4 text-center"></i> Disponibilidad</a>
+{% endif %}
 {% if accesos_ve_tramos %}
 <a href="{% url 'accesos:tramos_lista' %}" class="{{ base_clase }} {% if actual|slice:':5' == 'tramo' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-right-left w-4 text-center"></i> Tramos</a>
 {% endif %}

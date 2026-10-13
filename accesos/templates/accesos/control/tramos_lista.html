@@ -40,14 +40,14 @@
             <tbody class="divide-y divide-slate-100">
                 {% for t in page_obj %}
                 <tr class="hover:bg-slate-50/60 {% if not t.vigente %}opacity-50 line-through{% endif %}">
-                    <td class="px-4 py-3"><a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a><span class="block text-[11px] text-slate-400">{{ t.get_tipo_snapshot_display }} · {{ t.programacion.razon_social|truncatechars:24 }}</span></td>
+                    <td class="px-4 py-3"><a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-black tracking-wider hover:text-marca">{{ t.transporte.placa }}</a><span class="block text-[11px] text-slate-400">{% if t.es_programado %}{{ t.get_tipo_snapshot_display }} · {{ t.programacion.razon_social|truncatechars:24 }}{% else %}<span class="font-black text-emerald-700">{{ t.get_clase_display }}</span> · flota propia{% endif %}</span></td>
                     <td class="px-4 py-3">{{ t.cd }}</td>
-                    <td class="px-4 py-3 font-bold">{{ t.programacion.hora|time:"H:i" }}</td>
+                    <td class="px-4 py-3 font-bold">{% if t.programacion_id %}{{ t.programacion.hora|time:"H:i" }}{% else %}—{% endif %}</td>
                     <td class="px-4 py-3 font-bold whitespace-nowrap">{{ t.entrada_en|date:"d/m H:i" }}</td>
                     <td class="px-4 py-3 font-bold whitespace-nowrap">{% if t.salida_en %}{{ t.salida_en|date:"d/m H:i" }}{% else %}<span class="text-emerald-600">Dentro</span>{% endif %}</td>
                     <td class="px-4 py-3 font-black {% if t.prolongada %}text-rose-600{% endif %}">{{ t.tiempo_dentro }}</td>
                     <td class="px-4 py-3">
-                        {% if t.puntualidad == 'PUNTUAL' %}<span class="text-emerald-600 font-bold">Puntual</span>{% elif t.puntualidad == 'RETRASADO' %}<span class="text-rose-600 font-bold">+{{ t.desviacion_llegada_min }} min</span>{% else %}<span class="text-sky-700 font-bold">{{ t.desviacion_llegada_min }} min</span>{% endif %}
+                        {% if t.puntualidad is None %}<span class="text-slate-400">—</span>{% elif t.puntualidad == 'PUNTUAL' %}<span class="text-emerald-600 font-bold">Puntual</span>{% elif t.puntualidad == 'RETRASADO' %}<span class="text-rose-600 font-bold">+{{ t.desviacion_llegada_min }} min</span>{% else %}<span class="text-sky-700 font-bold">{{ t.desviacion_llegada_min }} min</span>{% endif %}
                     </td>
                     <td class="px-4 py-3 text-xs text-slate-500">{{ t.obs_entrada|truncatechars:30 }}{% if t.salida_en %} / {{ t.obs_salida|truncatechars:30 }}{% endif %}</td>
                     <td class="px-4 py-3 text-[10px] font-black uppercase space-y-1">

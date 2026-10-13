@@ -1,0 +1,86 @@
+{# Pestaña «Resumen ejecutivo»: lo que Gerencia lee en 30 segundos. #}
+<!-- Indicadores clave (cada tarjeta abre la pestaña que lo explica) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    {% for t in resumen.tarjetas %}
+    <a href="{{ t.url }}" class="tarjeta-kpi group block bg-white rounded-3xl border {% if t.alerta %}border-amber-200{% else %}border-slate-100{% endif %} p-4 sm:p-5">
+        <div class="flex items-start justify-between gap-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas {{ t.icono }} mr-1 text-marca" aria-hidden="true"></i>{{ t.titulo }}</p>
+            {% if t.alerta %}<span class="estado-aviso inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Atención</span>{% endif %}
+        </div>
+        <div class="mt-2 flex items-end justify-between gap-3">
+            <p class="text-2xl xl:text-3xl font-black text-daryza-dark whitespace-nowrap">{{ t.valor }}</p>
+            {% if t.serie %}<svg class="sparkline w-24 h-8 shrink-0" viewBox="0 0 96 32" preserveAspectRatio="none" data-serie="{{ t.serie|join:',' }}" data-escala="{{ t.escala }}" role="img" aria-label="Tendencia de los últimos 14 días"></svg>{% endif %}
+        </div>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ t.detalle }}</p>
+        {% if t.variacion %}
+        <p class="mt-2 text-[11px] font-black {% if t.mejora %}text-emerald-700{% elif t.mejora is None %}text-slate-400{% else %}text-rose-700{% endif %}">
+            {% if t.mejora %}<i class="fas fa-arrow-trend-up mr-1"></i>Mejora · {% elif t.mejora is not None %}<i class="fas fa-arrow-trend-down mr-1"></i>Empeora · {% endif %}{{ t.variacion }}
+        </p>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+<p class="-mt-3 mb-6 text-[11px] font-bold text-slate-400"><i class="fas fa-chart-line mr-1"></i>La línea de cada tarjeta muestra los últimos 14 días laborables hasta {{ hasta|date:"d/m" }}. Toque una tarjeta para ver el detalle.</p>
+
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+    <!-- Alertas en vivo -->
+    <section class="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-5 sm:p-6">
+        <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca mb-4"><i class="fas fa-bell mr-1"></i> Alertas en vivo</h2>
+        {% if not muestra_dentro %}
+        <p class="text-sm font-bold text-slate-400">Las alertas en vivo se muestran cuando el rango incluye el día de hoy.</p>
+        {% else %}
+        <ul class="space-y-2">
+            {% for a in resumen.alertas %}
+            <li class="estado-{{ a.nivel }} flex items-start gap-3 px-3 py-2.5 rounded-2xl text-sm font-bold">
+                <i class="fas {{ a.icono }} mt-0.5" aria-hidden="true"></i><span>{{ a.texto }}</span>
+            </li>
+            {% empty %}
+            <li class="estado-ok flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-bold"><i class="fas fa-circle-check" aria-hidden="true"></i> Sin alertas en este momento.</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+    <div class="lg:col-span-3">
+        {% if resumen.conclusiones %}{% include 'accesos/dashboard/_conclusiones.html' with frases=resumen.conclusiones %}
+        {% else %}<section class="bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm font-bold text-slate-400">Todavía no hay datos suficientes para conclusiones con estos filtros.</section>{% endif %}
+    </div>
+</div>
+
+<!-- Calendario: cumplimiento del cierre operativo por día -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 sm:p-6">
+    <div class="action-row justify-between mb-4">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">Calendario de la flota propia</h2>
+            <p class="text-xs text-slate-500">% de retornos (Post-Ruta) en horario por día · últimas 5 semanas. Toque un día para verlo.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+            <span class="estado-ok inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-circle-check"></i> 95 % o más</span>
+            <span class="estado-aviso inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-triangle-exclamation"></i> 80–94 %</span>
+            <span class="estado-critico inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-circle-exclamation"></i> menos de 80 %</span>
+            <span class="estado-sin inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-moon"></i> Sin actividad</span>
+        </div>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full border-separate border-spacing-[3px] sm:border-spacing-2 text-center">
+            <thead><tr>{% for d in resumen.dias_semana %}<th class="text-[10px] font-black uppercase tracking-widest text-slate-400">{{ d }}</th>{% endfor %}</tr></thead>
+            <tbody>
+                {% for semana in resumen.semanas %}
+                <tr>
+                    {% for c in semana %}
+                    <td class="p-0">
+                        {% if c.clase == 'futuro' %}
+                        <div class="estado-futuro rounded-xl h-14 sm:h-16 flex flex-col items-center justify-center opacity-60"><span class="text-[10px] sm:text-xs font-black">{{ c.fecha|date:"d/m" }}</span></div>
+                        {% else %}
+                        <a href="{{ c.url }}" title="{{ c.fecha|date:'d/m/Y' }} · {{ c.texto }}" class="estado-{{ c.clase }} rounded-xl h-14 sm:h-16 flex flex-col items-center justify-center hover:ring-2 hover:ring-marca {% if c.seleccionado %}ring-2 ring-daryza-dark{% endif %}">
+                            <span class="text-[10px] sm:text-xs font-black">{{ c.fecha|date:"d/m" }}</span>
+                            <span class="text-[11px] font-bold">{% if c.pct is not None %}{{ c.pct|floatformat:0 }} %{% elif c.clase == 'sin' %}<i class="fas fa-moon" aria-hidden="true"></i>{% else %}—{% endif %}</span>
+                        </a>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

@@ -145,11 +145,12 @@ class FlujoDelDiaTests(PorteriaBase):
         self.assertEqual(self.salir(tramo).obs_salida, 'Ninguna')
 
     def test_permanencia_entre_dias(self):
-        programacion = self.programar(23, 0, tipo='INTERNO')
+        # Visita de un camión externo (los propios con ruta INTERNO tienen jornada: ver test_jornada.py).
+        programacion = self.programar(23, 0, transporte=self.externo)
         self.mover_reloj(HOY, 23, 0)
         tramo = self.entrar_en(programacion)
         self.mover_reloj(MANANA, 7, 0)
-        resultado = servicios.evaluar_porteria('F7J011', self.lurin, tiempo.ahora(), self.config)
+        resultado = servicios.evaluar_porteria('ABC123', self.lurin, tiempo.ahora(), self.config)
         self.assertEqual(resultado.accion, servicios.SALIDA)  # no se confunde con una nueva entrada
         tramo = self.salir(tramo)
         self.assertTrue(tramo.entre_dias)

@@ -5,6 +5,11 @@ evaluar el Dashboard (horas pico, un CD más lento, una placa y un conductor con
 llegadas tarde que alargan la estadía) y un día de HOY a medio camino: tramos cerrados,
 vehículos todavía dentro y programaciones pendientes para la tarde y para mañana.
 
+La flota propia (6 placas internas) tiene su jornada completa cada día laborable: Pre-Ruta desde las
+06:30, 1 a 3 rutas INTERNO, Post-Ruta (con una placa que suele volver fuera de horario y otra que
+tarda en salir), pernocta en el CD, una avería ya resuelta y otra abierta (vehículo no disponible
+con una programación afectada).
+
 Uso:
     python seed_demo_accesos.py            # crea los datos y los usuarios de prueba (si no existen)
     python seed_demo_accesos.py --borrar   # elimina todo lo creado por la demostración
@@ -26,9 +31,9 @@ from django.contrib.auth.models import Group, User  # noqa: E402
 from django.db import transaction  # noqa: E402
 from django.db.models import Q  # noqa: E402
 
-from accesos import tiempo  # noqa: E402
-from accesos.models import (CentroDistribucion, Conductor, Programacion, TamanoVehiculo,  # noqa: E402
-                            TipoDocumentoIdentidad, Tramo, Transporte, UsuarioCD)
+from accesos import jornadas as reglas_jornada, tiempo  # noqa: E402
+from accesos.models import (CentroDistribucion, Conductor, Incidencia, Jornada, Programacion,  # noqa: E402
+                            TamanoVehiculo, TipoDocumentoIdentidad, TipoIncidencia, Tramo, Transporte, UsuarioCD)
 
 USUARIO_DEMO = 'demo_accesos'
 # Usuarios de prueba por rol, para revisar el módulo en LOCAL (y para las capturas del manual).
@@ -41,8 +46,10 @@ USUARIOS_PRUEBA = [
     ('demo_vigilancia', 'Julio', 'Ramos', ['Accesos - Vigilancia'], False, ['LURIN']),
     ('demo_despacho', 'Diana', 'Salas', ['Planeamiento', 'Accesos - Despacho'], False, []),
     ('demo_admin', 'Andrés', 'Vega', ['Accesos - Administrador'], True, []),
+    ('demo_tv', 'Pantalla', 'Lurín', ['Accesos - Pantalla'], False, ['LURIN']),
 ]
 SEMANAS = 6
+INTERNOS = 6  # las primeras placas son de la flota propia
 PLACAS = ['F7J-011', 'B2K-334', 'C9M-120', 'D4P-778', 'E1R-905', 'G6T-246', 'H3V-581', 'J8W-017',
           'K5X-660', 'M2Y-439', 'N7Z-892', 'P1A-305']
 CONDUCTORES = [('41235678', 'QUISPE', 'MAMANI', 'JUAN'), ('42345671', 'FLORES', 'RAMOS', 'PEDRO'),
@@ -78,7 +85,7 @@ def crear_usuarios_prueba():
 def borrar():
     """Elimina todo lo de demostración: lo creado por `demo_accesos` y lo que los usuarios de prueba
     hayan registrado en sus pruebas (a mano o por carga masiva), y luego esos usuarios."""
-    from accesos.models import RegistroAuditoria
+    from accesos.models import Incidencia, Jornada, RegistroAuditoria
     nombres = [USUARIO_DEMO] + [u[0] for u in USUARIOS_PRUEBA]
     usuarios = User.objects.filter(username__in=nombres)
     with transaction.atomic():
@@ -89,12 +96,21 @@ def borrar():
         tramos = Tramo.objects.filter(
             Q(vigilante_entrada__in=usuarios) | Q(vigilante_salida__in=usuarios) | Q(programacion__in=programaciones)
             | Q(transporte__in=transportes) | Q(conductor__in=conductores))
+        jornadas_demo = Jornada.objects.filter(Q(transporte__in=transportes) | Q(conductor__in=conductores))
+        incidencias = Incidencia.objects.filter(Q(transporte__in=transportes) | Q(registrada_por__in=usuarios))
+        tramos = tramos | Tramo.objects.filter(jornada__in=jornadas_demo)
         print(f"Eliminando {tramos.count()} tramos, {programaciones.count()} programaciones, "
+              f"{jornadas_demo.count()} jornadas, {incidencias.count()} incidencias, "
               f"{transportes.count()} transportes y {conductores.count()} conductores de demostración…")
         tramos.delete()
         programaciones.delete()
+        Programacion.objects.filter(incidencia__in=incidencias).update(incidencia=None)
+        jornadas_demo.delete()
+        Jornada.objects.filter(incidencia__in=incidencias).update(incidencia=None)
+        incidencias.delete()
         transportes.delete()
         conductores.delete()
+        Incidencia.objects.filter(cerrada_por__in=usuarios).update(cerrada_por=None)
         # Referencias de los usuarios de prueba en registros que no son de demostración.
         for modelo in (Transporte, Conductor, Programacion):
             modelo.objects.filter(modificado_por__in=usuarios).update(modificado_por=None)
@@ -127,6 +143,152 @@ def _tramo(programacion, entrada, minutos, ahora, usuario, abiertos):
     return tramo
 
 
+def _a_las(fecha, minutos):
+    """Datetime de Lima a `minutos` desde la medianoche de `fecha`."""
+    return tiempo.combinar(fecha, time(0, 0)) + timedelta(minutes=int(minutos))
+
+
+def _tramo_jornada(clase, jornada, transporte, cd, conductor, entrada, salida, km, usuario, programacion=None,
+                   **marcas):
+    """Tramo de la flota propia (Pre-Ruta, visita programada o Post-Ruta). `salida` None = sigue dentro."""
+    entrada_lima = tiempo.a_lima(entrada)
+    return Tramo.objects.create(
+        clase=clase, jornada=jornada, programacion=programacion, transporte=transporte, cd=cd, conductor=conductor,
+        entrada_en=entrada, fecha_local_entrada=entrada_lima.date(), hora_local_entrada=entrada_lima.time().replace(microsecond=0),
+        km_entrada=km, obs_entrada='Pre-Ruta automática' if clase == Tramo.Clase.PRE_RUTA else 'Ninguna',
+        vigilante_entrada=None if clase == Tramo.Clase.PRE_RUTA else usuario,
+        salida_en=salida, fecha_local_salida=tiempo.a_lima(salida).date() if salida else None,
+        obs_salida='Ninguna' if salida else '', vigilante_salida=usuario if salida else None,
+        abierto=None if salida else True,
+        minutos_permanencia=int((salida - entrada).total_seconds() // 60) if salida else None,
+        desviacion_llegada_min=(round((entrada - tiempo.combinar(programacion.fecha, programacion.hora)).total_seconds() / 60)
+                                if programacion else None),
+        tamano_snapshot=transporte.tamano, tipo_snapshot='INTERNO', **marcas)
+
+
+def _cerrar_pernocta(tramo, momento):
+    tramo.salida_en = momento
+    tramo.fecha_local_salida = tiempo.a_lima(momento).date()
+    tramo.obs_salida = 'Fin de la pernocta: inicio de la Pre-Ruta'
+    tramo.abierto = None
+    tramo.cierre_automatico = True
+    tramo.minutos_permanencia = int((momento - tramo.entrada_en).total_seconds() // 60)
+    tramo.save()
+
+
+def flota_propia(internos, conductores, centros, usuario, ahora):
+    """Jornadas de la flota propia, día por día, respetando «ahora» (el día de hoy queda a medio camino)."""
+    hoy = ahora.date()
+    tipo_averia = TipoIncidencia.objects.filter(activo=True).order_by('orden').first()
+    km = {t.pk: random.randint(80_000, 200_000) for t in internos}
+    pernocta = {}  # placa -> tramo de Post-Ruta abierto (duerme en el CD)
+    creados = 0
+    laborables = [hoy - timedelta(days=d) for d in range(SEMANAS * 7, -2, -1)
+                  if reglas_jornada.es_laborable(hoy - timedelta(days=d))]
+    pasados = [f for f in laborables if f < hoy]
+    averia_resuelta = (internos[2], pasados[-20] if len(pasados) > 20 else None)
+    averia_abierta = (internos[4], pasados[-1] if pasados else None)
+    fuera_de_servicio = set()  # (placa, fecha) sin jornada por la avería resuelta
+    if averia_resuelta[1]:
+        i = pasados.index(averia_resuelta[1])
+        fuera_de_servicio = {(averia_resuelta[0].pk, f) for f in pasados[i + 1:i + 3]}
+
+    for fecha in laborables:
+        for indice, transporte in enumerate(internos):
+            if (transporte.pk, fecha) in fuera_de_servicio:
+                continue
+            if transporte == averia_abierta[0] and fecha == hoy:
+                continue  # sigue no disponible: hoy no tiene rutas
+            if fecha < hoy and random.random() < 0.05:
+                continue  # día sin rutas
+            cd = centros[indice % len(centros)]
+            conductor = conductores[indice]
+            horas = sorted(random.sample([9 * 60, 10 * 60, 11 * 60 + 30, 13 * 60, 14 * 60, 14 * 60 + 30],
+                                         random.randint(1, 3)))
+            rutas = [Programacion.objects.create(
+                cd=cd, fecha=fecha, hora=time(h // 60, h % 60), tipo='INTERNO', transporte=transporte,
+                conductor=conductor, documento='20144109458', razon_social='Daryza S.A.C.',
+                motivo=random.choice(MOTIVOS['INTERNO']), observacion_despacho='Dato de demostración',
+                creado_por=usuario) for h in horas]
+            jornada = Jornada.objects.get(transporte=transporte, fecha=fecha)
+            jornada.programada_tarde = False
+            if fecha > hoy:
+                jornada.save()
+                continue
+
+            # Pre-Ruta: placa 1 suele tardar en salir.
+            inicio = _a_las(fecha, 6 * 60 + 30)
+            salida_pre = inicio + timedelta(minutes=max(15, int(random.gauss(48, 12)) + (30 if indice == 1 and random.random() < .6 else 0)))
+            # Post-Ruta: placa 3 suele volver fuera de horario; a veces alguna vuelve antes.
+            retorno = int(random.gauss(16 * 60 + 6, 6))
+            if indice == 3 and random.random() < .6:
+                retorno += random.randint(25, 70)
+            elif random.random() < .1:
+                retorno = random.randint(14 * 60 + 40, 15 * 60 + 45)
+            retorno = _a_las(fecha, retorno)
+            averia_hoy = (transporte, fecha) in (averia_resuelta, averia_abierta)
+            if averia_hoy:
+                retorno = _a_las(fecha, 11 * 60 + 40)
+
+            if inicio > ahora:
+                jornada.save()
+                continue
+            anterior = pernocta.pop(transporte.pk, None)
+            if salida_pre > ahora:  # hoy: todavía en su Pre-Ruta (durmió en el CD)
+                if anterior:
+                    pernocta[transporte.pk] = anterior
+                jornada.save()
+                continue
+            if anterior:
+                _cerrar_pernocta(anterior, inicio)
+            _tramo_jornada(Tramo.Clase.PRE_RUTA, jornada, transporte, cd, conductor, inicio, salida_pre,
+                           km[transporte.pk], usuario)
+            creados += 1
+            jornada.estado, jornada.inicio_real, jornada.primera_salida = Jornada.Estado.EN_RUTA, inicio, salida_pre
+
+            for ruta in rutas:
+                entrada = tiempo.combinar(fecha, ruta.hora) + timedelta(minutes=int(random.gauss(0, 12)))
+                if entrada >= retorno or entrada > ahora or entrada <= salida_pre:
+                    continue
+                km[transporte.pk] += random.randint(20, 60)
+                salida = entrada + timedelta(minutes=max(15, int(random.gauss(42, 12))))
+                sigue = salida > ahora
+                _tramo_jornada(Tramo.Clase.PROGRAMADO, jornada, transporte, cd, ruta.conductor, entrada,
+                               None if sigue else salida, km[transporte.pk], usuario, programacion=ruta)
+                Programacion.objects.filter(pk=ruta.pk).update(estado='EN_PLANTA' if sigue else 'CERRADA')
+                creados += 1
+                if sigue:
+                    break
+
+            if retorno <= ahora and not Tramo.objects.filter(transporte=transporte, abierto=True).exists():
+                km[transporte.pk] += random.randint(30, 80)
+                post = _tramo_jornada(Tramo.Clase.POST_RUTA, jornada, transporte, cd, conductor, retorno, None,
+                                      km[transporte.pk], usuario)
+                creados += 1
+                pernocta[transporte.pk] = post
+                jornada.estado, jornada.post_ruta_en = Jornada.Estado.CERRADA, retorno
+                jornada.motivo_cierre = Jornada.MotivoCierre.NORMAL
+                pendientes = Programacion.objects.filter(transporte=transporte, fecha=fecha, estado='PROGRAMADA')
+                if averia_hoy:
+                    incidencia = Incidencia.objects.create(
+                        transporte=transporte, tipo=tipo_averia, descripcion='Falla de frenos (demostración)',
+                        origen=Incidencia.Origen.PORTERIA, cd=cd, inicio=retorno, registrada_por=usuario)
+                    if (transporte, fecha) == averia_resuelta:
+                        incidencia.fin, incidencia.abierta = retorno + timedelta(days=2, hours=3), None
+                        incidencia.cerrada_por, incidencia.observacion_cierre = usuario, 'Reparado en taller'
+                        incidencia.save()
+                    jornada.motivo_cierre, jornada.incidencia = Jornada.MotivoCierre.AVERIA, incidencia
+                    for programacion in pendientes:
+                        programacion.estado, programacion.incidencia = 'CANCELADA', incidencia
+                        programacion.cancelado_por, programacion.cancelado_en = usuario, retorno
+                        programacion.motivo_cancelacion = f"Avería del vehículo: {incidencia.codigo}."
+                        programacion.save()
+                else:
+                    pendientes.update(no_atendida_por_cierre=True)
+            jornada.save()
+    return creados
+
+
 def crear():
     if User.objects.filter(username=USUARIO_DEMO).exists():
         print("Los datos de demostración ya existen. Use --borrar para eliminarlos primero.")
@@ -144,7 +306,7 @@ def crear():
         transportes = []
         for i, placa in enumerate(PLACAS):
             transporte = Transporte.objects.filter(placa=placa).first() or Transporte.objects.create(
-                placa=placa, tamano=tamanos[i % len(tamanos)], es_interno=i < 4, creado_por=usuario)
+                placa=placa, tamano=tamanos[i % len(tamanos)], es_interno=i < INTERNOS, creado_por=usuario)
             transportes.append(transporte)
         conductores = [Conductor.objects.filter(tipo_documento=dni, numero_documento=doc).first()
                        or Conductor.objects.create(tipo_documento=dni, numero_documento=doc, apellido_paterno=ap,
@@ -173,7 +335,7 @@ def crear():
             usadas = set()
             for _ in range(random.randint(10, 16)):
                 hora, minuto = random.choice(HORAS), random.choice([0, 10, 15, 20, 30, 40, 45, 50])
-                transporte = random.choice(transportes)
+                transporte = random.choice(transportes[INTERNOS:])  # la flota propia va aparte
                 if (transporte.pk, hora, minuto) in usadas:
                     continue
                 usadas.add((transporte.pk, hora, minuto))
@@ -204,6 +366,7 @@ def crear():
                 base += 420 if hora >= 21 else 0  # ingreso de noche que se queda hasta el amanecer
                 if _tramo(programacion, entrada, max(12, int(base)), ahora, usuario, abiertos):
                     tramos += 1
+        tramos += flota_propia(transportes[:INTERNOS], conductores, centros, usuario, ahora)
     crear_usuarios_prueba()
     print(f"Listo: {tramos} tramos de demostración ({len(abiertos)} vehículos dentro ahora). "
           "Elimínelos con: python seed_demo_accesos.py --borrar")

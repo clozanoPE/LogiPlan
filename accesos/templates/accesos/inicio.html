@@ -31,6 +31,14 @@
     </a>
     {% endif %}
 
+    {% if accesos_lectura %}
+    <a href="{% url 'accesos:flota_disponibilidad' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-screwdriver-wrench text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Disponibilidad de flota</h2>
+        <p class="text-sm text-slate-500 mt-1">Vehículos no disponibles por avería, programaciones afectadas e historial.</p>
+    </a>
+    {% endif %}
+
     {% if 'vigilancia' in accesos_roles %}
     <a href="{% url 'accesos:porteria' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
         <i class="fas fa-qrcode text-3xl text-marca"></i>
@@ -51,6 +59,13 @@
         <p class="text-sm text-slate-500 mt-1">Dónde, cuándo y por qué se demoran los camiones: permanencia, puntualidad y horas pico.</p>
     </a>
     {% endif %}
+    {% if accesos_ve_tv %}
+    <a href="{% url 'accesos:tv_elegir' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-tv text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Modo TV</h2>
+        <p class="text-sm text-slate-500 mt-1">Pantalla grande por CD: flota propia del día, vehículos en planta y alertas, en vivo.</p>
+    </a>
+    {% endif %}
     {% if accesos_ve_tramos %}
     <a href="{% url 'accesos:tramos_lista' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
         <i class="fas fa-right-left text-3xl text-marca"></i>
@@ -68,6 +83,8 @@
         <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Tolerancia de puntualidad</dt><dd class="font-black">± {{ config.tolerancia_puntualidad_min }} min</dd></div>
         <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Permanencia prolongada</dt><dd class="font-black">{{ config.umbral_prolongada_min }} min</dd></div>
         <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Meta de permanencia</dt><dd class="font-black">{% if config.meta_permanencia_min %}{{ config.meta_permanencia_min }} min{% else %}Por definir{% endif %}</dd></div>
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Pre-Ruta (flota propia)</dt><dd class="font-black">{{ config.hora_pre_ruta|time:"H:i" }} · meta {{ config.meta_pre_ruta_min }} min</dd></div>
+        <div><dt class="text-slate-400 font-bold text-[11px] uppercase">Cierre operativo</dt><dd class="font-black">{{ config.hora_cierre_operativo|time:"H:i" }} + {{ config.tolerancia_cierre_min }} min</dd></div>
     </dl>
 </div>
 {% endif %}

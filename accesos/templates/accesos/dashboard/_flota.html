@@ -1,0 +1,143 @@
+{# Pestaña «Flota propia»: jornada de las unidades propias (Pre-Ruta automática y Post-Ruta). #}
+{% with k=flota.kpis v=flota.variacion %}
+<p class="mb-4 p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> {{ aviso_operativo }}</p>
+
+{% if flota.conclusiones %}{% include 'accesos/dashboard/_conclusiones.html' with frases=flota.conclusiones %}{% endif %}
+
+{% if not k.jornadas %}
+<section class="mb-6 bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center">
+    <i class="fas fa-truck text-4xl text-marca"></i>
+    <p class="mt-3 font-black text-daryza-dark">No hay jornadas de la flota propia con estos filtros.</p>
+    <p class="text-sm text-slate-500">La jornada existe cuando la placa tiene al menos una ruta INTERNO ese día.</p>
+</section>
+{% endif %}
+
+<!-- Indicadores de la jornada -->
+<div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-truck mr-1 text-marca"></i>Jornadas</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ k.jornadas }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ k.con_salida }} salieron a ruta{% if k.sin_post_ruta %} · <span class="text-amber-700">{{ k.sin_post_ruta }} sin Post-Ruta</span>{% endif %}{% if k.no_salio %} · <span class="text-amber-700">{{ k.no_salio }} no salieron</span>{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-sun mr-1 text-marca"></i>Pre-Ruta a tiempo</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.pct_pre_ruta_a_tiempo is not None %}{{ k.pct_pre_ruta_a_tiempo|floatformat:1 }} %{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">salida en {{ datos.flota.pre_ruta.meta }} min o menos · promedio {% if k.pre_ruta_promedio is not None %}{{ k.pre_ruta_promedio }} min · P90 {{ k.pre_ruta_p90 }} min{% else %}—{% endif %}</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.pct_pre_ruta_a_tiempo %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-flag-checkered mr-1 text-marca"></i>Cierre en horario</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.pct_cierre_en_horario is not None %}{{ k.pct_cierre_en_horario|floatformat:1 }} %{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ k.cierres }} retornos · {{ k.anticipados }} con fin anticipado{% if k.por_averia %} · {{ k.por_averia }} por avería (no cuentan){% endif %}</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.pct_cierre_en_horario %}
+    </div>
+    <div class="bg-white rounded-3xl border {% if k.fuera_de_horario %}border-rose-200{% else %}border-slate-100{% endif %} p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-clock mr-1 text-marca"></i>Fuera de horario</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black {% if k.fuera_de_horario %}text-rose-700{% else %}text-daryza-dark{% endif %}">{{ k.fuera_de_horario }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">retornos después de la tolerancia · exceso operativo total {{ k.minutos_sobre_cierre }} min</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.fuera_de_horario %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-route mr-1 text-marca"></i>Rutas cumplidas</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.pct_rutas_cumplidas is not None %}{{ k.pct_rutas_cumplidas|floatformat:1 }} %{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ k.rutas_atendidas }} de {{ k.rutas }} (días terminados){% if k.rutas_no_atendidas_cierre %} · {{ k.rutas_no_atendidas_cierre }} por cierre de jornada{% endif %}{% if k.rutas_canceladas_averia %} · {{ k.rutas_canceladas_averia }} por avería{% endif %}</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.pct_rutas_cumplidas %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-business-time mr-1 text-marca"></i>Jornada efectiva</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ flota.jornada_efectiva_texto }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">promedio del inicio de la Pre-Ruta a la Post-Ruta (operativo, del vehículo)</p>
+    </div>
+</div>
+
+{% if flota.gantt_disponible %}
+<!-- Línea de tiempo del día -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
+    <div class="action-row justify-between mb-3">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">Línea de tiempo del día</h2>
+            <p class="text-xs text-slate-500">Cada fila es una unidad: dentro del CD en Pre-Ruta, en visita o en pernocta; la línea fina es el tiempo en ruta. Toque una fila para filtrar esa placa.</p>
+        </div>
+        <ul class="flex flex-wrap gap-3 text-[11px] font-bold text-slate-600" aria-label="Leyenda">
+            <li class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded" style="background: var(--pre-ruta)"></span>Pre-Ruta</li>
+            <li class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded" style="background: var(--visita)"></span>Visita (ruta)</li>
+            <li class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded" style="background: var(--post-ruta)"></span>Post-Ruta / pernocta</li>
+            <li class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 bg-slate-400"></span>En ruta</li>
+        </ul>
+    </div>
+    <div id="gantt" class="overflow-x-auto desliza"></div>
+    <div id="tooltip-flota" class="hidden fixed z-50 bg-daryza-dark text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs"></div>
+</section>
+{% else %}
+<!-- Matriz placa × día -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
+    <div class="action-row justify-between mb-3">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">Cómo cerró cada jornada</h2>
+            <p class="text-xs text-slate-500">Una fila por placa y una columna por día{% if datos.flota.matriz.dias|length >= 45 %} (últimos 45 días del rango){% endif %}. Toque una celda para ver ese día; toque la placa para filtrarla.</p>
+        </div>
+        <ul class="flex flex-wrap gap-2 text-[10px] font-black uppercase" aria-label="Leyenda">
+            <li class="estado-ok inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-check"></i> En horario</li>
+            <li class="estado-critico inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-clock"></i> Fuera de horario</li>
+            <li class="estado-serio inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-screwdriver-wrench"></i> Avería</li>
+            <li class="estado-aviso inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-triangle-exclamation"></i> Sin Post-Ruta / no salió</li>
+            <li class="estado-sin inline-flex items-center gap-1 px-2 py-1 rounded-full"><i class="fas fa-moon"></i> Sin actividad</li>
+        </ul>
+    </div>
+    <div id="matriz-flota" class="overflow-x-auto desliza"></div>
+    <div id="tooltip-flota" class="hidden fixed z-50 bg-daryza-dark text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs"></div>
+</section>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿A qué hora vuelven?</h2>
+        <p class="text-xs text-slate-500 mb-4">Retornos (Post-Ruta) por bloques de 15 min. <span class="font-black" style="color: var(--critico)"><i class="fas fa-clock"></i> Rojo</span>: después de la tolerancia; azul: en horario; gris: fin anticipado.</p>
+        <div class="h-64 sm:h-72"><canvas id="grafico-retorno" role="img" aria-label="Distribución de la hora de retorno"></canvas></div>
+    </section>
+    <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+        <h2 class="text-lg font-black text-daryza-dark">¿Cuánto tardan en salir?</h2>
+        <p class="text-xs text-slate-500 mb-4">Duración de la Pre-Ruta (de las {{ config.hora_pre_ruta|time:"H:i" }} a la salida a ruta). <span class="font-black" style="color: var(--critico)"><i class="fas fa-triangle-exclamation"></i> Rojo</span>: más que la meta de {{ datos.flota.pre_ruta.meta }} min.</p>
+        <div class="h-64 sm:h-72"><canvas id="grafico-pre-ruta" role="img" aria-label="Distribución de la duración de la Pre-Ruta"></canvas></div>
+    </section>
+</div>
+
+{% if datos.flota.tendencia %}
+<section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6 mb-6">
+    <h2 class="text-lg font-black text-daryza-dark">¿Mejoramos o empeoramos?</h2>
+    <p class="text-xs text-slate-500 mb-4">% de Pre-Ruta a tiempo y % de cierres en horario por {% if datos.flota.tendencia.semanal %}semana{% else %}día laborable{% endif %}. Toque un punto para ver ese {% if datos.flota.tendencia.semanal %}periodo{% else %}día{% endif %}.</p>
+    <div class="h-64 sm:h-72"><canvas id="grafico-tendencia-flota" role="img" aria-label="Tendencia de la jornada"></canvas></div>
+</section>
+{% endif %}
+
+<!-- Rankings -->
+<section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
+    <div class="action-row justify-between mb-3">
+        <div>
+            <h2 class="text-lg font-black text-daryza-dark">¿Qué unidades necesitan atención?</h2>
+            <p class="text-xs text-slate-500">Toque una fila para filtrar todo el dashboard; toque un encabezado para ordenar. Por conductor solo se muestran conteos y porcentajes.</p>
+        </div>
+        <div class="flex gap-1" role="tablist" aria-label="Corte del ranking">
+            <button type="button" class="pestana pestana-flota shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-dimension="placa" aria-selected="true">Placa</button>
+            <button type="button" class="pestana pestana-flota shrink-0 px-3 py-2 rounded-full text-xs font-black bg-slate-100 text-slate-600" data-dimension="conductor" aria-selected="false">Conductor</button>
+        </div>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm" id="ranking-flota">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-3 py-3" data-orden="nombre" id="ranking-flota-nombre">Placa</th>
+                    <th class="text-right px-3 py-3" data-orden="jornadas">Jornadas</th>
+                    <th class="text-right px-3 py-3" data-orden="pre_ruta_promedio">Pre-Ruta prom.</th>
+                    <th class="hidden sm:table-cell text-right px-3 py-3" data-orden="pct_pre_ruta_a_tiempo">Pre-Ruta a tiempo</th>
+                    <th class="text-right px-3 py-3" data-orden="pct_cierre_en_horario">Cierre en horario</th>
+                    <th class="text-right px-3 py-3" data-orden="fuera_de_horario">Fuera de horario ▼</th>
+                    <th class="hidden md:table-cell text-right px-3 py-3 col-placa" data-orden="minutos_sobre_cierre">Exceso operativo</th>
+                    <th class="hidden md:table-cell text-right px-3 py-3" data-orden="por_averia">Averías</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</section>
+{% endwith %}

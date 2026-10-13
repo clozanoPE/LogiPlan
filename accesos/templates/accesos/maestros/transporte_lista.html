@@ -48,6 +48,8 @@
                     </td>
                     <td class="px-6 py-4">
                         {% if transporte.activo %}<span class="text-emerald-600 font-bold">Activo</span>{% else %}<span class="text-slate-400 font-bold">Inactivo</span>{% endif %}
+                        {% if transporte.pk in no_disponibles %}<a href="{% url 'accesos:flota_disponibilidad' %}" class="block text-[11px] font-black uppercase text-rose-600 hover:underline"><i class="fas fa-screwdriver-wrench"></i> No disponible</a>
+                        {% elif transporte.activo and transporte.es_interno %}<a href="{% url 'accesos:flota_disponibilidad' %}?transporte={{ transporte.pk }}" class="block text-[11px] font-bold text-slate-400 hover:text-rose-600">Registrar avería</a>{% endif %}
                     </td>
                     {% if 'administrador' in accesos_roles %}
                     <td class="px-6 py-4 text-right whitespace-nowrap">

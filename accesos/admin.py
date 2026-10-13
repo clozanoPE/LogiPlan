@@ -8,8 +8,9 @@ from django.db.models import Q
 
 from . import auditoria, licencias, tiempo
 from .permisos import en_piloto
-from .models import (CentroDistribucion, ConfiguracionAccesos, Conductor, Programacion, RegistroAuditoria,
-                     TamanoVehiculo, TipoDocumentoIdentidad, Tramo, Transporte, UsuarioCD)
+from .models import (CentroDistribucion, ConfiguracionAccesos, Conductor, Feriado, Incidencia, Jornada, Programacion,
+                     RegistroAuditoria, TamanoVehiculo, TipoDocumentoIdentidad, TipoIncidencia, Tramo, Transporte,
+                     UsuarioCD)
 
 Accion = RegistroAuditoria.Accion
 
@@ -73,10 +74,27 @@ class TipoDocumentoIdentidadAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
     accion_modificacion = Accion.CONFIG
 
 
+@admin.register(Feriado)
+class FeriadoAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
+    """Días no laborables además de los domingos: no se programa y no hay jornada."""
+    list_display = ('fecha', 'descripcion')
+    date_hierarchy = 'fecha'
+    search_fields = ('descripcion',)
+    accion_modificacion = Accion.CONFIG
+
+
+@admin.register(TipoIncidencia)
+class TipoIncidenciaAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
+    list_display = ('nombre', 'orden', 'activo')
+    list_editable = ('orden', 'activo')
+    accion_modificacion = Accion.CONFIG
+
+
 @admin.register(ConfiguracionAccesos)
 class ConfiguracionAccesosAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
     list_display = ('__str__', 'ventana_sugerencia_min', 'tolerancia_puntualidad_min',
-                    'umbral_prolongada_min', 'meta_permanencia_min', 'modificado_en')
+                    'umbral_prolongada_min', 'meta_permanencia_min', 'hora_pre_ruta', 'hora_cierre_operativo',
+                    'modificado_en')
     accion_modificacion = Accion.CONFIG
     readonly_fields = ('licencias_revisadas_el',)
 
@@ -169,11 +187,31 @@ class ProgramacionAdmin(SoloLecturaAdmin):
 @admin.register(Tramo)
 class TramoAdmin(SoloLecturaAdmin):
     """Solo consulta: entradas y salidas se registran en Portería y se corrigen desde el módulo."""
-    list_display = ('transporte', 'cd', 'fecha_local_entrada', 'hora_local_entrada', 'salida_en',
+    list_display = ('transporte', 'clase', 'cd', 'fecha_local_entrada', 'hora_local_entrada', 'salida_en',
                     'minutos_permanencia', 'vigente', 'corregido', 'cierre_administrativo')
     list_select_related = ('transporte', 'cd')
-    list_filter = ('cd', 'vigente', 'corregido', 'cierre_administrativo', 'fecha_local_entrada')
+    list_filter = ('clase', 'cd', 'vigente', 'corregido', 'cierre_administrativo', 'fecha_local_entrada')
     search_fields = ('transporte__placa_normalizada',)
+
+
+@admin.register(Jornada)
+class JornadaAdmin(SoloLecturaAdmin):
+    """Solo consulta: la jornada se crea con la primera programación INTERNO y avanza con la portería."""
+    list_display = ('codigo', 'fecha', 'transporte', 'cd', 'conductor', 'estado', 'primera_salida', 'post_ruta_en',
+                    'motivo_cierre')
+    list_select_related = ('transporte', 'cd', 'conductor')
+    list_filter = ('estado', 'motivo_cierre', 'cd', 'fecha')
+    search_fields = ('transporte__placa_normalizada',)
+    date_hierarchy = 'fecha'
+
+
+@admin.register(Incidencia)
+class IncidenciaAdmin(SoloLecturaAdmin):
+    """Solo consulta: las averías se registran en Portería o en la ficha del transporte."""
+    list_display = ('codigo', 'transporte', 'tipo', 'inicio', 'fin', 'origen', 'registrada_por')
+    list_select_related = ('transporte', 'tipo', 'registrada_por')
+    list_filter = ('tipo', 'origen', 'abierta')
+    search_fields = ('transporte__placa_normalizada', 'descripcion')
 
 
 @admin.register(RegistroAuditoria)

@@ -1,0 +1,6 @@
+{# Variación frente al periodo anterior de igual duración: c = {'texto', 'mejora'} (views/dashboard._cambios). #}
+{% if c.texto %}
+<p class="mt-2 text-[11px] font-black {% if c.mejora %}text-emerald-700{% elif c.mejora is None %}text-slate-400{% else %}text-rose-700{% endif %}">
+    {% if c.mejora %}<i class="fas fa-arrow-trend-up mr-1"></i>Mejora · {% elif c.mejora is not None %}<i class="fas fa-arrow-trend-down mr-1"></i>Empeora · {% endif %}{{ c.texto }}
+</p>
+{% endif %}

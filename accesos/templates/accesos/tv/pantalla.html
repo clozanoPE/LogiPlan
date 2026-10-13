@@ -1,0 +1,229 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ea580c">
+    <title>TV · CD {{ cd }} | LogiPlan Daryza</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo7.png' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { colors: {
+            marca: { DEFAULT: '#ea580c', oscuro: '#c2410c', suave: '#ffedd5', claro: '#fff7ed' }, tinta: '#0b0b0b', negro: '#1a1a1a'
+        } } } };
+    </script>
+    <style>
+        /* Escala con el ancho del televisor: 16 px a 1920 px de ancho (1080p), proporcional en 4K o 720p. */
+        html { font-size: calc(100vw / 120); }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #0b0b0b; overflow: hidden; }
+        :root {
+            --pre-ruta: #2a78d6; --visita: #eb6834; --post-ruta: #1baf7a; --grilla: #ecebe7;
+        }
+        .estado-ok { background: #e7f7e7; color: #0a6b0a; }
+        .estado-aviso { background: #fff3d6; color: #8a5a00; }
+        .estado-serio { background: #fde8de; color: #9a3b14; }
+        .estado-critico { background: #fbe3e3; color: #a12626; }
+        .cinta { display: inline-flex; gap: 3rem; white-space: nowrap; animation: correr linear infinite; }
+        @keyframes correr { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .gantt-pista { background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / var(--horas) - 1px), var(--grilla) calc(100% / var(--horas) - 1px), var(--grilla) calc(100% / var(--horas))); }
+        @media (prefers-reduced-motion: reduce) { .cinta { animation: none; } }
+    </style>
+</head>
+<body class="h-screen flex flex-col p-[1.25rem] gap-[1rem]">
+    <!-- Cabecera -->
+    <header class="flex items-center justify-between gap-6 bg-negro text-white rounded-[1.5rem] px-[1.75rem] py-[1rem] shadow-sm border-b-[0.35rem] border-marca">
+        <div class="flex items-center gap-4">
+            <div class="w-[4rem] h-[4rem] bg-white rounded-full flex items-center justify-center shadow-md overflow-hidden p-1 ring-2 ring-marca">
+                <img src="{% static 'img/logo7.png' %}" alt="Daryza" class="w-[3.2rem] h-[3.2rem] object-contain">
+            </div>
+            <div>
+                <p class="text-[0.85rem] font-black uppercase tracking-[0.3em] text-marca">Control de Accesos · Daryza</p>
+                <h1 class="text-[2.4rem] font-black leading-none tracking-tight">CD <span id="tv-cd">{{ cd }}</span></h1>
+            </div>
+        </div>
+        <div class="flex items-center gap-8">
+            <div class="text-right">
+                <p id="tv-fecha" class="text-[1.3rem] font-bold text-slate-300">{{ datos.fecha }}</p>
+                <p id="tv-estado" class="text-[0.95rem] font-bold text-slate-400"><i class="fas fa-circle text-[0.6rem] text-[#0ca30c] align-middle"></i> Actualizado a las <span id="tv-actualizado">{{ datos.hora }}</span></p>
+            </div>
+            <p id="tv-reloj" class="text-[3.6rem] font-black tabular-nums leading-none text-white">{{ datos.hora }}</p>
+        </div>
+    </header>
+
+    <!-- Cifras -->
+    <section id="tv-cifras" class="grid grid-cols-6 gap-[1rem]" aria-label="Indicadores de hoy"></section>
+
+    <!-- Cuerpo: flota propia (línea de tiempo) y vehículos en planta -->
+    <main class="flex-1 min-h-0 grid grid-cols-[1fr_28rem] gap-[1rem]">
+        <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
+            <div class="flex items-end justify-between mb-2">
+                <div>
+                    <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-truck text-marca mr-2"></i>Flota propia hoy</h2>
+                    <p class="text-[0.95rem] font-semibold text-slate-500">Pre-Ruta, rutas y retorno de cada unidad · <span id="tv-pagina-gantt"></span></p>
+                </div>
+                <ul class="flex gap-5 text-[0.95rem] font-bold text-slate-600">
+                    <li class="flex items-center gap-2"><span class="inline-block w-5 h-4 rounded" style="background: var(--pre-ruta)"></span>Pre-Ruta</li>
+                    <li class="flex items-center gap-2"><span class="inline-block w-5 h-4 rounded" style="background: var(--visita)"></span>Visita</li>
+                    <li class="flex items-center gap-2"><span class="inline-block w-5 h-4 rounded" style="background: var(--post-ruta)"></span>Post-Ruta</li>
+                    <li class="flex items-center gap-2"><span class="inline-block w-5 h-[3px] bg-slate-400"></span>En ruta</li>
+                </ul>
+            </div>
+            <div id="tv-gantt" class="flex-1 min-h-0 overflow-hidden"></div>
+        </section>
+        <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
+            <h2 class="text-[1.6rem] font-black leading-tight mb-2"><i class="fas fa-warehouse text-marca mr-2"></i>En planta ahora <span id="tv-pagina-dentro" class="text-[0.95rem] font-semibold text-slate-400"></span></h2>
+            <ul id="tv-dentro" class="flex-1 min-h-0 overflow-hidden space-y-[0.6rem]"></ul>
+        </section>
+    </main>
+
+    <!-- Alertas -->
+    <footer class="bg-white rounded-[1.5rem] shadow-sm overflow-hidden flex items-center h-[3.6rem]">
+        <p class="shrink-0 h-full flex items-center px-[1.25rem] bg-negro text-marca text-[1.1rem] font-black uppercase tracking-widest"><i class="fas fa-bell mr-2"></i>Alertas</p>
+        <div class="flex-1 overflow-hidden px-4"><div id="tv-alertas" class="cinta text-[1.25rem] font-bold"></div></div>
+    </footer>
+
+    <!-- Clases que solo inserta el JavaScript: así Tailwind (CDN) las genera desde el primer dibujo. -->
+    <div class="hidden text-rose-400 text-amber-600 text-orange-600 text-rose-600 text-rose-700 bottom-[0.45rem] h-[2.4rem] h-[2.8rem] h-[3px] px-[1.25rem] py-[1rem] rounded-[1.5rem] rounded-[1rem] rounded-[5px] text-[#0a6b0a] text-[#0ca30c] text-[0.6rem] text-[0.85rem] text-[0.95rem] text-[0.9rem] text-[1.35rem] text-[1.3rem] text-[1.6rem] text-[2rem] text-[3rem] top-[0.45rem] w-[2px] w-[3px]" aria-hidden="true"></div>
+    {{ datos|json_script:"tv-datos" }}
+    <script>
+    (() => {
+        const URL_DATOS = '{% url "accesos:tv_datos" cd.codigo %}';
+        const SEGUNDOS = {{ segundos }};
+        const ROTACION_MS = 20000;  // páginas de la línea de tiempo y de «En planta ahora»
+        const escapar = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        let datos = JSON.parse(document.getElementById('tv-datos').textContent);
+        let pagina = 0;
+        let ultimoExito = new Date();
+
+        // Reloj en vivo (hora de Lima).
+        const reloj = document.getElementById('tv-reloj');
+        const formatoHora = new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Lima' });
+        setInterval(() => { reloj.textContent = formatoHora.format(new Date()); }, 1000);
+
+        function cifras(d) {
+            const c = d.cifras;
+            const ocupacion = c.dentro / d.capacidad;
+            const tarjeta = (titulo, valor, detalle, icono, nivel = '') => `<div class="bg-white rounded-[1.5rem] shadow-sm px-[1.25rem] py-[1rem] ${nivel ? 'estado-' + nivel : ''}">
+                <p class="text-[0.9rem] font-black uppercase tracking-widest ${nivel ? '' : 'text-slate-400'}"><i class="fas ${icono} mr-1 ${nivel ? '' : 'text-marca'}"></i>${titulo}</p>
+                <p class="text-[3rem] font-black leading-tight tabular-nums">${valor}</p>
+                <p class="text-[0.95rem] font-semibold ${nivel ? '' : 'text-slate-500'}">${detalle}</p></div>`;
+            const grupos = c.grupos.map(g => `${g.total} ${g.etiqueta.toLowerCase().replace('pre-ruta', 'Pre-Ruta')}`).join(' · ');
+            document.getElementById('tv-cifras').innerHTML = [
+                tarjeta('En planta', `${c.dentro}<span class="text-[1.6rem] text-slate-400"> / ${d.capacidad}</span>`,
+                        `${c.en_atencion} en atención · ${c.flota_dentro} flota propia`, 'fa-warehouse',
+                        ocupacion > 1 ? 'critico' : (ocupacion >= 0.9 ? 'aviso' : '')),
+                tarjeta('Citas de hoy', `${c.atendidas}<span class="text-[1.6rem] text-slate-400"> / ${c.programadas}</span>`,
+                        `atendidas · ${c.pendientes} pendientes`, 'fa-calendar-check'),
+                tarjeta('Flota propia', c.jornadas, grupos || 'sin jornadas hoy', 'fa-truck'),
+                tarjeta('En ruta', c.grupos[2].total, `${c.grupos[1].total} en Pre-Ruta · ${c.grupos[3].total} retornaron`, 'fa-route'),
+                tarjeta('Fuera de horario', c.fuera_de_horario, 'retornos después de la tolerancia', 'fa-clock', c.fuera_de_horario ? 'critico' : ''),
+                tarjeta('No disponibles', c.no_disponibles, 'vehículos en avería', 'fa-screwdriver-wrench', c.no_disponibles ? 'serio' : ''),
+            ].join('');
+        }
+
+        function gantt(d, numeroPagina) {
+            const g = d.gantt;
+            const contenedor = document.getElementById('tv-gantt');
+            const rotulo = document.getElementById('tv-pagina-gantt');
+            if (d.no_laborable) { contenedor.innerHTML = `<p class="h-full flex items-center justify-center text-[2rem] font-black text-slate-400"><i class="fas fa-moon mr-3"></i>Sin actividad (${escapar(d.no_laborable)})</p>`; rotulo.textContent = ''; return 1; }
+            if (!g.filas.length) { contenedor.innerHTML = '<p class="h-full flex items-center justify-center text-[1.6rem] font-black text-slate-400">No hay jornadas de la flota propia hoy en este CD.</p>'; rotulo.textContent = ''; return 1; }
+            const altoFila = 3.6 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+            const porPagina = Math.max(1, Math.floor((contenedor.clientHeight - 40) / altoFila));
+            const paginas = Math.ceil(g.filas.length / porPagina);
+            const actual = numeroPagina % paginas;
+            rotulo.textContent = paginas > 1 ? `página ${actual + 1} de ${paginas}` : `${g.filas.length} unidades`;
+            const ancho = g.hasta - g.desde;
+            const pos = (m) => `${((Math.max(g.desde, Math.min(g.hasta, m)) - g.desde) / ancho * 100).toFixed(2)}%`;
+            const horas = []; for (let h = g.desde; h <= g.hasta; h += 60) horas.push(h);
+            const colores = { pre: 'var(--pre-ruta)', visita: 'var(--visita)', post: 'var(--post-ruta)' };
+            const columnas = 'display:grid;grid-template-columns:15rem 1fr;column-gap:1rem;align-items:center';
+            const marcas = g.marcas.filter(m => m.minuto >= g.desde && m.minuto <= g.hasta);
+            const lineas = marcas.map(m => `<div class="absolute top-0 bottom-0 w-[2px] ${m.critica ? 'bg-rose-400' : 'bg-slate-300'}" style="left:${pos(m.minuto)}"></div>`).join('')
+                + (g.ahora !== null ? `<div class="absolute top-0 bottom-0 w-[3px] bg-tinta" style="left:${pos(g.ahora)}"></div>` : '');
+            let html = `<div style="${columnas};align-items:end" class="mb-1"><div></div><div class="relative h-[2.4rem]">`
+                + marcas.filter(m => m.etiqueta).map(m => `<span class="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[0.85rem] font-black text-slate-500" style="left:${pos(m.minuto)}">${escapar(m.etiqueta)}</span>`).join('')
+                + horas.filter((h, i) => i % (horas.length > 14 ? 2 : 1) === 0).map(h => `<span class="absolute bottom-0 -translate-x-1/2 text-[0.85rem] font-bold text-slate-400" style="left:${pos(h)}">${hhmm(h)}</span>`).join('')
+                + '</div></div>';
+            g.filas.slice(actual * porPagina, (actual + 1) * porPagina).forEach(f => {
+                const enRuta = f.en_ruta ? `<div class="absolute top-1/2 h-[3px] -translate-y-1/2 bg-slate-400" style="left:${pos(f.en_ruta[0])};width:calc(${pos(f.en_ruta[1])} - ${pos(f.en_ruta[0])})"></div>` : '';
+                const segmentos = f.segmentos.map(s => `<div class="absolute top-[0.45rem] bottom-[0.45rem] rounded-[5px]" style="left:${pos(s.desde)};width:max(4px, calc(${pos(s.hasta)} - ${pos(s.desde)}));background:${colores[s.tipo]};box-shadow:0 0 0 2px #fff"></div>`).join('');
+                const nivel = f.alerta ? 'text-rose-700' : 'text-marca';
+                html += `<div style="${columnas};height:3.6rem" class="border-t border-slate-100">
+                    <div class="min-w-0"><p class="text-[1.35rem] font-black tracking-wider leading-tight">${escapar(f.placa)}</p>
+                        <p class="text-[0.9rem] font-semibold text-slate-500 truncate">${escapar(f.conductor)}</p></div>
+                    <div class="relative h-[2.8rem] rounded-lg bg-slate-50 gantt-pista" style="--horas:${horas.length - 1}">${lineas}${enRuta}${segmentos}
+                        <span class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-white/90 text-[0.85rem] font-black uppercase ${nivel}">${f.alerta ? '<i class="fas fa-triangle-exclamation"></i> ' : ''}${escapar(f.estado)}</span></div>
+                </div>`;
+            });
+            contenedor.innerHTML = html;
+            return paginas;
+        }
+
+        function dentro(d, numeroPagina) {
+            const lista = document.getElementById('tv-dentro');
+            const rotulo = document.getElementById('tv-pagina-dentro');
+            if (!d.dentro.length) { lista.innerHTML = '<li class="text-[1.3rem] font-bold text-slate-400">No hay vehículos dentro.</li>'; rotulo.textContent = ''; return 1; }
+            const altoFila = 5.4 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+            const porPagina = Math.max(1, Math.floor(lista.clientHeight / altoFila));
+            const paginas = Math.ceil(d.dentro.length / porPagina);
+            const actual = numeroPagina % paginas;
+            rotulo.textContent = `(${d.dentro.length})${paginas > 1 ? ` · ${actual + 1}/${paginas}` : ''}`;
+            lista.innerHTML = d.dentro.slice(actual * porPagina, (actual + 1) * porPagina).map(t => `
+                <li class="rounded-[1rem] px-4 py-2 ${t.nivel === 'ok' ? 'bg-slate-50' : 'estado-' + t.nivel} flex items-center justify-between gap-3" style="height:4.8rem">
+                    <div class="min-w-0"><p class="text-[1.35rem] font-black tracking-wider leading-tight">${escapar(t.placa)}</p>
+                        <p class="text-[0.9rem] font-semibold ${t.flota ? 'text-marca' : 'text-slate-500'} truncate">${escapar(t.descripcion)}</p></div>
+                    <div class="text-right shrink-0"><p class="text-[1.35rem] font-black tabular-nums">${t.nivel !== 'ok' ? '<i class="fas fa-hourglass-end mr-1"></i>' : ''}${escapar(t.tiempo)}</p>
+                        <p class="text-[0.85rem] font-semibold text-slate-400">entró ${escapar(t.entrada)}</p></div>
+                </li>`).join('');
+            return paginas;
+        }
+
+        function alertas(d) {
+            const cinta = document.getElementById('tv-alertas');
+            const ICONO = { critico: 'text-rose-600', serio: 'text-orange-600', aviso: 'text-amber-600' };
+            const items = d.alertas.length ? d.alertas.map(a => `<span><i class="fas ${a.icono} ${ICONO[a.nivel] || ''} mr-2"></i>${escapar(a.texto)}</span>`)
+                : ['<span class="text-[#0a6b0a]"><i class="fas fa-circle-check mr-2"></i>Sin alertas en este momento</span>'];
+            // Se duplica el contenido para que la cinta corra sin cortes; con pocas alertas, quieta.
+            const largo = items.join('').length;
+            cinta.innerHTML = items.join('') + (d.alertas.length > 1 ? items.join('') : '');
+            cinta.style.animationDuration = d.alertas.length > 1 ? `${Math.max(25, largo / 12)}s` : '0s';
+        }
+
+        function dibujar() {
+            document.getElementById('tv-fecha').textContent = datos.fecha;
+            cifras(datos);
+            const paginas = Math.max(gantt(datos, pagina), dentro(datos, pagina));
+            alertas(datos);
+            return paginas;
+        }
+
+        // Actualización sin recargar. Si falla, se mantiene lo último y se avisa.
+        const estado = document.getElementById('tv-estado');
+        async function actualizar() {
+            try {
+                const respuesta = await fetch(URL_DATOS, { headers: { 'Accept': 'application/json' }, cache: 'no-store', redirect: 'manual' });
+                if (respuesta.type === 'opaqueredirect' || respuesta.status === 302 || respuesta.status === 403) {
+                    estado.innerHTML = '<i class="fas fa-lock text-rose-400 mr-1"></i><span class="text-rose-400">Sesión vencida: vuelva a ingresar</span>';
+                    return;
+                }
+                if (!respuesta.ok) throw new Error(respuesta.status);
+                datos = await respuesta.json();
+                ultimoExito = new Date();
+                estado.innerHTML = `<i class="fas fa-circle text-[0.6rem] text-[#0ca30c] align-middle"></i> Actualizado a las ${escapar(datos.hora)}`;
+                dibujar();
+            } catch (error) {
+                estado.innerHTML = `<i class="fas fa-wifi text-rose-400 mr-1"></i><span class="text-rose-400 font-black">Sin conexión desde las ${formatoHora.format(ultimoExito)}</span> · se reintenta solo`;
+            }
+        }
+
+        dibujar();
+        setInterval(actualizar, SEGUNDOS * 1000);
+        setInterval(() => { pagina += 1; dibujar(); }, ROTACION_MS);
+        window.addEventListener('resize', dibujar);
+    })();
+    </script>
+</body>
+</html>

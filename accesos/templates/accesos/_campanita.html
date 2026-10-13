@@ -1,34 +1,62 @@
-{# Campanita de vencimiento de licencias (Administrador y Despacho). Las alertas se calculan al momento. #}
-{% with alertas=accesos_alertas_licencias %}
+{# Campanita (Administrador y Despacho): licencias por vencer y avisos de la flota propia (averías, jornadas sin Post-Ruta). Se calculan al momento. #}
+{% with alertas=accesos_alertas_licencias flota=accesos_alertas_flota %}
+{% with n_licencias=alertas|length n_flota=flota|length %}
+{% with total=n_licencias|add:n_flota %}
 <div class="relative">
     <button id="campanitaBoton" type="button" class="relative w-11 h-11 rounded-full flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-marca-claro hover:text-marca transition-colors"
             aria-expanded="false" aria-controls="campanitaPanel"
-            aria-label="Notificaciones de licencias{% if alertas %}: {{ alertas|length }} pendiente{{ alertas|length|pluralize }}{% endif %}">
+            aria-label="Notificaciones{% if total %}: {{ total }} pendiente{{ total|pluralize }}{% endif %}">
         <i class="fas fa-bell text-lg" aria-hidden="true"></i>
-        {% if alertas %}<span class="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white">{{ alertas|length }}</span>{% endif %}
+        {% if total %}<span class="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white">{{ total }}</span>{% endif %}
     </button>
     <div id="campanitaPanel" class="hidden fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-20 sm:top-auto sm:mt-2 sm:w-96 z-[60] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
-        <div class="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
-            <p class="text-xs font-black uppercase tracking-widest text-slate-500"><i class="fas fa-id-card text-marca mr-1"></i> Licencias por vencer</p>
-            {% if alertas %}<span class="text-[10px] font-black text-rose-600">{{ alertas|length }}</span>{% endif %}
+        <div class="max-h-[28rem] overflow-y-auto">
+            {% if flota %}
+            <div class="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-500"><i class="fas fa-truck text-rose-600 mr-1"></i> Flota propia</p>
+                <span class="text-[10px] font-black text-rose-600">{{ n_flota }}</span>
+            </div>
+            <ul class="divide-y divide-slate-100">
+                {% for aviso in flota|slice:":20" %}
+                <li>
+                    <a href="{% url aviso.url_nombre %}{% if aviso.url_query %}?{{ aviso.url_query }}{% endif %}" class="flex items-start gap-3 px-4 py-3 hover:bg-marca-claro/50">
+                        <i class="fas {{ aviso.icono }} text-rose-600 mt-1"></i>
+                        <span class="min-w-0">
+                            <span class="block text-sm font-black text-daryza-dark truncate">{{ aviso.titulo }}</span>
+                            <span class="block text-xs text-slate-500">{{ aviso.texto }}</span>
+                        </span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <div class="px-4 py-3 bg-slate-50 border-y border-slate-100 flex items-center justify-between gap-2">
+                <p class="text-xs font-black uppercase tracking-widest text-slate-500"><i class="fas fa-id-card text-marca mr-1"></i> Licencias por vencer</p>
+                {% if alertas %}<span class="text-[10px] font-black text-rose-600">{{ n_licencias }}</span>{% endif %}
+            </div>
+            <ul class="divide-y divide-slate-100">
+                {% for alerta in alertas|slice:":20" %}
+                <li>
+                    <a href="{% url 'accesos:conductor_editar' alerta.conductor.pk %}" class="flex items-start gap-3 px-4 py-3 hover:bg-marca-claro/50">
+                        <i class="fas {% if alerta.vencida %}fa-circle-exclamation text-rose-600{% else %}fa-clock text-amber-500{% endif %} mt-1"></i>
+                        <span class="min-w-0">
+                            <span class="block text-sm font-black text-daryza-dark truncate">{{ alerta.conductor.nombre_completo }}</span>
+                            <span class="block text-xs text-slate-500">{{ alerta.etiqueta }} {{ alerta.categoria }} · {{ alerta.vencimiento|date:"d/m/Y" }}</span>
+                            <span class="block text-xs font-black {% if alerta.vencida %}text-rose-600{% else %}text-amber-700{% endif %}">{{ alerta.texto|capfirst }}</span>
+                        </span>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="px-4 py-6 text-center text-sm font-bold text-slate-400"><i class="fas fa-circle-check text-emerald-500 mr-1"></i> No hay licencias por vencer.</li>
+                {% endfor %}
+            </ul>
         </div>
-        <ul class="max-h-80 overflow-y-auto divide-y divide-slate-100">
-            {% for alerta in alertas|slice:":20" %}
-            <li>
-                <a href="{% url 'accesos:conductor_editar' alerta.conductor.pk %}" class="flex items-start gap-3 px-4 py-3 hover:bg-marca-claro/50">
-                    <i class="fas {% if alerta.vencida %}fa-circle-exclamation text-rose-600{% else %}fa-clock text-amber-500{% endif %} mt-1"></i>
-                    <span class="min-w-0">
-                        <span class="block text-sm font-black text-daryza-dark truncate">{{ alerta.conductor.nombre_completo }}</span>
-                        <span class="block text-xs text-slate-500">{{ alerta.etiqueta }} {{ alerta.categoria }} · {{ alerta.vencimiento|date:"d/m/Y" }}</span>
-                        <span class="block text-xs font-black {% if alerta.vencida %}text-rose-600{% else %}text-amber-700{% endif %}">{{ alerta.texto|capfirst }}</span>
-                    </span>
-                </a>
-            </li>
-            {% empty %}
-            <li class="px-4 py-8 text-center text-sm font-bold text-slate-400"><i class="fas fa-circle-check text-emerald-500 mr-1"></i> No hay licencias por vencer.</li>
-            {% endfor %}
-        </ul>
-        <a href="{% url 'accesos:conductores_lista' %}?licencia=alerta" class="block px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-marca bg-slate-50 hover:bg-marca-claro border-t border-slate-100">Ver conductores</a>
+        <div class="grid grid-cols-2 border-t border-slate-100">
+            <a href="{% url 'accesos:conductores_lista' %}?licencia=alerta" class="block px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-marca bg-slate-50 hover:bg-marca-claro">Conductores</a>
+            <a href="{% url 'accesos:flota_disponibilidad' %}" class="block px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-rose-600 bg-slate-50 hover:bg-rose-50 border-l border-slate-100">Disponibilidad</a>
+        </div>
     </div>
 </div>
+{% endwith %}
+{% endwith %}
 {% endwith %}

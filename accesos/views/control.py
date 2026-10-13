@@ -12,8 +12,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import excel, indicadores, servicios, tiempo
-from ..forms import CierreAdministrativoForm, CorreccionTramoForm, MotivoForm
+from .. import excel, indicadores, jornadas, servicios, tiempo
+from ..forms import CierreAdministrativoForm, ConvertirPostRutaForm, CorreccionTramoForm, MotivoForm
 from ..models import CentroDistribucion, ConfiguracionAccesos, Programacion, RegistroAuditoria, Tramo, normalizar_placa
 from ..paginacion import paginar
 from ..permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, rol_requerido, tiene_rol
@@ -58,12 +58,15 @@ def tablero_hoy(request):
     hoy = ahora.date()
     config = ConfiguracionAccesos.obtener()
     abiertos = list(Tramo.objects.filter(abierto=True)
-                    .select_related('cd', 'transporte__tamano', 'programacion').order_by('entrada_en'))
+                    .select_related('cd', 'transporte__tamano', 'programacion', 'conductor').order_by('entrada_en'))
     for tramo in abiertos:
         tramo.minutos = servicios.minutos_dentro(tramo, ahora)
         tramo.tiempo_dentro = servicios.formato_duracion(tramo.minutos)
-        tramo.prolongada = tramo.minutos > config.umbral_prolongada_min
-        tramo.sobre_meta = bool(config.meta_permanencia_min and tramo.minutos > config.meta_permanencia_min)
+        # La pernocta de la flota propia no es una permanencia prolongada ni una demora.
+        tramo.prolongada = tramo.es_programado and tramo.minutos > config.umbral_prolongada_min
+        tramo.sobre_meta = bool(tramo.es_programado and config.meta_permanencia_min
+                                and tramo.minutos > config.meta_permanencia_min)
+    jornadas_hoy = jornadas.jornadas_del_dia(hoy, ahora)
 
     programaciones = list(Programacion.objects.filter(fecha=hoy))
     centros = []
@@ -72,6 +75,8 @@ def tablero_hoy(request):
         dentro = sum(1 for t in abiertos if t.cd_id == cd.pk)
         centros.append({
             'cd': cd, 'dentro': dentro, 'saturado': dentro > cd.capacidad_simultanea,
+            'flota_dentro': sum(1 for t in abiertos if t.cd_id == cd.pk and t.es_de_jornada),
+            'en_atencion': sum(1 for t in abiertos if t.cd_id == cd.pk and t.es_programado),
             'programadas': sum(1 for e in estados if e != servicios.CANCELADA),
             'atendidas': estados.count(servicios.CERRADA) + estados.count(servicios.EN_PLANTA),
             'pendientes': estados.count(servicios.PENDIENTE),
@@ -79,7 +84,36 @@ def tablero_hoy(request):
     return render(request, 'accesos/control/tablero_hoy.html', {
         'centros': centros, 'abiertos': abiertos, 'config': config, 'cds_tramos': cds_de_tramos(request.user),
         'fecha_larga': tiempo.fecha_larga(hoy), 'hora': ahora,
+        'jornadas_dia': jornadas_hoy, 'resumen_flota': resumen_flota(jornadas_hoy, len(jornadas.ids_no_disponibles())),
+        'no_laborable': jornadas.no_laborables_entre(hoy, hoy).get(hoy),
     })
+
+
+# Grupos de estados visibles de la jornada para el resumen de la flota propia («Hoy», TV).
+GRUPOS_FLOTA = [
+    ('por_iniciar', 'Por iniciar', ('POR_INICIAR', 'POR_LLEGAR')),
+    ('pre_ruta', 'En Pre-Ruta', ('EN_PRE_RUTA', 'PRE_RUTA_EXCEDIDA')),
+    ('en_ruta', 'En ruta', ('EN_RUTA', 'EN_VISITA', 'SIN_RETORNO')),
+    ('cerradas', 'Retornaron', ('ANTICIPADO', 'EN_HORARIO', 'FUERA_DE_HORARIO', 'CERRADA')),
+    ('no_disponibles', 'No disponibles', ('NO_DISPONIBLE', 'POR_AVERIA')),
+]
+
+
+def resumen_flota(jornadas_dia, no_disponibles=None):
+    """Conteos de la flota propia del día por grupo de estado, más las alertas. «No disponibles» cuenta todos
+    los vehículos con avería abierta (tengan o no jornada hoy) si se indica `no_disponibles`."""
+    codigos = [j.estado_v.codigo for j in jornadas_dia]
+    grupos = [{'clave': clave, 'etiqueta': etiqueta, 'total': sum(1 for c in codigos if c in incluidos)}
+              for clave, etiqueta, incluidos in GRUPOS_FLOTA]
+    if no_disponibles is not None:
+        grupos[-1]['total'] = no_disponibles
+    return {
+        'total': len(jornadas_dia), 'grupos': grupos,
+        'alertas': sum(1 for j in jornadas_dia if j.estado_v.alerta),
+        'fuera_de_horario': codigos.count('FUERA_DE_HORARIO'),
+        'sin_retorno': codigos.count('SIN_RETORNO'),
+        'pre_ruta_excedida': codigos.count('PRE_RUTA_EXCEDIDA'),
+    }
 
 
 def _tramos_filtrados(request):
@@ -96,7 +130,7 @@ def _tramos_filtrados(request):
 
     tramos = (Tramo.objects.filter(fecha_local_entrada__range=(desde, hasta))
               .select_related('cd', 'transporte', 'tamano_snapshot', 'programacion', 'conductor',
-                              'vigilante_entrada', 'vigilante_salida'))
+                              'vigilante_entrada', 'vigilante_salida', 'jornada'))
     permitidos = cds_de_tramos(request.user)
     if permitidos is not None:
         tramos = tramos.filter(cd_id__in=permitidos)
@@ -151,22 +185,28 @@ def tramos_exportar(request):
     encabezados = ['Fecha entrada', 'Hora entrada', 'Fecha salida', 'Hora salida', 'Permanencia (min)', 'CD',
                    'Placa', 'Tamaño', 'Tipo', 'Razón social', 'RUC / DNI', 'Motivo', 'Conductor', 'Programación',
                    'Hora programada', 'Desviación llegada (min)', 'Puntualidad', 'Kilometraje', 'Obs. entrada',
-                   'Obs. salida', 'Vigilante entrada', 'Vigilante salida', 'Estado', 'Marcas']
+                   'Obs. salida', 'Vigilante entrada', 'Vigilante salida', 'Estado', 'Marcas', 'Clase', 'Jornada']
     filas = []
     for t in tramos:
         salida = tiempo.a_lima(t.salida_en).replace(tzinfo=None) if t.salida_en else None
         marcas = [nombre for nombre, activa in (('Fuera de ventana', t.fuera_de_ventana),
                                                 ('Km inconsistente', t.km_inconsistente),
                                                 ('Corregido', t.corregido),
-                                                ('Cierre administrativo', t.cierre_administrativo)) if activa]
+                                                ('Cierre administrativo', t.cierre_administrativo),
+                                                ('Cierre automático (Pre-Ruta)', t.cierre_automatico),
+                                                ('Salida tras la Post-Ruta', t.salida_tras_cierre),
+                                                ('Día no laborable', t.dia_no_laborable)) if activa]
+        p = t.programacion
         filas.append([
             t.fecha_local_entrada, t.hora_local_entrada, salida.date() if salida else None,
             salida.time().replace(microsecond=0) if salida else None, t.minutos_permanencia, str(t.cd),
-            t.transporte.placa, str(t.tamano_snapshot), t.get_tipo_snapshot_display(), t.programacion.razon_social,
-            t.programacion.documento, t.programacion.motivo, t.conductor.nombre_completo, t.programacion.codigo,
-            t.programacion.hora, t.desviacion_llegada_min, ETIQUETAS_PUNTUALIDAD[t.puntualidad], t.km_entrada,
-            t.obs_entrada, t.obs_salida, str(t.vigilante_entrada), str(t.vigilante_salida or ''),
-            'Válido' if t.vigente else 'Anulado', ', '.join(marcas),
+            t.transporte.placa, str(t.tamano_snapshot), t.get_tipo_snapshot_display(),
+            p.razon_social if p else '', p.documento if p else '', p.motivo if p else '', t.conductor.nombre_completo,
+            p.codigo if p else '', p.hora if p else None, t.desviacion_llegada_min,
+            ETIQUETAS_PUNTUALIDAD.get(t.puntualidad, ''), t.km_entrada,
+            t.obs_entrada, t.obs_salida, str(t.vigilante_entrada or 'Sistema'), str(t.vigilante_salida or ''),
+            'Válido' if t.vigente else 'Anulado', ', '.join(marcas), t.get_clase_display(),
+            t.jornada.codigo if t.jornada_id else '',
         ])
     formatos = {0: 'DD/MM/YYYY', 1: 'HH:MM', 2: 'DD/MM/YYYY', 3: 'HH:MM', 14: 'HH:MM', 17: '#,##0'}
     nombre = f"Tramos_{filtros['desde']:%Y%m%d}_{filtros['hasta']:%Y%m%d}.xlsx"
@@ -189,8 +229,8 @@ def tramo_detalle(request, pk):
         'tramo': tramo,
         'tiempo_dentro': servicios.formato_duracion(servicios.minutos_dentro(tramo, ahora)),
         'prolongada': servicios.es_prolongada(tramo, ahora, config),
-        'puntualidad': ETIQUETAS_PUNTUALIDAD[servicios.puntualidad(tramo.desviacion_llegada_min,
-                                                                   config.tolerancia_puntualidad_min)],
+        'puntualidad': ETIQUETAS_PUNTUALIDAD.get(servicios.puntualidad(tramo.desviacion_llegada_min,
+                                                                       config.tolerancia_puntualidad_min)),
         'numero_tramo': servicios.numero_tramo_del_dia(tramo) if tramo.vigente else None,
         'historial': RegistroAuditoria.objects.filter(entidad='Tramo', objeto_id=pk).select_related('usuario'),
     }
@@ -198,6 +238,10 @@ def tramo_detalle(request, pk):
         contexto['form_anular'] = MotivoForm(prefix='anular')
         if tramo.esta_abierto:
             contexto['form_cierre'] = CierreAdministrativoForm(prefix='cierre', initial={'salida_en': ahora})
+            jornada = jornadas.jornada_vigente(tramo.transporte_id, tramo.fecha_local_entrada)
+            if tramo.es_programado and jornada and jornada.estado == jornada.Estado.EN_RUTA:
+                contexto['form_convertir'] = ConvertirPostRutaForm(prefix='convertir',
+                                                                   initial={'fin_atencion': tramo.entrada_en})
     return render(request, 'accesos/control/tramo_detalle.html', contexto)
 
 
@@ -218,7 +262,7 @@ def tramo_corregir(request, pk):
             servicios.corregir_tramo(
                 tramo, request.user, motivo=datos['motivo'], ahora=tiempo.ahora(), entrada_en=datos['entrada_en'],
                 salida_en=datos.get('salida_en'), km_entrada=datos['km_entrada'], obs_entrada=datos['obs_entrada'],
-                obs_salida=datos.get('obs_salida', ''), programacion=datos['programacion'],
+                obs_salida=datos.get('obs_salida', ''), programacion=datos.get('programacion'),
                 conductor=datos['conductor'])
         except ValidationError as error:
             form.add_error(None, error)
@@ -259,6 +303,24 @@ def tramo_cierre(request, pk):
         messages.error(request, ' '.join(error.messages))
     else:
         messages.success(request, "Salida registrada por cierre administrativo.")
+    return redirect('accesos:tramo_detalle', pk=pk)
+
+
+@require_POST
+@rol_requerido(ADMINISTRADOR)
+@tiempo.con_hora_lima
+def tramo_convertir_post_ruta(request, pk):
+    tramo = get_object_or_404(Tramo, pk=pk)
+    form = ConvertirPostRutaForm(request.POST, prefix='convertir')
+    try:
+        if not form.is_valid():
+            raise ValidationError("Indique el fin de la atención y el motivo.")
+        servicios.convertir_en_post_ruta(tramo, request.user, fin_atencion=form.cleaned_data['fin_atencion'],
+                                         motivo=form.cleaned_data['motivo'], ahora=tiempo.ahora())
+    except ValidationError as error:
+        messages.error(request, ' '.join(error.messages))
+    else:
+        messages.success(request, "Visita cerrada y Post-Ruta registrada: la jornada de ese día quedó cerrada.")
     return redirect('accesos:tramo_detalle', pk=pk)
 
 

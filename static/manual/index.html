@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manual de LogiPlan · Daryza S.A.C.</title>
+<link rel="icon" type="image/png" href="../img/logo7.png">
 <meta name="description" content="Manual de usuario de LogiPlan: Planificación de despachos y Control de Accesos de Transporte (CD Lurín y CD Punta Negra).">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -226,15 +227,18 @@ tr:last-child td { border-bottom: 0; }
     <a href="#a-programaciones">12. Programaciones (Despacho)</a>
     <a href="#a-carga">13. Carga masiva y plantillas</a>
     <a href="#a-porteria">14. Portería (Vigilancia)</a>
-    <a href="#a-hoy">15. Tablero «Hoy»</a>
-    <a href="#a-dashboard">16. Dashboard de Gerencia</a>
-    <a href="#a-tramos">17. Tramos y correcciones</a>
-    <a href="#a-auditoria">18. Auditoría y configuración</a>
+    <a href="#a-jornada">15. Jornada de la flota propia</a>
+    <a href="#a-disponibilidad">16. Averías y disponibilidad</a>
+    <a href="#a-hoy">17. Tablero «Hoy»</a>
+    <a href="#a-dashboard">18. Dashboard de Gerencia</a>
+    <a href="#a-tv">19. Modo TV</a>
+    <a href="#a-tramos">20. Tramos y correcciones</a>
+    <a href="#a-auditoria">21. Auditoría y configuración</a>
     <h4>Referencia</h4>
-    <a href="#movil">19. Teléfono y tablet</a>
-    <a href="#reglas">20. Reglas del sistema</a>
-    <a href="#faq">21. Preguntas frecuentes</a>
-    <a href="#glosario">22. Glosario</a>
+    <a href="#movil">22. Teléfono y tablet</a>
+    <a href="#reglas">23. Reglas del sistema</a>
+    <a href="#faq">24. Preguntas frecuentes</a>
+    <a href="#glosario">25. Glosario</a>
 </nav>
 <button class="boton-menu" id="boton-menu" aria-label="Abrir índice" aria-controls="indice" aria-expanded="false">☰</button>
 
@@ -254,7 +258,7 @@ tr:last-child td { border-bottom: 0; }
             <a class="boton primario" href="#bienvenida">Empezar a leer</a>
             <button class="boton secundario" onclick="window.print()">Imprimir o guardar en PDF</button>
         </div>
-        <p class="meta">Versión 1.0 · Octubre 2026 · Las pantallas usan datos ficticios de demostración.</p>
+        <p class="meta">Versión 1.1 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta), averías y el modo TV · Las pantallas usan datos ficticios de demostración.</p>
     </div>
 </header>
 
@@ -412,6 +416,7 @@ tr:last-child td { border-bottom: 0; }
         </table>
         <p style="margin:12px 0 0;font-size:14px;color:#cbd5e1">Si la misma placa vuelve a ingresar el mismo día, Despacho registra <b>otra programación</b> en otro horario. Al escanear a las 10:25 solo se ofrecen las programaciones B y C, porque A ya tiene su tramo.</p>
     </div>
+    <div class="nota consejo"><div><b>Flota propia (camiones internos):</b> además de sus programaciones, cada día con al menos una ruta <b>INTERNO</b> tiene una <b>jornada</b> que empieza sola con la <b>Pre-Ruta</b> (06:30) y termina con la <b>Post-Ruta</b> (su último ingreso al CD). La Pre-Ruta y la Post-Ruta <b>no se programan</b>: ver el capítulo 15.</div></div>
     <div class="nota info"><div><b>Permanencia</b> = tiempo desde la entrada hasta la salida. Más de <b>4 horas</b> es una <b>permanencia prolongada</b>: no es habitual (por ejemplo, un ingreso de madrugada que se queda hasta el amanecer), pero se controla y se marca. Una <b>demora</b> es una permanencia que supera la <b>meta</b> que defina Gerencia; mientras no exista meta, se usa el umbral de 4 horas.</div></div>
 </section>
 
@@ -429,11 +434,15 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Ver programaciones</td><td class="si">Todas</td><td class="si">Todas</td><td class="si">Las de su CD</td><td class="si">Todas</td></tr>
             <tr><td>Tablero «Hoy» y Dashboard</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
             <tr><td>Consulta de tramos y exportación</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Los de su CD (solo lectura)</td><td class="si">Sí</td></tr>
+            <tr><td>Registrar inicio de jornada, Post-Ruta e ingreso por avería (portería)</td><td class="no">—</td><td class="no">—</td><td class="si">Sí, en sus CD</td><td class="no">—</td></tr>
+            <tr><td>Registrar una avería y habilitar el vehículo (Disponibilidad)</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="si">Solo ver</td></tr>
+            <tr><td>Modo TV de un CD</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="si">Sí</td></tr>
             <tr><td>Corregir, anular o cerrar tramos</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
             <tr><td>Auditoría, catálogos y configuración</td><td class="si">Sí</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
         </tbody>
     </table></div>
     <figure><div class="marco"><img src="img/a01-inicio-administrador.jpg" alt="Inicio del módulo de Control de Accesos" loading="lazy"></div><figcaption>Inicio de Control de Accesos: solo aparecen las secciones del rol del usuario. El menú naranja está siempre arriba.</figcaption></figure>
+    <div class="nota info"><div><b>Rol Pantalla</b> (grupo «Accesos - Pantalla»): es el usuario propio de cada televisor. Solo abre el <b>Modo TV</b> de sus CD autorizados y su sesión dura 30 días (ver capítulo 19).</div></div>
 </section>
 
 <section class="capitulo naranja-cap" id="a-maestros">
@@ -497,6 +506,7 @@ tr:last-child td { border-bottom: 0; }
         <li><b>Cancelar</b>: con motivo obligatorio. Despacho puede cancelar hasta la hora programada; después, solo el Administrador.</li>
     </ul>
     <div class="nota cuidado"><div>No se programa en una hora que ya pasó. Si un vehículo perdió su cita y aún debe ingresar, registre una <b>nueva</b> programación.</div></div>
+    <div class="nota cuidado"><div><b>Al programar:</b> no se permite en <b>domingos ni feriados</b>; una programación <b>INTERNO</b> exige un <b>transporte propio</b>; y un vehículo <b>no disponible</b> (en avería) no aparece en la lista hasta que se habilite. La primera ruta INTERNO de una placa en el día crea sola su <b>Pre-Ruta</b> (capítulo 15).</div></div>
 </section>
 
 <section class="capitulo naranja-cap" id="a-carga">
@@ -601,12 +611,87 @@ tr:last-child td { border-bottom: 0; }
         <figure><div class="marco"><img src="img/a14-dentro-ahora.jpg" alt="Vehículos dentro ahora" loading="lazy"></div><figcaption>«Dentro ahora»: vehículos en el CD con su tiempo; toque uno para registrar su salida.</figcaption></figure>
         <figure><div class="marco"><img src="img/a15-programaciones-vigilancia.jpg" alt="Programaciones vistas por Vigilancia" loading="lazy"></div><figcaption>«Programaciones»: consulta de solo lectura del CD con filtros de fecha, placa, conductor y estado.</figcaption></figure>
     </div>
+    <div class="nota info"><div>Con los <b>camiones propios</b> la portería también registra el <b>inicio de jornada</b>, el <b>fin de jornada (Post-Ruta)</b> y el <b>ingreso por avería</b>: ver los capítulos 15 y 16.</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-jornada">
+    <h2><span class="num">15</span>Jornada de la flota propia (Pre-Ruta y Post-Ruta)</h2>
+    <p class="entrada">Los camiones propios (tipo <b>INTERNO</b>) duermen en el CD. Su día empieza con la <b>Pre-Ruta</b> y termina con la <b>Post-Ruta</b>. Ninguna de las dos se programa: el sistema las maneja solo.</p>
+    <div class="ejemplo">
+        <h4>Ejemplo · placa F7K-099 en un día</h4>
+        <table>
+            <thead><tr><th>Tramo</th><th>Qué es</th><th>Entrada</th><th>Salida</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td><b>Pre-Ruta</b> (automática)</td><td>06:30</td><td>07:30</td></tr>
+                <tr><td>2</td><td>Ruta programada de las 11:00</td><td>11:00</td><td>11:50</td></tr>
+                <tr><td>3</td><td>Ruta programada de las 14:00</td><td>14:00</td><td>15:45</td></tr>
+                <tr><td>4</td><td><b>Post-Ruta</b>: fin de jornada, se queda en el CD</td><td>16:10</td><td>—</td></tr>
+            </tbody>
+        </table>
+        <p style="margin:12px 0 0;font-size:14px;color:#cbd5e1">Al día siguiente, a las 06:30, la pernocta termina y empieza la nueva Pre-Ruta.</p>
+    </div>
+    <h3>Cómo funciona</h3>
+    <ol class="pasos">
+        <li><b>Despacho programa solo las rutas</b>, como siempre. Con la <b>primera ruta INTERNO</b> de una placa en el día, el sistema crea sola su jornada con la <b>Pre-Ruta desde las 06:30</b> (una sola por placa y día; también desde la carga masiva). En la agenda aparece el bloque «Flota propia».</li>
+        <li>La <b>Pre-Ruta termina con la primera salida</b> que registra Vigilancia. La meta es salir en <b>60 minutos</b> o menos; si a las 07:30 sigue dentro, el tablero lo marca «Pre-Ruta excedida».</li>
+        <li>Durante el día, cada ruta se registra como una entrada y salida normales.</li>
+        <li>Cuando la unidad vuelve y <b>ya no le quedan rutas pendientes</b>, la portería muestra <b>Fin de jornada (Post-Ruta)</b>: se registra el kilometraje y la unidad queda en el CD.</li>
+    </ol>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a38-porteria-post-ruta.jpg" alt="Portería: fin de jornada (Post-Ruta)" loading="lazy"></div><figcaption>Fin de jornada (Post-Ruta): muestra el cierre operativo (16:00) y su tolerancia (16:15).</figcaption></figure>
+        <figure><div class="marco"><img src="img/a40-porteria-entrada-jornada.jpg" alt="Portería: entrada de una unidad en ruta con opciones de fin de jornada y avería" loading="lazy"></div><figcaption>Si todavía tiene rutas, la entrada ofrece la ruta sugerida y, abajo, «Fin de jornada» o «Ingreso por avería».</figcaption></figure>
+    </div>
+    <h3>Cierre operativo: ¿volvió en horario?</h3>
+    <div class="tabla"><table>
+        <thead><tr><th>Hora de la Post-Ruta</th><th>Se muestra como</th></tr></thead>
+        <tbody>
+            <tr><td>Antes de las 16:00</td><td>Fin anticipado (informativo)</td></tr>
+            <tr><td>De 16:00 a 16:15</td><td>En horario</td></tr>
+            <tr><td>Después de las 16:15</td><td><b>Fuera de horario</b>: el exceso se cuenta desde las 16:00</td></tr>
+        </tbody>
+    </table></div>
+    <div class="nota cuidado"><div><b>Importante:</b> el «exceso sobre el cierre operativo» es un indicador <b>operativo del retorno del vehículo</b> al CD. <b>No es un registro de asistencia ni sustenta horas extra</b> del personal. Por eso los minutos se muestran por placa y no se suman por conductor.</div></div>
+    <h3>Casos especiales en portería</h3>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a37-porteria-inicio-jornada.jpg" alt="Portería: inicio de jornada" loading="lazy"></div><figcaption>Inicio de jornada: la unidad tiene jornada pero no figura dentro del CD.</figcaption></figure>
+        <div>
+            <ul>
+                <li><b>No figura dentro del CD</b> (por ejemplo, durmió fuera o es el primer día de uso): el vigilante elige <b>«Está ingresando»</b> (pide kilometraje; su Pre-Ruta empieza en ese momento) o <b>«Está saliendo»</b> (durmió en el CD sin registro: se registra la salida a ruta con la Pre-Ruta desde las 06:30).</li>
+                <li><b>Vuelve sin haber atendido todas sus rutas</b>: puede registrar «Fin de jornada»; las rutas pendientes quedan <span class="chip noatendida">No atendida</span> por cierre de jornada.</li>
+                <li><b>Sale después de su Post-Ruta</b> (por ejemplo, a dormir fuera): se permite, pero exige <b>motivo</b> y queda marcado.</li>
+                <li><b>Domingos y feriados</b> no se programa ni hay jornada. Si aun así sale un vehículo, se registra con motivo y queda marcado como «día no laborable».</li>
+                <li>Si la última ruta del día quedó abierta porque la unidad se quedó a dormir, el Administrador usa <b>«Convertir en Post-Ruta»</b> en el detalle del tramo.</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-disponibilidad">
+    <h2><span class="num">16</span>Averías y disponibilidad de la flota</h2>
+    <p class="entrada">Una avería (leve o de varios días) deja al vehículo <b>NO DISPONIBLE</b>: no aparece para programar hasta que Despacho o el Administrador lo <b>habiliten</b>.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a39-porteria-averia.jpg" alt="Portería: ingreso por avería" loading="lazy"></div><figcaption>Ingreso por avería (Vigilancia): tipo y descripción obligatorios; la pantalla pasa a rojo.</figcaption></figure>
+        <div>
+            <h3 style="margin-top:0">Al registrar la avería</h3>
+            <ol class="pasos">
+                <li>El ingreso queda como <b>Post-Ruta por avería</b> y la jornada se cierra.</li>
+                <li>Las rutas <b>pendientes de hoy se cancelan solas</b>, con el número de la avería (INC-000123).</li>
+                <li>Las programaciones de <b>días siguientes no se cancelan</b>: Despacho las ve en la campanita y en «Disponibilidad» para <b>cambiarles la placa o cancelarlas</b>.</li>
+                <li>Si la avería ocurre en ruta (el vehículo no vuelve a la portería), Despacho o el Administrador la registran en <b>Disponibilidad → Registrar avería</b>.</li>
+            </ol>
+            <div class="nota consejo"><div>Un vehículo reparado vuelve a programarse después de <b>Habilitar</b>. Si regresa al CD un día sin rutas, Despacho registra una programación INTERNO (por ejemplo, «Retorno a CD»).</div></div>
+        </div>
+    </div>
+    <figure><div class="marco"><img src="img/a43-disponibilidad.jpg" alt="Disponibilidad de flota" loading="lazy"></div><figcaption>Disponibilidad de flota: vehículos no disponibles con su tiempo fuera de servicio y programaciones por reasignar, el formulario «Registrar avería», el botón «Habilitar» y el historial.</figcaption></figure>
+    <figure class="media"><div class="marco"><img src="img/a41-salida-no-disponible.jpg" alt="Salida de un vehículo no disponible" loading="lazy"></div><figcaption>Si un vehículo no disponible sale (por ejemplo, al taller), Vigilancia debe indicar el motivo.</figcaption></figure>
 </section>
 
 <section class="capitulo naranja-cap" id="a-hoy">
-    <h2><span class="num">15</span>Tablero «Hoy»</h2>
+    <h2><span class="num">17</span>Tablero «Hoy»</h2>
     <figure><div class="marco"><img src="img/a16-tablero-hoy.jpg" alt="Tablero Hoy" loading="lazy"></div><figcaption>Tablero «Hoy»: ocupación de cada CD frente a su capacidad, programadas, atendidas, pendientes y vehículos dentro. Se actualiza solo cada minuto.</figcaption></figure>
-    <p>Pensado para una pantalla en la oficina o para supervisores. En rojo, los CD por encima de su capacidad y los vehículos con permanencia prolongada.</p>
+    <p>Pensado para supervisores. En rojo, los CD por encima de su capacidad y los vehículos con permanencia prolongada. Cada CD separa los vehículos <b>en atención</b> de los de la <b>flota propia</b> (en Pre-Ruta o durmiendo en el CD), que también ocupan la capacidad.</p>
+    <p>La sección <b>Flota propia hoy</b> resume las jornadas del día (por iniciar, en Pre-Ruta, en ruta, retornaron, no disponibles) y muestra cada unidad con su estado: Por iniciar, En Pre-Ruta, Pre-Ruta excedida, En ruta, En planta (visita), Sin retorno, En horario, Fuera de horario, Cierre por avería.</p>
+    <figure><div class="marco"><img src="img/a42-agenda-flota.jpg" alt="Bloque Flota propia" loading="lazy"></div><figcaption>Bloque «Flota propia» (también en la agenda de Despacho y en las programaciones de portería): Pre-Ruta con sus minutos (en ámbar si pasa la meta) y Post-Ruta.</figcaption></figure>
     <h3>Actualización automática</h3>
     <ul>
         <li>«Hoy» y «Dentro ahora» (Portería) se actualizan solos <b>cada minuto</b>; el Dashboard, <b>cada 2 minutos</b>, solo cuando el rango incluye el día de hoy (un rango pasado no cambia y no se recarga).</li>
@@ -616,38 +701,52 @@ tr:last-child td { border-bottom: 0; }
 </section>
 
 <section class="capitulo naranja-cap" id="a-dashboard">
-    <h2><span class="num">16</span>Dashboard de Gerencia</h2>
-    <p class="entrada">Responde dónde, cuándo y por qué se demoran los camiones. Al entrar muestra el <b>día de hoy</b>; con los botones de rango se ve ayer, 7 o 30 días, el mes o 90 días.</p>
-    <figure><div class="marco"><img src="img/a17-dashboard.jpg" alt="Dashboard de Gerencia completo" loading="lazy"></div><figcaption>Dashboard completo (30 días de datos de demostración).</figcaption></figure>
-    <h3>Cómo leerlo, de arriba abajo</h3>
+    <h2><span class="num">18</span>Dashboard de Gerencia</h2>
+    <p class="entrada">Cuatro pestañas con los mismos filtros, en el naranja con negro de Control de Accesos. Al entrar muestra el <b>Resumen ejecutivo</b> del <b>día de hoy</b>; con los botones de rango se ve ayer, 7 o 30 días, el mes o 90 días.</p>
     <div class="tabla"><table>
-        <thead><tr><th>Sección</th><th>Qué responde</th></tr></thead>
+        <thead><tr><th>Pestaña</th><th>Qué responde</th></tr></thead>
         <tbody>
-            <tr><td><b>Lo que dicen los datos</b></td><td>Conclusiones automáticas en lenguaje simple: hora pico, la placa, el conductor y el cliente con mayor permanencia, cuánto más tarda un CD que el otro, y si llegar tarde alarga la estadía. Solo aparecen si hay suficientes datos.</td></tr>
-            <tr><td><b>Indicadores</b></td><td>Permanencia promedio (y P90: el 10 % más lento), % de tramos con demora, % de llegadas puntuales, % de citas no atendidas, permanencias prolongadas y vehículos dentro ahora. Cada uno compara con el periodo anterior: en verde si mejoró, en rojo si empeoró.</td></tr>
-            <tr><td><b>En planta ahora</b></td><td>Vehículos dentro en este momento y su tiempo (cuando el rango incluye hoy).</td></tr>
-            <tr><td><b>Mapa de calor</b></td><td>Día de la semana × hora de llegada. Cambie entre <b>Llegadas</b> (congestión), <b>Permanencia</b> (a qué hora se quedan más) y <b>% demora</b>.</td></tr>
-            <tr><td><b>¿Quién o qué concentra las demoras?</b></td><td>Ranking por placa, conductor, razón social, motivo, tamaño, tipo y CD, con la línea del límite de demora. Se ordena tocando los encabezados.</td></tr>
-            <tr><td><b>Tendencia</b></td><td>Permanencia promedio por hora (un día), por día o por semana, con la meta.</td></tr>
-            <tr><td><b>¿Cuánto duran los tramos?</b></td><td>Cantidad de tramos por rango de permanencia; en rojo, los que superan el límite.</td></tr>
-            <tr><td><b>Puntualidad y retraso</b></td><td>% adelantado, puntual (±15 min) y retrasado por CD y por tipo, y si los retrasados permanecen más.</td></tr>
-            <tr><td><b>Lurín frente a Punta Negra</b> y <b>¿Por qué se demoró?</b></td><td>Comparativo de los CD y las 15 mayores demoras con las observaciones de portería (exportable).</td></tr>
+            <tr><td><b>Resumen ejecutivo</b></td><td>Lo que Gerencia lee en 30 segundos: 8 indicadores (ocupación ahora, rutas cumplidas, permanencia, puntualidad, Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario y disponibilidad), cada uno con su variación frente al periodo anterior y una mini tendencia de 14 días; alertas en vivo; conclusiones; y un calendario de 5 semanas con el % de retornos en horario por día. Toque una tarjeta para ver el detalle.</td></tr>
+            <tr><td><b>Operación en planta</b></td><td>Dónde, cuándo y por qué se demoran los camiones en sus visitas programadas: permanencia, demoras, puntualidad, mapa de calor, rankings y mayores demoras.</td></tr>
+            <tr><td><b>Flota propia</b></td><td>La jornada de los camiones propios: Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario, rutas cumplidas, jornada efectiva; la <b>línea de tiempo del día</b> (un día) o la <b>matriz placa × día</b> (varios días); a qué hora vuelven, cuánto tardan en salir, tendencia y ranking por placa o conductor.</td></tr>
+            <tr><td><b>Disponibilidad</b></td><td>% de la flota sin avería, vehículos no disponibles, averías y su tipo, tiempo de reparación, días fuera de servicio y las averías del periodo.</td></tr>
         </tbody>
     </table></div>
+    <figure><div class="marco"><img src="img/a44-dashboard-resumen.jpg" alt="Resumen ejecutivo del Dashboard" loading="lazy"></div><figcaption>Resumen ejecutivo (30 días de datos de demostración).</figcaption></figure>
+    <h3>Flota propia</h3>
+    <figure><div class="marco"><img src="img/a45-dashboard-flota-dia.jpg" alt="Flota propia: línea de tiempo del día" loading="lazy"></div><figcaption>Un día: la línea de tiempo muestra a cada unidad en Pre-Ruta (azul), en visita (naranja), en ruta (línea fina) y en Post-Ruta (aguamarina), con las marcas de 06:30, el cierre y la tolerancia.</figcaption></figure>
+    <figure><div class="marco"><img src="img/a46-dashboard-flota-periodo.jpg" alt="Flota propia: matriz placa por día" loading="lazy"></div><figcaption>Varios días: la matriz muestra cómo cerró cada jornada (en horario, fuera de horario, avería, sin Post-Ruta); los domingos y feriados aparecen como «Sin actividad».</figcaption></figure>
+    <div class="nota cuidado"><div>Por conductor solo se muestran conteos y porcentajes. El exceso sobre el cierre es un indicador operativo del vehículo, no de horas del personal.</div></div>
+    <h3>Operación en planta y disponibilidad</h3>
+    <figure><div class="marco"><img src="img/a17-dashboard.jpg" alt="Operación en planta" loading="lazy"></div><figcaption>Operación en planta: conclusiones, indicadores, en planta ahora, mapa de calor, rankings, tendencia, distribución, puntualidad, comparativo de CD y mayores demoras.</figcaption></figure>
+    <figure><div class="marco"><img src="img/a47-dashboard-disponibilidad.jpg" alt="Disponibilidad de la flota en el Dashboard" loading="lazy"></div><figcaption>Disponibilidad: línea de tiempo de averías por placa, disponibilidad día a día y averías por tipo.</figcaption></figure>
     <h3>Filtrar con un toque</h3>
-    <figure><div class="marco"><img src="img/a18-dashboard-filtrado.jpg" alt="Dashboard filtrado por placa y llegada retrasada" loading="lazy"></div><figcaption>Dashboard filtrado: los filtros activos aparecen como chips naranjas; la ✕ quita cada uno.</figcaption></figure>
+    <figure><div class="marco"><img src="img/a18-dashboard-filtrado.jpg" alt="Dashboard filtrado por placa y llegada retrasada" loading="lazy"></div><figcaption>Dashboard filtrado: los filtros activos aparecen como chips; la ✕ quita cada uno.</figcaption></figure>
     <ul>
-        <li><b>Todo es un filtro</b>: toque una fila del ranking (por ejemplo, una placa o un conductor), una celda del mapa de calor (ese día y hora), un punto de la tendencia, una barra de la distribución o de puntualidad, o un CD del comparativo. <b>Todo el dashboard</b> se recalcula con ese filtro.</li>
-        <li>Los filtros se suman: por ejemplo, placa <b>G6T-246</b> + <b>Llegó retrasado</b>.</li>
-        <li>CD, tipo y tamaño se eligen arriba y se aplican solos. <b>Quitar todos</b> vuelve a la vista completa.</li>
-        <li>La dirección de la página guarda los filtros: puede copiarla y compartirla con la misma vista.</li>
-        <li>Si el rango incluye hoy, el Dashboard se actualiza solo cada 2 minutos sin perder los filtros (ver «Actualización automática» en el capítulo 15).</li>
+        <li><b>Todo es un filtro</b>: una fila de un ranking, una celda del mapa de calor o de la matriz, un punto de una tendencia, una barra, un día del calendario o una placa de la línea de tiempo. <b>Todo el dashboard</b> se recalcula, en todas las pestañas.</li>
+        <li>Los filtros se suman y se conservan al cambiar de pestaña. CD, tipo y tamaño se eligen arriba y se aplican solos. <b>Quitar todos</b> vuelve a la vista completa.</li>
+        <li>Los filtros de cliente, motivo, día, hora, llegada y permanencia solo aplican a la operación en planta (las otras pestañas lo avisan).</li>
+        <li>La dirección de la página guarda la pestaña y los filtros: puede copiarla y compartirla.</li>
+        <li>Si el rango incluye hoy, el Dashboard se actualiza solo cada 2 minutos sin perder los filtros (ver «Actualización automática» en el capítulo 17). El botón <b>Modo TV</b> abre la pantalla para el televisor.</li>
     </ul>
-    <div class="nota info"><div>Solo los tramos con salida aportan permanencia. Por eso, temprano en la mañana, varios gráficos de «Hoy» muestran «Todavía no hay tramos cerrados».</div></div>
+    <div class="nota info"><div>Solo los tramos con salida aportan permanencia y solo las jornadas cerradas se califican. Por eso, temprano en la mañana, varios gráficos de «Hoy» muestran «Todavía no hay…».</div></div>
+</section>
+
+<section class="capitulo naranja-cap" id="a-tv">
+    <h2><span class="num">19</span>Modo TV</h2>
+    <p class="entrada">Una pantalla por CD para un televisor grande: se lee a distancia, no se toca y se actualiza sola cada minuto.</p>
+    <figure><div class="marco"><img src="img/a48-modo-tv.jpg" alt="Modo TV del CD Lurín" loading="lazy"></div><figcaption>Modo TV (1920×1080): reloj, seis cifras del día, la línea de tiempo de la flota propia con placa y conductor, los vehículos en planta y la cinta de alertas.</figcaption></figure>
+    <ul>
+        <li>Se abre desde <b>Inicio → Modo TV</b> o desde el botón <b>Modo TV</b> del Dashboard, eligiendo el CD. Use pantalla completa (F11).</li>
+        <li>Para dejar un televisor encendido, TI crea un <b>usuario propio de la pantalla</b> (grupo «Accesos - Pantalla») con su <b>CD autorizado</b>. Su sesión dura 30 días y entra directo a su pantalla; no ve nada más.</li>
+        <li>Si hay más unidades o vehículos de los que caben, la pantalla <b>pasa de página cada 20 segundos</b>.</li>
+        <li>Si se corta la red, la pantalla <b>conserva los últimos datos</b> y muestra «Sin conexión desde…»; se recupera sola. Si la sesión vence, lo indica para volver a ingresar.</li>
+        <li>Se ajusta a cualquier televisor (720p, Full HD o 4K). Recomendado: un mini PC o un stick con Chrome en modo kiosco.</li>
+    </ul>
 </section>
 
 <section class="capitulo naranja-cap" id="a-tramos">
-    <h2><span class="num">17</span>Tramos y correcciones</h2>
+    <h2><span class="num">20</span>Tramos y correcciones</h2>
     <figure><div class="marco"><img src="img/a20-tramos.jpg" alt="Consulta de tramos" loading="lazy"></div><figcaption>Consulta de tramos: filtros por fechas, CD, placa y estado (dentro ahora, prolongados, demoras, con marcas, anulados) y exportación a Excel.</figcaption></figure>
     <div class="duo">
         <figure><div class="marco"><img src="img/a21-tramo-detalle.jpg" alt="Detalle de un tramo" loading="lazy"></div><figcaption>Detalle del tramo con las acciones del Administrador e historial.</figcaption></figure>
@@ -663,7 +762,7 @@ tr:last-child td { border-bottom: 0; }
 </section>
 
 <section class="capitulo naranja-cap" id="a-auditoria">
-    <h2><span class="num">18</span>Auditoría y configuración</h2>
+    <h2><span class="num">21</span>Auditoría y configuración</h2>
     <figure><div class="marco"><img src="img/a23-auditoria.jpg" alt="Bitácora de auditoría" loading="lazy"></div><figcaption>Auditoría: quién hizo qué, cuándo, sobre qué registro, qué valores cambiaron y por qué. Nadie puede editarla ni borrarla.</figcaption></figure>
     <figure class="media"><div class="marco"><img src="img/a24-catalogos-admin.jpg" alt="Catálogos y configuración en el panel de administración" loading="lazy"></div><figcaption>Catálogos y configuración (Administrador, en el panel de administración).</figcaption></figure>
     <div class="tabla"><table>
@@ -678,6 +777,11 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Sesión de Vigilancia</td><td>12 horas</td><td>Tablets compartidas entre turnos.</td></tr>
             <tr><td>RUC y razón social de la empresa</td><td>20144109458 · Daryza S.A.C.</td><td>Programaciones de tipo Interno.</td></tr>
             <tr><td>Aviso de vencimiento de licencias</td><td>30 días</td><td>Desde cuándo la campanita avisa una licencia.</td></tr>
+            <tr><td>Hora de inicio de la Pre-Ruta</td><td>06:30</td><td>Inicio automático de la jornada de la flota propia.</td></tr>
+            <tr><td>Meta de la Pre-Ruta</td><td>60 min</td><td>Tiempo para salir a ruta; después, «Pre-Ruta excedida».</td></tr>
+            <tr><td>Cierre operativo y tolerancia</td><td>16:00 · 15 min</td><td>Retorno en horario hasta las 16:15. Cada jornada guarda los horarios vigentes al crearse.</td></tr>
+            <tr><td>Feriados</td><td>Feriados nacionales 2026–2027</td><td>Días no laborables (además de los domingos): no se programa. Deben ser validados por RRHH.</td></tr>
+            <tr><td>Tipos de incidencia</td><td>Avería mecánica, eléctrica, neumáticos, siniestro, mantenimiento correctivo, otro</td><td>Tipos de avería.</td></tr>
             <tr><td>Aviso después del vencimiento</td><td>7 días</td><td>Hasta cuándo se avisa una licencia vencida; después se desactivan solas las notificaciones.</td></tr>
         </tbody>
     </table></div>
@@ -688,7 +792,7 @@ tr:last-child td { border-bottom: 0; }
 <div class="parte gris"><span>Parte III</span><h2>Referencia</h2><p>Uso en teléfono y tablet, reglas, preguntas frecuentes y glosario.</p></div>
 
 <section class="capitulo" id="movil">
-    <h2><span class="num">19</span>Teléfono y tablet</h2>
+    <h2><span class="num">22</span>Teléfono y tablet</h2>
     <p class="entrada">LogiPlan se adapta a cualquier pantalla. La portería está diseñada para la tablet Lenovo en vertical.</p>
     <div class="duo">
         <figure class="angosta"><div class="marco"><img src="img/a19-dashboard-telefono.jpg" alt="Dashboard en el teléfono" loading="lazy"></div><figcaption>Dashboard en el teléfono: los rangos y pestañas se deslizan con el dedo.</figcaption></figure>
@@ -703,7 +807,7 @@ tr:last-child td { border-bottom: 0; }
 </section>
 
 <section class="capitulo" id="reglas">
-    <h2><span class="num">20</span>Reglas del sistema</h2>
+    <h2><span class="num">23</span>Reglas del sistema</h2>
     <div class="tabla"><table>
         <thead><tr><th>Regla</th><th>Qué pasa</th></tr></thead>
         <tbody>
@@ -719,13 +823,19 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Vehículo dentro de otro CD</td><td>Bloqueado hasta que el Administrador lo resuelva.</td></tr>
             <tr><td>Citas no atendidas</td><td>Sin ingreso al terminar el día de la programación.</td></tr>
             <tr><td>Licencia por vencer</td><td>Aviso en la campanita desde 30 días antes hasta 7 días después; no bloquea programaciones ni ingresos.</td></tr>
+            <tr><td>Domingos y feriados</td><td>No se programa ni hay jornada; un movimiento queda marcado.</td></tr>
+            <tr><td>Programación INTERNO</td><td>Solo con un transporte propio (antes era un aviso; ahora bloquea).</td></tr>
+            <tr><td>Pre-Ruta</td><td>Automática con la primera ruta INTERNO del día, desde las 06:30; meta de salida 60 min.</td></tr>
+            <tr><td>Post-Ruta</td><td>El ingreso sin rutas pendientes cierra la jornada; las pendientes quedan «No atendida».</td></tr>
+            <tr><td>Avería</td><td>Vehículo no disponible hasta habilitarlo; cancela las rutas de hoy; las de días siguientes se reasignan.</td></tr>
+            <tr><td>Salida después de la Post-Ruta o de un vehículo en avería</td><td>Permitida con motivo; queda marcada.</td></tr>
             <tr><td>Registros históricos</td><td>Nunca se borran: se anulan o desactivan, siempre con auditoría.</td></tr>
         </tbody>
     </table></div>
 </section>
 
 <section class="capitulo faq" id="faq">
-    <h2><span class="num">21</span>Preguntas frecuentes</h2>
+    <h2><span class="num">24</span>Preguntas frecuentes</h2>
     <details><summary>El vehículo llegó, pero el sistema dice «no programado».</summary><p>Revise en «Programaciones» si existe una programación de hoy para esa placa y ese CD. Si no existe, si es de otro CD o ya fue usada, Despacho debe registrar una nueva. Revise también que la placa esté bien digitada.</p></details>
     <details><summary>Se registró una entrada por error.</summary><p>Avise al Administrador: puede <b>anular</b> el tramo (con motivo). La programación vuelve a quedar pendiente y se puede registrar de nuevo.</p></details>
     <details><summary>Vigilancia olvidó registrar una salida.</summary><p>Al escanear la placa aparecerá como SALIDA. Si el vehículo ya se fue, el Administrador hace un <b>cierre administrativo</b> con la hora estimada.</p></details>
@@ -735,11 +845,14 @@ tr:last-child td { border-bottom: 0; }
     <details><summary>La cámara de la tablet no abre.</summary><p>Acepte el permiso de cámara del navegador, o digite la placa: el resultado es el mismo. Con un lector QR físico no se necesita la cámara.</p></details>
     <details><summary>Subí un Excel y algunas filas salen con error.</summary><p>Grabe las válidas, corrija en el Excel solo las filas con error (el detalle dice qué falta) y vuelva a subirlas. Las que ya se grabaron aparecerán como «Omitidas» (maestros) o con error de duplicado (programaciones), así que no se duplican.</p></details>
     <details><summary>No veo el menú «Accesos» en Planificación.</summary><p>El enlace aparece a los usuarios de Planeamiento y a quienes tienen un grupo de Control de Accesos. Si es su caso y no lo ve, pida a TI que revise sus grupos. Comercial no tiene acceso a este módulo.</p></details>
-    <details><summary>¿Cómo sé en qué módulo estoy?</summary><p>Por el color: verde es Planificación y naranja es Control de Accesos (barra superior, botones y pie de página).</p></details>
+    <details><summary>¿Tengo que programar la Pre-Ruta o la Post-Ruta?</summary><p>No. La Pre-Ruta se crea sola con la primera ruta INTERNO del día y la Post-Ruta la registra Vigilancia cuando el camión vuelve sin rutas pendientes.</p></details>
+    <details><summary>Un camión propio está en el taller. ¿Cómo lo saco de la programación?</summary><p>Regístrelo en <b>Disponibilidad → Registrar avería</b>. Deja de aparecer para programar; sus programaciones de los días siguientes aparecen allí para cambiarles la placa o cancelarlas. Cuando vuelva a operar, pulse <b>Habilitar</b>.</p></details>
+    <details><summary>¿El «fuera de horario» sirve para pagar horas extra?</summary><p>No. Es un indicador operativo del retorno del vehículo al CD; no es un registro de asistencia ni sustenta horas extra del personal.</p></details>
+    <details><summary>¿Cómo sé en qué módulo estoy?</summary><p>Por el color: verde es Planificación y naranja es Control de Accesos (barra superior, botones y pie de página). El Dashboard de Gerencia y el Modo TV también usan el naranja con negro de Control de Accesos.</p></details>
 </section>
 
 <section class="capitulo" id="glosario">
-    <h2><span class="num">22</span>Glosario</h2>
+    <h2><span class="num">25</span>Glosario</h2>
     <dl class="glosario">
         <dt>CD</dt><dd>Centro de Distribución: Lurín o Punta Negra.</dd>
         <dt>Programación</dt><dd>Ingreso esperado de una placa en una fecha y hora, en un CD.</dd>
@@ -754,6 +867,14 @@ tr:last-child td { border-bottom: 0; }
         <dt>Cierre administrativo</dt><dd>Salida registrada por el Administrador cuando Vigilancia la olvidó.</dd>
         <dt>Licencia especial A-IV</dt><dd>Categoría para transportar materiales y residuos peligrosos (camiones MAPTEL). Va en la misma licencia, con su propio vencimiento.</dd>
         <dt>Campanita</dt><dd>Aviso de licencias por vencer o recién vencidas, en la barra superior (Administrador y Despacho).</dd>
+        <dt>Jornada</dt><dd>El día de un camión propio con rutas INTERNO: de la Pre-Ruta a la Post-Ruta.</dd>
+        <dt>Pre-Ruta</dt><dd>Tiempo en el CD desde las 06:30 hasta la salida a ruta. Automática; meta 60 minutos.</dd>
+        <dt>Post-Ruta</dt><dd>Último ingreso del día de un camión propio (sin rutas pendientes): cierra la jornada y la unidad duerme en el CD.</dd>
+        <dt>Cierre operativo</dt><dd>Hora de retorno esperada de la flota propia (16:00, con tolerancia hasta 16:15).</dd>
+        <dt>Exceso sobre el cierre operativo</dt><dd>Minutos de un retorno fuera de horario, desde las 16:00. Indicador operativo del vehículo; no es asistencia ni horas extra.</dd>
+        <dt>Avería (no disponible)</dt><dd>Incidencia que impide programar el vehículo hasta habilitarlo.</dd>
+        <dt>Disponibilidad</dt><dd>% de días-unidad laborables de la flota propia sin avería.</dd>
+        <dt>Modo TV</dt><dd>Pantalla de un CD para un televisor: se actualiza sola cada minuto.</dd>
         <dt>Pase de ingreso</dt><dd>Hoja imprimible de una programación con el QR de la placa.</dd>
     </dl>
 </section>

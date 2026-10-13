@@ -35,16 +35,32 @@
                     <span><span class="block text-[10px] font-black text-slate-400 uppercase">Entrada</span><span class="font-black">{{ tramo.entrada_en|date:"d/m/Y H:i" }}</span></span>
                     <span><span class="block text-[10px] font-black text-slate-400 uppercase">Salida</span><span class="font-black">{% if tramo.salida_en %}{{ tramo.salida_en|date:"d/m/Y H:i" }}{% else %}Sigue dentro{% endif %}</span></span>
                     <span><span class="block text-[10px] font-black text-slate-400 uppercase">Permanencia</span><span class="font-black">{{ tramo_permanencia }}</span></span>
-                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Kilometraje</span><span class="font-black">{{ tramo.km_entrada }}</span></span>
+                    <span><span class="block text-[10px] font-black text-slate-400 uppercase">Kilometraje</span><span class="font-black">{{ tramo.km_entrada|default_if_none:"—" }}</span></span>
                 </dd>
                 <dd class="mt-2 text-xs text-slate-500">Obs. entrada: {{ tramo.obs_entrada }}{% if tramo.salida_en %} · Obs. salida: {{ tramo.obs_salida }}{% endif %}</dd>
                 {% if 'administrador' in accesos_roles %}<dd class="mt-2"><a href="{% url 'accesos:tramo_detalle' tramo.pk %}" class="text-xs font-black text-marca hover:underline">Ver tramo y correcciones →</a></dd>{% endif %}
             </div>
             {% endif %}
+            {% if p.no_atendida_por_cierre %}
+            <div class="sm:col-span-2 p-4 rounded-2xl bg-amber-50">
+                <dt class="text-[10px] font-black uppercase tracking-widest text-amber-800">No atendida por cierre de jornada</dt>
+                <dd class="font-bold text-amber-900">La unidad registró su Post-Ruta (fin de jornada) sin atender esta programación.</dd>
+            </div>
+            {% endif %}
+            {% if jornada %}
+            <div class="sm:col-span-2 p-4 rounded-2xl bg-emerald-50">
+                <dt class="text-[10px] font-black uppercase tracking-widest text-emerald-800"><i class="fas fa-truck mr-1"></i> Jornada de la flota propia · {{ jornada.codigo }}</dt>
+                <dd class="mt-2 flex flex-wrap items-center gap-3 text-sm">{% include 'accesos/_estado_jornada.html' with estado=jornada_estado %}
+                    <span class="font-bold">Pre-Ruta {% if jornada.primera_salida %}{{ jornada.inicio_real|date:"H:i" }}–{{ jornada.primera_salida|date:"H:i" }}{% else %}desde {{ jornada.hora_inicio|time:"H:i" }}{% endif %}</span>
+                    <span class="font-bold">· Post-Ruta {% if jornada.post_ruta_en %}{{ jornada.post_ruta_en|date:"H:i" }}{% else %}—{% endif %}</span></dd>
+                <dd class="text-xs text-emerald-900/70 mt-1">Se creó sola con la primera ruta INTERNO de la placa en el día; no se programa.</dd>
+            </div>
+            {% endif %}
             {% if p.esta_cancelada %}
-            <div class="sm:col-span-2 p-4 rounded-2xl bg-slate-50">
-                <dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Cancelada</dt>
+            <div class="sm:col-span-2 p-4 rounded-2xl {% if p.incidencia_id %}bg-rose-50{% else %}bg-slate-50{% endif %}">
+                <dt class="text-[10px] font-black uppercase tracking-widest {% if p.incidencia_id %}text-rose-700{% else %}text-slate-400{% endif %}">Cancelada{% if p.incidencia_id %} por avería del vehículo{% endif %}</dt>
                 <dd class="font-bold">{{ p.motivo_cancelacion }}</dd>
+                {% if p.incidencia_id %}<dd class="mt-1"><a href="{% url 'accesos:flota_disponibilidad' %}" class="text-xs font-black text-rose-700 hover:underline">Ver disponibilidad de flota →</a></dd>{% endif %}
                 <dd class="text-xs text-slate-400 mt-1">Por {{ p.cancelado_por }} el {{ p.cancelado_en|date:"d/m/Y H:i" }}</dd>
             </div>
             {% endif %}
