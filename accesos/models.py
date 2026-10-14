@@ -108,6 +108,7 @@ class ConfiguracionAccesos(models.Model):
     )
     tolerancia_puntualidad_min = models.PositiveSmallIntegerField(
         default=15, verbose_name="Tolerancia de puntualidad (min)",
+        help_text="Desde estos minutos de demora la llegada (o la salida, en las rutas INTERNO) es «Retrasado».",
     )
     duracion_estimada_atencion_min = models.PositiveSmallIntegerField(
         default=60, verbose_name="Duración estimada de atención (min)",
@@ -231,6 +232,12 @@ class Transporte(models.Model):
     es_interno = models.BooleanField(default=False, verbose_name="Transporte interno",
                                      help_text="Solo a los internos se les imprime el QR.")
     activo = models.BooleanField(default=True)
+    # Último kilometraje registrado en portería. Lo mantiene kilometraje.actualizar() a partir de los tramos
+    # válidos (que son la fuente de verdad), así que también sigue a las correcciones y anulaciones.
+    km_actual = models.PositiveIntegerField(null=True, blank=True, editable=False, verbose_name="Último kilometraje")
+    km_actualizado_en = models.DateTimeField(null=True, blank=True, editable=False,
+                                             verbose_name="Fecha del último kilometraje")
+    km_origen = models.CharField(max_length=60, blank=True, editable=False, verbose_name="Origen del último kilometraje")
 
     creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                                    related_name='+', verbose_name="Creado por")
@@ -427,7 +434,8 @@ class Programacion(models.Model):
 
     cd = models.ForeignKey(CentroDistribucion, on_delete=models.PROTECT, verbose_name="CD")
     fecha = models.DateField(verbose_name="Fecha")
-    hora = models.TimeField(verbose_name="Hora", help_text="Hora de Lima. Puede ser exacta (08:17).")
+    hora = models.TimeField(verbose_name="Hora", help_text="Hora de Lima. Puede ser exacta (08:17). En las rutas INTERNO es la "
+                                                          "hora de SALIDA del CD; en clientes y proveedores, la de llegada.")
     tipo = models.CharField(max_length=10, choices=Tipo.choices, verbose_name="Tipo")
     transporte = models.ForeignKey(Transporte, on_delete=models.PROTECT, related_name='programaciones',
                                    verbose_name="Transporte (placa)")
@@ -665,7 +673,7 @@ class Tramo(models.Model):
     entrada_en = models.DateTimeField(verbose_name="Entrada")
     fecha_local_entrada = models.DateField(db_index=True)
     hora_local_entrada = models.TimeField()
-    # Vacío solo en una Pre-Ruta sin kilometraje previo conocido.
+    # En la Pre-Ruta es la lectura al salir a ruta (o la copia de la Post-Ruta si durmió en el CD).
     km_entrada = models.PositiveIntegerField(null=True, blank=True, verbose_name="Kilometraje de entrada")
     obs_entrada = models.TextField(default='Ninguna', verbose_name="Observación de entrada")
     # Vacío = entrada registrada por el sistema (inicio automático de la Pre-Ruta).
@@ -682,9 +690,13 @@ class Tramo(models.Model):
     vigente = models.BooleanField(null=True, default=True, editable=False)
 
     minutos_permanencia = models.PositiveIntegerField(null=True, blank=True)
-    # Solo en los tramos programados (Pre-Ruta y Post-Ruta no tienen hora programada).
+    # Llegada menos hora programada: solo en las visitas programadas (Pre-Ruta y Post-Ruta no llegan a una cita).
     desviacion_llegada_min = models.IntegerField(null=True, blank=True,
                                                  help_text="Llegada menos hora programada (negativo = adelantado).")
+    # En las rutas INTERNO la hora programada es la de SALIDA del CD (decisión del usuario del 14/10/2026):
+    # salida menos hora programada. La primera ruta del día la atiende la salida de la Pre-Ruta.
+    desviacion_salida_min = models.IntegerField(null=True, blank=True,
+                                                help_text="Rutas INTERNO: salida menos hora programada (negativo = antes).")
     tamano_snapshot = models.ForeignKey(TamanoVehiculo, on_delete=models.PROTECT, related_name='+')
     tipo_snapshot = models.CharField(max_length=10, choices=Programacion.Tipo.choices)
 
@@ -742,9 +754,28 @@ class Tramo(models.Model):
     @property
     def descripcion(self):
         """Texto corto para listas: la razón social y el motivo, o la clase si es de la jornada."""
-        if self.programacion_id:
-            return self.programacion.razon_social
-        return f"{self.get_clase_display()} · flota propia"
+        if self.es_de_jornada:
+            return f"{self.get_clase_display()} · flota propia"
+        return self.programacion.razon_social if self.programacion_id else ''
+
+    @property
+    def califica_salida(self):
+        """En las rutas INTERNO se califica la salida (su hora programada es la de salida); en las demás, la
+        llegada."""
+        return self.tipo_snapshot == Programacion.Tipo.INTERNO
+
+    @property
+    def desviacion_min(self):
+        """La desviación que se califica (puntualidad): de salida en las rutas INTERNO, de llegada en las demás.
+        None si el tramo no atiende una programación o si la ruta INTERNO todavía no sale."""
+        return self.desviacion_salida_min if self.califica_salida else self.desviacion_llegada_min
+
+    def save(self, *args, **kwargs):
+        """Después de guardar, el último kilometraje del transporte se recalcula desde sus tramos válidos (vale
+        para la portería, las correcciones, las anulaciones y los datos de demostración)."""
+        super().save(*args, **kwargs)
+        from . import kilometraje  # import diferido: kilometraje usa estos modelos
+        kilometraje.actualizar(self.transporte_id)
 
 
 # --- AUDITORÍA ---

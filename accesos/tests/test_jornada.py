@@ -2,6 +2,9 @@
 Jornada de la flota propia (F6): Pre-Ruta automática, Post-Ruta, avería (no disponibilidad),
 días no laborables y correcciones. Hora fija de las pruebas: miércoles 07/10/2026 (ver
 test_programacion); el reloj se mueve con mover_reloj().
+
+En las rutas INTERNO la hora programada es la de SALIDA del CD (14/10/2026): la primera ruta del
+día la atiende la salida de la Pre-Ruta; las siguientes, una visita (entrada y salida).
 """
 import threading
 from datetime import date, time, timedelta, timezone as dt_timezone
@@ -40,9 +43,11 @@ class JornadaBase(PorteriaBase):
     def jornada(self, fecha=HOY):
         return Jornada.objects.get(transporte=self.f7j, fecha=fecha)
 
-    def salida_sin_registro(self, obs=''):
-        return servicios.registrar_salida_sin_registro(transporte_id=self.f7j.pk, cd=self.lurin, obs=obs,
-                                                       usuario=self.vigilante, ahora=tiempo.ahora())
+    def salida_sin_registro(self, obs='', km=129500, conductor_id=None):
+        tramo, _ = servicios.registrar_salida_sin_registro(transporte_id=self.f7j.pk, cd=self.lurin, km=km, obs=obs,
+                                                           conductor_id=conductor_id, usuario=self.vigilante,
+                                                           ahora=tiempo.ahora())
+        return tramo
 
     def salida(self, tramo, obs=''):
         return servicios.registrar_salida(transporte_id=tramo.transporte_id, tramo_id=tramo.pk, cd=tramo.cd, obs=obs,
@@ -58,10 +63,12 @@ class JornadaBase(PorteriaBase):
         return Tramo.objects.get(transporte=self.f7j, abierto=True)
 
     def dia_completo(self, fecha, retorno=(16, 10)):
-        """La unidad hace su jornada en `fecha`: ruta a las 10:00 y Post-Ruta a la hora `retorno`.
-        Si no tiene un tramo abierto (no durmió registrada en el CD), su primera salida no tiene registro."""
+        """La unidad hace su jornada en `fecha`: primera ruta a las 08:00 (la atiende la salida de la Pre-Ruta),
+        segunda con salida a las 10:40 (entra 10:00) y Post-Ruta a la hora `retorno`. Si no tiene un tramo
+        abierto (no durmió registrada en el CD), su primera salida no tiene registro."""
         self.mover_reloj(fecha, 5, 0)
-        programacion = self.interna(10, 0, fecha=fecha)
+        self.interna(8, 0, fecha=fecha)
+        programacion = self.interna(10, 40, fecha=fecha)
         self.mover_reloj(fecha, 7, 30)
         if Tramo.objects.filter(transporte=self.f7j, abierto=True).exists():
             self.salida(self.abierto())
@@ -128,25 +135,33 @@ class SincronizacionTests(JornadaBase):
         self.assertEqual(self.jornada(MANANA).hora_inicio, time(6, 30))
         self.assertEqual(self.jornada(date(2026, 10, 9)).hora_inicio, time(6, 0))
 
-    def test_aviso_si_la_ruta_cae_dentro_de_la_pre_ruta(self):
-        temprana = self.interna(7, 0, fecha=MANANA)
-        self.assertTrue(any('Pre-Ruta' in a for a in servicios.avisos(temprana, self.config)))
-        tardia = self.interna(9, 0, fecha=MANANA)
-        self.assertFalse(any('Pre-Ruta' in a for a in servicios.avisos(tardia, self.config)))
+    def test_aviso_si_la_ruta_sale_antes_de_la_pre_ruta(self):
+        temprana = self.interna(6, 0, fecha=MANANA)
+        self.assertTrue(any('antes del inicio de la Pre-Ruta' in a for a in servicios.avisos(temprana, self.config)))
+        # La hora de una ruta INTERNO es la de salida: a las 07:00 la atiende la salida de la Pre-Ruta.
+        normal = self.interna(7, 0, fecha=MANANA)
+        self.assertFalse(any('Pre-Ruta' in a for a in servicios.avisos(normal, self.config)))
 
 
 class DiaDeLaUnidadTests(JornadaBase):
-    """El ejemplo de la F7K-099: Pre-Ruta 06:30–07:30, rutas 11:00–11:50 y 14:00–15:45, Post-Ruta 16:10."""
+    """El ejemplo de la F7K-099: Pre-Ruta 06:30–07:30 (sale a la ruta de las 08:00), visitas 11:00–11:50 y
+    14:00–15:45 (rutas con salida programada a las 11:50 y 14:45), Post-Ruta 16:10."""
 
     def test_ejemplo_completo_y_reinicio_al_dia_siguiente(self):
         self.mover_reloj(HOY, 5, 0)
-        once, catorce = self.interna(11, 0), self.interna(14, 0)
+        ocho, once, catorce = self.interna(8, 0), self.interna(11, 50), self.interna(14, 45)
 
         self.mover_reloj(HOY, 7, 30)  # primera vez en el sistema: durmió en el CD sin registro previo
-        self.assertEqual(self.evaluar().accion, servicios.INICIO_JORNADA)
+        resultado = self.evaluar()
+        self.assertEqual((resultado.accion, resultado.ruta_salida), (servicios.INICIO_JORNADA, ocho))
         pre = self.salida_sin_registro()
         self.assertEqual((pre.clase, pre.minutos_permanencia, pre.vigilante_entrada), (Tramo.Clase.PRE_RUTA, 60, None))
         self.assertEqual(tiempo.a_lima(pre.entrada_en).time(), time(6, 30))
+        # La salida a ruta atiende la primera ruta: sale 30 min antes de su hora programada.
+        ocho.refresh_from_db()
+        self.assertEqual((pre.programacion, ocho.estado, pre.desviacion_salida_min, pre.desviacion_llegada_min),
+                         (ocho, Programacion.Estado.CERRADA, -30, None))
+        self.assertEqual(pre.km_entrada, 129500)
         jornada = self.jornada()
         self.assertEqual((jornada.estado, jornadas.minutos_pre_ruta(jornada)), (Jornada.Estado.EN_RUTA, 60))
         self.assertTrue(jornadas.pre_ruta_a_tiempo(jornada))
@@ -154,15 +169,18 @@ class DiaDeLaUnidadTests(JornadaBase):
         self.mover_reloj(HOY, 11, 0)
         resultado = self.evaluar()
         self.assertEqual((resultado.accion, resultado.sugerida.programacion), (servicios.ENTRADA, once))
+        self.assertEqual([c.programacion for c in resultado.candidatas], [once, catorce])  # la de 08:00 ya no
         self.assertTrue(resultado.permite_post_ruta)
         visita = self.entrar_en(once)
         self.assertEqual(visita.jornada, jornada)
         self.mover_reloj(HOY, 11, 50)
-        self.salida(visita)
+        visita = self.salida(visita)
+        self.assertEqual(visita.desviacion_salida_min, 0)
         self.mover_reloj(HOY, 14, 0)
         visita = self.entrar_en(catorce)
         self.mover_reloj(HOY, 15, 45)
-        self.salida(visita)
+        visita = self.salida(visita)
+        self.assertEqual(visita.desviacion_salida_min, 60)  # salió una hora después de lo programado
 
         self.mover_reloj(HOY, 16, 10)
         resultado = self.evaluar()
@@ -174,27 +192,30 @@ class DiaDeLaUnidadTests(JornadaBase):
         self.assertEqual(jornadas.calificacion_cierre(jornada), jornadas.EN_HORARIO)
         self.assertEqual(jornadas.minutos_sobre_cierre(jornada), 0)
         self.assertEqual(Tramo.objects.filter(jornada=jornada).count(), 4)
-        # Los indicadores de visitas solo cuentan las dos rutas programadas.
+        # Ninguna ruta quedó «No atendida»: las tres se cumplieron.
+        self.assertFalse(Programacion.objects.filter(no_atendida_por_cierre=True).exists())
+        # Los indicadores de visitas solo cuentan las dos visitas programadas (la Pre-Ruta se mide aparte).
         self.assertEqual(len(indicadores.tramos_del_periodo(HOY, HOY, {})), 2)
 
         # Al día siguiente: la pernocta se cierra a las 06:30 y empieza la Pre-Ruta.
         self.mover_reloj(MANANA, 5, 0)
-        self.interna(10, 0, fecha=MANANA)
+        diez = self.interna(10, 0, fecha=MANANA)
         self.mover_reloj(MANANA, 7, 20)
         resultado = self.evaluar()
-        self.assertEqual((resultado.accion, resultado.tipo_salida),
-                         (servicios.SALIDA, servicios.SALIDA_PRE_RUTA_AUTOMATICA))
+        self.assertEqual((resultado.accion, resultado.tipo_salida, resultado.ruta_salida),
+                         (servicios.SALIDA, servicios.SALIDA_PRE_RUTA_AUTOMATICA, diez))
         pre = self.salida(post)
         post.refresh_from_db()
         self.assertEqual(tiempo.a_lima(post.salida_en).time(), time(6, 30))
         self.assertTrue(post.cierre_automatico)
         self.assertEqual((pre.clase, pre.minutos_permanencia, pre.km_entrada), (Tramo.Clase.PRE_RUTA, 50, 130000))
+        self.assertEqual((pre.programacion, pre.desviacion_salida_min), (diez, -160))
         self.assertEqual(self.jornada(MANANA).estado, Jornada.Estado.EN_RUTA)
 
     def test_calificacion_del_retorno(self):
         for retorno, esperado, minutos in (((15, 30), jornadas.ANTICIPADO, 0), ((16, 0), jornadas.EN_HORARIO, 0),
                                            ((16, 15), jornadas.EN_HORARIO, 0),
-                                           ((16, 40), jornadas.FUERA_DE_HORARIO, 40)):
+                                           ((16, 40), jornadas.FUERA_DE_HORARIO, 25)):  # sobre las 16:15
             with self.subTest(retorno=retorno):
                 Tramo.objects.filter(transporte=self.f7j).update(abierto=None)
                 fecha = HOY + timedelta(days=[(15, 30), (16, 0), (16, 15), (16, 40)].index(retorno))
@@ -205,7 +226,7 @@ class DiaDeLaUnidadTests(JornadaBase):
 
     def test_post_ruta_con_pendientes_las_deja_no_atendidas(self):
         self.mover_reloj(HOY, 5, 0)
-        diez, quince = self.interna(10, 0), self.interna(15, 0)
+        ocho, diez, quince = self.interna(8, 0), self.interna(10, 30), self.interna(15, 0)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()
         self.mover_reloj(HOY, 10, 0)
@@ -218,6 +239,8 @@ class DiaDeLaUnidadTests(JornadaBase):
         quince.refresh_from_db()
         self.assertTrue(quince.no_atendida_por_cierre)
         self.assertEqual(servicios.estado_visible(quince, HOY), servicios.NO_ATENDIDA)
+        ocho.refresh_from_db()  # la atendió la salida de la Pre-Ruta: no queda «No atendida»
+        self.assertEqual((ocho.estado, ocho.no_atendida_por_cierre), (Programacion.Estado.CERRADA, False))
         self.assertIsNotNone(servicios.motivo_no_editable(quince, tiempo.ahora()))
         self.assertTrue(any('No atendidas' in a for a in avisos))
 
@@ -275,7 +298,8 @@ class DiaDeLaUnidadTests(JornadaBase):
 
     def test_primera_salida_que_cierra_una_visita_de_otro_dia(self):
         self.mover_reloj(HOY, 5, 0)
-        programacion = self.interna(10, 0)
+        self.interna(8, 0)
+        programacion = self.interna(10, 30)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()
         self.mover_reloj(HOY, 10, 0)
@@ -293,6 +317,7 @@ class AveriaTests(JornadaBase):
 
     def en_ruta_con_pendiente(self):
         self.mover_reloj(HOY, 5, 0)
+        self.interna(8, 0)  # la atiende la salida de la Pre-Ruta
         pendiente = self.interna(14, 0)
         futura = self.interna(10, 0, fecha=MANANA)
         self.mover_reloj(HOY, 7, 30)
@@ -416,6 +441,7 @@ class CorreccionesDeJornadaTests(JornadaBase):
 
     def test_convertir_la_ultima_visita_en_post_ruta(self):
         self.mover_reloj(HOY, 5, 0)
+        self.interna(8, 0)
         programacion = self.interna(15, 0)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()

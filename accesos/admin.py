@@ -104,11 +104,13 @@ class ConfiguracionAccesosAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
 
 @admin.register(Transporte)
 class TransporteAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
-    list_display = ('placa', 'tamano', 'es_interno', 'activo', 'creado_por', 'creado_en')
+    list_display = ('placa', 'tamano', 'es_interno', 'activo', 'km_actual', 'km_actualizado_en', 'creado_por', 'creado_en')
     list_select_related = ('tamano', 'creado_por')
     list_filter = ('es_interno', 'activo', 'tamano')
     search_fields = ('placa', 'placa_normalizada')
-    readonly_fields = ('placa_normalizada', 'creado_por', 'creado_en', 'modificado_por', 'modificado_en')
+    # El último kilometraje lo mantiene la portería (kilometraje.py): solo lectura.
+    readonly_fields = ('placa_normalizada', 'km_actual', 'km_actualizado_en', 'km_origen', 'creado_por', 'creado_en',
+                       'modificado_por', 'modificado_en')
 
 
 class VencimientoLicenciaFilter(admin.SimpleListFilter):

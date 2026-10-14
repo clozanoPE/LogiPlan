@@ -229,14 +229,14 @@ class VistasYPermisosTests(ProgramacionBase):
 
     def test_alta_desde_la_vista_audita_y_avisa(self):
         self.entrar(self.despacho)
-        # Ruta INTERNO a las 07:00: la unidad todavía estará en su Pre-Ruta (06:30 + 60 min).
+        # Ruta INTERNO con salida a las 06:00, antes del inicio de la Pre-Ruta (06:30): aviso de salida anticipada.
         respuesta = self.client.post(reverse('accesos:programacion_crear'),
-                                     self.datos(tipo='INTERNO', transporte=self.f7j.pk, hora='07:00', documento='',
+                                     self.datos(tipo='INTERNO', transporte=self.f7j.pk, hora='06:00', documento='',
                                                 razon_social=''), follow=True)
         programacion = Programacion.objects.get()
         self.assertEqual(respuesta.redirect_chain[-1][0], reverse('accesos:programacion_detalle', args=[programacion.pk]))
         self.assertTrue(RegistroAuditoria.objects.filter(entidad='Programacion', accion='CREAR').exists())
-        self.assertContains(respuesta, 'estará en su Pre-Ruta')
+        self.assertContains(respuesta, 'antes del inicio de la Pre-Ruta')
 
     def test_nueva_en_otro_horario_copia_los_datos(self):
         base = self.crear(motivo='Entrega de insumos')

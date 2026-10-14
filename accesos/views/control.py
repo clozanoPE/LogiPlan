@@ -154,7 +154,9 @@ def _tramos_filtrados(request):
     for tramo in tramos:
         tramo.minutos = servicios.minutos_dentro(tramo, ahora)
         tramo.prolongada = tramo.minutos > config.umbral_prolongada_min
-        tramo.puntualidad = servicios.puntualidad(tramo.desviacion_llegada_min, config.tolerancia_puntualidad_min)
+        # Llegada en las visitas de clientes y proveedores; salida en las rutas INTERNO (incluida la primera,
+        # que atiende la salida de la Pre-Ruta).
+        tramo.puntualidad = servicios.puntualidad(tramo.desviacion_min, config.tolerancia_puntualidad_min)
     if estado == 'prolongados':
         tramos = [t for t in tramos if t.prolongada]
     elif estado == 'demoras':
@@ -184,7 +186,8 @@ def tramos_exportar(request):
     tramos, filtros, _ = _tramos_filtrados(request)
     encabezados = ['Fecha entrada', 'Hora entrada', 'Fecha salida', 'Hora salida', 'Permanencia (min)', 'CD',
                    'Placa', 'Tamaño', 'Tipo', 'Razón social', 'RUC / DNI', 'Motivo', 'Conductor', 'Programación',
-                   'Hora programada', 'Desviación llegada (min)', 'Puntualidad', 'Kilometraje', 'Obs. entrada',
+                   'Hora programada', 'Desviación llegada (min)', 'Desviación salida (min)', 'Puntualidad',
+                   'Se califica', 'Kilometraje', 'Obs. entrada',
                    'Obs. salida', 'Vigilante entrada', 'Vigilante salida', 'Estado', 'Marcas', 'Clase', 'Jornada']
     filas = []
     for t in tramos:
@@ -202,13 +205,14 @@ def tramos_exportar(request):
             salida.time().replace(microsecond=0) if salida else None, t.minutos_permanencia, str(t.cd),
             t.transporte.placa, str(t.tamano_snapshot), t.get_tipo_snapshot_display(),
             p.razon_social if p else '', p.documento if p else '', p.motivo if p else '', t.conductor.nombre_completo,
-            p.codigo if p else '', p.hora if p else None, t.desviacion_llegada_min,
-            ETIQUETAS_PUNTUALIDAD.get(t.puntualidad, ''), t.km_entrada,
+            p.codigo if p else '', p.hora if p else None, t.desviacion_llegada_min, t.desviacion_salida_min,
+            ETIQUETAS_PUNTUALIDAD.get(t.puntualidad, ''),
+            ('Salida' if t.califica_salida else 'Llegada') if p else '', t.km_entrada,
             t.obs_entrada, t.obs_salida, str(t.vigilante_entrada or 'Sistema'), str(t.vigilante_salida or ''),
             'Válido' if t.vigente else 'Anulado', ', '.join(marcas), t.get_clase_display(),
             t.jornada.codigo if t.jornada_id else '',
         ])
-    formatos = {0: 'DD/MM/YYYY', 1: 'HH:MM', 2: 'DD/MM/YYYY', 3: 'HH:MM', 14: 'HH:MM', 17: '#,##0'}
+    formatos = {0: 'DD/MM/YYYY', 1: 'HH:MM', 2: 'DD/MM/YYYY', 3: 'HH:MM', 14: 'HH:MM', 19: '#,##0'}
     nombre = f"Tramos_{filtros['desde']:%Y%m%d}_{filtros['hasta']:%Y%m%d}.xlsx"
     return excel.respuesta_excel(nombre, 'Tramos', encabezados, filas, formatos)
 
@@ -229,8 +233,9 @@ def tramo_detalle(request, pk):
         'tramo': tramo,
         'tiempo_dentro': servicios.formato_duracion(servicios.minutos_dentro(tramo, ahora)),
         'prolongada': servicios.es_prolongada(tramo, ahora, config),
-        'puntualidad': ETIQUETAS_PUNTUALIDAD.get(servicios.puntualidad(tramo.desviacion_llegada_min,
+        'puntualidad': ETIQUETAS_PUNTUALIDAD.get(servicios.puntualidad(tramo.desviacion_min,
                                                                        config.tolerancia_puntualidad_min)),
+        'texto_desviacion': servicios.texto_desviacion(tramo.desviacion_min),
         'numero_tramo': servicios.numero_tramo_del_dia(tramo) if tramo.vigente else None,
         'historial': RegistroAuditoria.objects.filter(entidad='Tramo', objeto_id=pk).select_related('usuario'),
     }

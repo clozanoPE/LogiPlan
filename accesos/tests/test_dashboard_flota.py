@@ -18,7 +18,7 @@ class IndicadoresFlotaTests(JornadaBase):
 
     def setUp(self):
         super().setUp()
-        # Ayer: retorno 16:40 (fuera de horario, +40 min). Hoy: Pre-Ruta de 60 min y retorno 16:10.
+        # Ayer: retorno 16:40 (fuera de horario, +25 min sobre las 16:15). Hoy: Pre-Ruta de 60 min y retorno 16:10.
         self.dia_completo(AYER, retorno=(16, 40))
         self.dia_completo(HOY, retorno=(16, 10))
         self.mover_reloj(HOY, 18, 0)
@@ -32,8 +32,8 @@ class IndicadoresFlotaTests(JornadaBase):
         self.assertEqual((k['jornadas'], k['con_salida'], k['cierres']), (2, 2, 2))
         self.assertEqual(k['pct_pre_ruta_a_tiempo'], 100.0)  # 06:30 → 07:30 = 60 min (meta 60)
         self.assertEqual(k['pre_ruta_promedio'], 60)
-        self.assertEqual((k['pct_cierre_en_horario'], k['fuera_de_horario'], k['minutos_sobre_cierre']), (50.0, 1, 40))
-        self.assertEqual((k['rutas'], k['rutas_atendidas']), (1, 1))  # solo los días terminados (ayer)
+        self.assertEqual((k['pct_cierre_en_horario'], k['fuera_de_horario'], k['minutos_sobre_cierre']), (50.0, 1, 25))
+        self.assertEqual((k['rutas'], k['rutas_atendidas']), (2, 2))  # solo los días terminados (ayer)
 
     def test_un_filtro_de_otro_tipo_vacia_la_flota(self):
         self.assertEqual(self.lista(tipo='CLIENTE'), [])
@@ -43,7 +43,7 @@ class IndicadoresFlotaTests(JornadaBase):
     def test_ranking_por_conductor_no_muestra_minutos(self):
         por_placa = indicadores_flota.ranking(self.lista(), 'placa')
         por_conductor = indicadores_flota.ranking(self.lista(), 'conductor')
-        self.assertEqual(por_placa[0]['minutos_sobre_cierre'], 40)
+        self.assertEqual(por_placa[0]['minutos_sobre_cierre'], 25)
         self.assertNotIn('minutos_sobre_cierre', por_conductor[0])
 
     def test_gantt_del_dia(self):

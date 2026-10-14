@@ -83,6 +83,7 @@
                     <label for="campo-km" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
                     <input id="campo-km" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
                            class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
                 </div>
                 <div>
                     <label for="campo-obs-entrada" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
@@ -152,6 +153,7 @@
                     <label for="campo-km-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
                     <input id="campo-km-post" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
                            class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 focus:outline-none">
+                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
                 </div>
                 <div>
                     <label for="campo-obs-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
@@ -222,6 +224,7 @@
                         <label for="campo-km-inicio" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
                         <input id="campo-km-inicio" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
                                class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
+                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
                     </div>
                     <input type="text" name="obs" maxlength="500" placeholder="Observación (opcional)" class="campo-accesos">
                     <select name="conductor" class="campo-accesos" aria-label="Conductor">
@@ -237,7 +240,19 @@
                     <input type="hidden" name="sentido" value="sale">
                     <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-from-bracket text-sky-600 mr-2"></i>Está saliendo</p>
                     <p class="text-sm text-slate-500">Durmió en el CD pero su ingreso no quedó registrado: se registra su salida a ruta con la Pre-Ruta desde las {{ resultado.jornada.hora_inicio|time:"H:i" }}.</p>
+                    {% include 'accesos/porteria/_ruta_salida.html' %}
+                    <div>
+                        <label for="campo-km-sale" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
+                        <input id="campo-km-sale" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
+                               {% if ultimo_km is not None %}value="{{ ultimo_km }}"{% endif %}
+                               class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-sky-600 focus:outline-none">
+                        <p class="mt-1 text-xs font-bold text-slate-400">{% if ultimo_km is not None %}Último registrado: {{ ultimo_km }} km. Confírmelo o corríjalo con el tablero.{% else %}Lea el kilometraje del tablero (no hay uno registrado).{% endif %}</p>
+                    </div>
                     <input type="text" name="obs" maxlength="500" placeholder="Observación de salida (opcional)" class="campo-accesos">
+                    <select name="conductor" class="campo-accesos" aria-label="Conductor">
+                        <option value="">El conductor previsto</option>
+                        {% for conductor in conductores %}<option value="{{ conductor.pk }}">{{ conductor.nombre_completo }} · {{ conductor.tipo_documento }} {{ conductor.numero_documento }}</option>{% endfor %}
+                    </select>
                     <button type="submit" class="w-full px-6 py-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-xl font-black uppercase tracking-widest">Registrar salida a ruta</button>
                 </form>
             </div>
@@ -273,6 +288,7 @@
             {% elif resultado.tipo_salida == 'SIN_PRE_RUTA' %}
             <p class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold"><i class="fas fa-circle-info mr-1"></i> Su última visita de otro día quedó abierta (no registró su Post-Ruta). La salida se registra igual y queda para revisión del Administrador.</p>
             {% endif %}
+            {% include 'accesos/porteria/_ruta_salida.html' %}
             <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' %}
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta desde</dt><dd class="text-2xl font-black">{{ resultado.jornada.hora_inicio|time:"H:i" }}</dd><dd class="text-xs text-slate-400">durmió en el CD</dd></div>

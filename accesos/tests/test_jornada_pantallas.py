@@ -27,17 +27,27 @@ class PorteriaPantallasTests(JornadaBase):
 
     def test_dia_completo_por_pantalla(self):
         self.mover_reloj(HOY, 5, 0)
-        once = self.interna(11, 0)
+        ocho = self.interna(8, 0)
+        once = self.interna(11, 50)
         self.interna(15, 0)
 
         self.mover_reloj(HOY, 7, 30)
         pagina = self.escanear()
         self.assertContains(pagina, 'Inicio de jornada')
         self.assertContains(pagina, 'Está saliendo')
-        respuesta = self.client.post(reverse('accesos:porteria_inicio_jornada'),
-                                     {'transporte': self.f7j.pk, 'sentido': 'sale', 'placa': 'F7J-011'})
+        self.assertContains(pagina, 'Sale a la ruta de las')  # la de 08:00, con su código
+        self.assertContains(pagina, ocho.codigo)
+        url = reverse('accesos:porteria_inicio_jornada')
+        # «Está saliendo» pide el kilometraje (no hay uno registrado todavía).
+        respuesta = self.client.post(url, {'transporte': self.f7j.pk, 'sentido': 'sale', 'placa': 'F7J-011'},
+                                     follow=True)
+        self.assertContains(respuesta, 'Ingrese el kilometraje')
+        respuesta = self.client.post(url, {'transporte': self.f7j.pk, 'sentido': 'sale', 'placa': 'F7J-011',
+                                           'km': 900})
         self.assertRedirects(respuesta, f"{PORTERIA}?registrado=PRE_RUTA&registrado_placa=F7J-011")
         self.assertContains(self.client.get(respuesta.url), 'SALIDA A RUTA registrada')
+        self.f7j.refresh_from_db()
+        self.assertEqual(self.f7j.km_actual, 900)
 
         self.mover_reloj(HOY, 11, 0)
         pagina = self.escanear()
@@ -49,18 +59,19 @@ class PorteriaPantallasTests(JornadaBase):
         visita = Tramo.objects.get(programacion=once)
         self.client.post(reverse('accesos:porteria_salida'), {'transporte': self.f7j.pk, 'tramo': visita.pk})
 
-        # Vuelve a las 16:30 sin atender la de 15:00: elige «Fin de jornada».
+        # Vuelve a las 16:30 sin atender la de 15:00: elige «Fin de jornada». Se le muestra el último km.
         self.mover_reloj(HOY, 16, 30)
         pagina = self.escanear(modo='post_ruta')
         self.assertContains(pagina, 'Fin de jornada · Post-Ruta')
         self.assertContains(pagina, 'fuera de horario')
         self.assertContains(pagina, '1 programación pendiente')
+        self.assertContains(pagina, 'Último registrado: 1000 km')
         respuesta = self.client.post(reverse('accesos:porteria_post_ruta'),
                                      {'transporte': self.f7j.pk, 'km': 1100, 'placa': 'F7J-011'})
         self.assertRedirects(respuesta, f"{PORTERIA}?registrado=POST_RUTA&registrado_placa=F7J-011")
         jornada = self.jornada()
         self.assertEqual(jornadas.calificacion_cierre(jornada), jornadas.FUERA_DE_HORARIO)
-        self.assertEqual(jornadas.minutos_sobre_cierre(jornada), 30)
+        self.assertEqual(jornadas.minutos_sobre_cierre(jornada), 15)  # sobre las 16:15
 
         # Dentro ahora: la pernocta aparece como flota propia, no como permanencia prolongada.
         self.mover_reloj(MANANA, 5, 0)
@@ -80,6 +91,7 @@ class PorteriaPantallasTests(JornadaBase):
 
     def test_ingreso_por_averia_exige_tipo_y_descripcion(self):
         self.mover_reloj(HOY, 5, 0)
+        self.interna(8, 0)
         self.interna(14, 0)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()
@@ -174,6 +186,7 @@ class PantallasDeControlTests(JornadaBase):
 
     def test_detalle_de_programacion_con_jornada_y_no_atendida(self):
         self.mover_reloj(HOY, 5, 0)
+        self.interna(8, 0)
         quince = self.interna(15, 0)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()
@@ -194,6 +207,7 @@ class PantallasDeControlTests(JornadaBase):
 
     def test_convertir_en_post_ruta_desde_el_detalle(self):
         self.mover_reloj(HOY, 5, 0)
+        self.interna(8, 0)
         programacion = self.interna(15, 0)
         self.mover_reloj(HOY, 7, 30)
         self.salida_sin_registro()

@@ -6,9 +6,12 @@ Como en indicadores.py, todo se calcula en Python sobre los campos guardados (si
 MySQL). Los días no laborables (domingos y feriados) se muestran como «Sin actividad» y no entran en
 promedios ni denominadores.
 
-IMPORTANTE (decisión del usuario): el exceso sobre el cierre operativo es un indicador OPERATIVO del
-retorno del VEHÍCULO; no es un registro de asistencia ni sustenta horas extra del personal. Por eso los
-minutos de exceso se muestran por placa y nunca se suman por conductor.
+IMPORTANTE (decisión del usuario): los minutos fuera de horario (sobre el cierre operativo más su tolerancia,
+16:15) son un indicador OPERATIVO del retorno del VEHÍCULO; no son un registro de asistencia ni sustentan horas
+extra del personal. Por eso se muestran por placa y nunca se suman por conductor.
+
+En las rutas INTERNO la hora programada es la de SALIDA del CD: «salidas a tiempo» compara cada salida a ruta
+(la de la Pre-Ruta, que atiende la primera ruta, y la de cada visita) con su hora programada.
 """
 from collections import Counter, defaultdict
 from datetime import time, timedelta
@@ -41,11 +44,31 @@ def jornadas_del_periodo(desde, hasta, filtros):
     if filtros.get('tamano'):
         qs = qs.filter(transporte__tamano_id=filtros['tamano'])
     lista = list(qs.order_by('fecha', 'transporte__placa_normalizada'))
+    salidas = _salidas_por_jornada(desde, hasta, {j.pk for j in lista})
     for j in lista:
         j.calificacion = jornadas.calificacion_cierre(j)
         j.minutos_pre_ruta = jornadas.minutos_pre_ruta(j)
         j.minutos_sobre_cierre = jornadas.minutos_sobre_cierre(j)
+        j.salidas, j.retrasos = salidas.get(j.pk, ([], []))
     return lista
+
+
+def _salidas_por_jornada(desde, hasta, ids):
+    """{jornada_id: (desviaciones de salida, las que son retraso)} de las rutas INTERNO ya salidas, en una sola
+    consulta: salida − hora programada de cada ruta atendida (la primera, por la salida de la Pre-Ruta)."""
+    tolerancia = ConfiguracionAccesos.obtener().tolerancia_puntualidad_min
+    resultado = defaultdict(lambda: ([], []))
+    filas = (Tramo.objects.filter(jornada__fecha__range=(desde, hasta), vigente=True, programacion__isnull=False,
+                                  desviacion_salida_min__isnull=False)
+             .values_list('jornada_id', 'desviacion_salida_min'))
+    for jornada_id, desviacion in filas:
+        if jornada_id not in ids:
+            continue
+        todas, retrasos = resultado[jornada_id]
+        todas.append(desviacion)
+        if servicios.puntualidad(desviacion, tolerancia) == servicios.RETRASADO:
+            retrasos.append(desviacion)
+    return resultado
 
 
 def _terminadas(lista, hoy):
@@ -64,6 +87,8 @@ def kpis(lista, ahora, programaciones_internas=None):
     fuera = [j for j in cierres if j.calificacion == jornadas.FUERA_DE_HORARIO]
     efectiva = [int((j.post_ruta_en - j.inicio_real).total_seconds() // 60) for j in cierres
                 if j.inicio_real and j.post_ruta_en]
+    salidas = [d for j in lista for d in getattr(j, 'salidas', [])]
+    retrasos = [d for j in lista for d in getattr(j, 'retrasos', [])]
     resultado = {
         'jornadas': len(lista),
         'con_salida': len(con_salida),
@@ -79,6 +104,10 @@ def kpis(lista, ahora, programaciones_internas=None):
         'sin_post_ruta': sum(1 for j in lista if j.estado == Estado.EN_RUTA and j.fecha < hoy),
         'no_salio': sum(1 for j in lista if j.estado == Estado.PLANIFICADA and j.fecha < hoy),
         'jornada_efectiva': _promedio(efectiva),
+        'salidas': len(salidas),
+        'salidas_retrasadas': len(retrasos),
+        'pct_salidas_a_tiempo': _porcentaje(len(salidas) - len(retrasos), len(salidas)),
+        'retraso_salida_promedio': _promedio(retrasos),
     }
     if programaciones_internas is not None:
         resultado.update(rutas_cumplidas(programaciones_internas, hoy))
@@ -125,6 +154,7 @@ def gantt(fecha, ahora, filtros):
         tramos[t.jornada_id].append(t)
     medianoche = tiempo.combinar(fecha, time(0, 0))
     es_hoy = fecha == ahora.date()
+    tolerancia = ConfiguracionAccesos.obtener().tolerancia_puntualidad_min
     fin_dia = medianoche + timedelta(days=1)
 
     def minuto(momento):
@@ -143,13 +173,20 @@ def gantt(fecha, ahora, filtros):
             tipo = {'PRE_RUTA': 'pre', 'PROGRAMADO': 'visita', 'POST_RUTA': 'post'}[t.clase]
             etiqueta = {'pre': 'Pre-Ruta', 'visita': f"Ruta {t.programacion.hora:%H:%M}" if t.programacion_id else 'Visita',
                         'post': 'Post-Ruta (pernocta)'}[tipo]
-            segmentos.append({'tipo': tipo, 'etiqueta': etiqueta, 'desde': minuto(max(t.entrada_en, medianoche)),
+            # Ruta INTERNO que atiende la salida (hora programada = salida) y cómo salió frente a ella.
+            ruta = ''
+            if t.programacion_id and t.desviacion_salida_min is not None:
+                retraso = servicios.puntualidad(t.desviacion_salida_min, tolerancia) == servicios.RETRASADO
+                ruta = (f"Sale a la ruta de las {t.programacion.hora:%H:%M}: "
+                        f"{servicios.texto_desviacion(t.desviacion_salida_min)}{' (retraso)' if retraso else ''}")
+            segmentos.append({'tipo': tipo, 'etiqueta': etiqueta, 'ruta': ruta,
+                              'desde': minuto(max(t.entrada_en, medianoche)),
                               'hasta': minuto(min(fin, fin_dia)), 'abierto': not t.salida_en,
                               'entrada': f"{tiempo.a_lima(t.entrada_en):%H:%M}",
                               'salida': f"{tiempo.a_lima(t.salida_en):%H:%M}" if t.salida_en else 'sigue dentro'})
         # Pre-Ruta en curso (todavía no se graba): desde el inicio hasta ahora.
         if j.estado_v.codigo in ('EN_PRE_RUTA', 'PRE_RUTA_EXCEDIDA'):
-            segmentos.insert(0, {'tipo': 'pre', 'etiqueta': 'Pre-Ruta en curso', 'desde': minuto(jornadas.inicio(j)),
+            segmentos.insert(0, {'tipo': 'pre', 'etiqueta': 'Pre-Ruta en curso', 'ruta': '', 'desde': minuto(jornadas.inicio(j)),
                                  'hasta': minuto(ahora), 'abierto': True, 'entrada': f"{j.hora_inicio:%H:%M}",
                                  'salida': 'sigue dentro'})
         if segmentos:
@@ -223,7 +260,7 @@ def matriz(lista, desde, hasta, ahora, maximo_dias=45):
             clase, texto = 'curso', 'En curso'
         detalle = texto
         if j.minutos_sobre_cierre:
-            detalle += f" (+{j.minutos_sobre_cierre} min)"
+            detalle += f" (+{j.minutos_sobre_cierre} min sobre las {jornadas.limite_cierre(j):%H:%M})"
         if j.post_ruta_en:
             detalle += f" · retorno {tiempo.a_lima(j.post_ruta_en):%H:%M}"
         por_placa[j.transporte.placa_normalizada][j.fecha.isoformat()] = {'clase': clase, 'texto': detalle}
@@ -284,20 +321,22 @@ def tendencia(lista, desde, hasta, ahora):
         puntos = [inicio + timedelta(weeks=i) for i in range((hasta - inicio).days // 7 + 1)]
     else:
         puntos = [desde + timedelta(days=i) for i in range((hasta - desde).days + 1) if desde + timedelta(days=i) not in no_laborables]
-    pre, cierre, fuera = [], [], []
+    pre, cierre, fuera, salidas = [], [], [], []
     for p in puntos:
         k = kpis(grupos.get(p, []), ahora)
         pre.append(k['pct_pre_ruta_a_tiempo'])
         cierre.append(k['pct_cierre_en_horario'])
         fuera.append(k['fuera_de_horario'])
+        salidas.append(k['pct_salidas_a_tiempo'])
     return {'semanal': semanal, 'etiquetas': [(f"Sem. {p:%d/%m}" if semanal else f"{p:%d/%m}") for p in puntos],
-            'valores': [p.isoformat() for p in puntos], 'pre_ruta': pre, 'cierre': cierre, 'fuera': fuera}
+            'valores': [p.isoformat() for p in puntos], 'pre_ruta': pre, 'cierre': cierre, 'fuera': fuera,
+            'salidas': salidas}
 
 
 # --- RANKINGS ---
 
 def ranking(lista, dimension):
-    """Por placa (con minutos de exceso operativo) o por conductor (solo conteos y porcentajes)."""
+    """Por placa (con minutos fuera de horario) o por conductor (solo conteos y porcentajes)."""
     grupos = defaultdict(list)
     for j in lista:
         clave = ((j.transporte.placa_normalizada, j.transporte.placa) if dimension == 'placa'
@@ -309,7 +348,7 @@ def ranking(lista, dimension):
         fila = {'valor': valor, 'nombre': nombre, 'jornadas': k['jornadas'],
                 'pre_ruta_promedio': k['pre_ruta_promedio'], 'pct_pre_ruta_a_tiempo': k['pct_pre_ruta_a_tiempo'],
                 'pct_cierre_en_horario': k['pct_cierre_en_horario'], 'fuera_de_horario': k['fuera_de_horario'],
-                'por_averia': k['por_averia']}
+                'por_averia': k['por_averia'], 'pct_salidas_a_tiempo': k['pct_salidas_a_tiempo']}
         if dimension == 'placa':
             fila['minutos_sobre_cierre'] = k['minutos_sobre_cierre']
         filas.append(fila)
@@ -425,6 +464,12 @@ def conclusiones(k, ranking_placas, disp):
         frases.append({'icono': 'fa-flag-checkered', 'alerta': (k['pct_cierre_en_horario'] or 0) < 90,
                        'texto': f"El {k['pct_cierre_en_horario']:g} % de los retornos (Post-Ruta) fue en horario; "
                                 f"{k['fuera_de_horario']} fuera de horario."})
+    if k.get('salidas'):
+        texto = f"El {k['pct_salidas_a_tiempo']:g} % de las salidas a ruta fue a tiempo frente a su hora programada"
+        if k['salidas_retrasadas']:
+            texto += (f"; {k['salidas_retrasadas']} con retraso "
+                      f"({servicios.formato_duracion(k['retraso_salida_promedio'])} en promedio)")
+        frases.append({'icono': 'fa-route', 'alerta': (k['pct_salidas_a_tiempo'] or 0) < 80, 'texto': texto + '.'})
     if k['pre_ruta_promedio'] is not None:
         frases.append({'icono': 'fa-sun', 'alerta': (k['pct_pre_ruta_a_tiempo'] or 0) < 80,
                        'texto': f"La Pre-Ruta dura {servicios.formato_duracion(k['pre_ruta_promedio'])} en promedio; "

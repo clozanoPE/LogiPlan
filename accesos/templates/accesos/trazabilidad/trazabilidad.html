@@ -1,0 +1,126 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Trazabilidad{% if transporte %} {{ transporte.placa }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Trazabilidad de una placa</h1>
+        <p class="text-slate-500 text-sm font-medium">Todo lo que pasó con el vehículo en un día, en orden: lo programado frente a lo real.</p>
+    </div>
+    {% if transporte %}
+    <a href="{% url 'accesos:trazabilidad_exportar' %}?placa={{ transporte.placa_normalizada|urlencode }}&fecha={{ fecha|date:'Y-m-d' }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+    {% endif %}
+</div>
+
+<form method="get" class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 mb-6 bg-white rounded-3xl border border-slate-100 p-4">
+    <input type="search" name="placa" value="{{ texto }}" list="lista-placas" placeholder="Placa (ej. F5J-011)" class="campo-accesos uppercase" autocomplete="off" aria-label="Placa" required {% if not texto %}autofocus{% endif %}>
+    <datalist id="lista-placas">{% for placa in placas %}<option value="{{ placa }}">{% endfor %}</datalist>
+    <input type="date" name="fecha" value="{{ fecha|date:'Y-m-d' }}" class="campo-accesos" aria-label="Fecha">
+    <button type="submit" class="px-6 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-magnifying-glass mr-1"></i> Ver</button>
+</form>
+
+{% if mensaje %}<p class="mb-6 p-4 rounded-2xl bg-amber-50 text-amber-800 font-bold">{{ mensaje }}</p>{% endif %}
+
+{% if not transporte %}
+{% if not mensaje %}
+<section class="bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center">
+    <i class="fas fa-route text-4xl text-marca"></i>
+    <p class="mt-3 font-black text-daryza-dark">Escriba una placa y elija el día.</p>
+    <p class="text-sm text-slate-500">Verá la Pre-Ruta, cada salida a ruta frente a su hora programada, las visitas al CD, la Post-Ruta, el kilometraje y lo que quedó sin atender.</p>
+</section>
+{% endif %}
+{% else %}
+{% with r=resumen %}
+<!-- Cabecera: placa, día y estado de la jornada -->
+<section class="bg-daryza-dark text-white rounded-3xl p-6 mb-6">
+    <div class="action-row justify-between gap-4">
+        <div>
+            <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">{{ fecha_larga }}{% if fecha == hoy %} · hoy{% endif %}</p>
+            <p class="text-4xl font-black tracking-widest">{{ transporte.placa }}</p>
+            <p class="text-slate-300 font-medium text-sm">{{ transporte.tamano }}{% if transporte.es_interno %} · flota propia{% endif %}{% if jornada %} · {{ jornada.codigo }} · CD {{ jornada.cd }} · {{ jornada.conductor.nombre_completo }}{% endif %}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            {% if r.estado %}<span class="px-3 py-1 rounded-full text-xs font-black uppercase {% if r.estado.alerta %}bg-rose-500{% else %}bg-white/15{% endif %}">{% if r.estado.alerta %}<i class="fas fa-triangle-exclamation mr-1"></i>{% endif %}{{ r.estado.etiqueta }}</span>{% endif %}
+            <a href="?placa={{ transporte.placa_normalizada|urlencode }}&fecha={{ anterior|date:'Y-m-d' }}" class="w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-marca" title="Día anterior" aria-label="Día anterior"><i class="fas fa-chevron-left"></i></a>
+            {% if fecha != hoy %}<a href="?placa={{ transporte.placa_normalizada|urlencode }}&fecha={{ hoy|date:'Y-m-d' }}" class="px-4 h-10 inline-flex items-center rounded-full bg-white/10 hover:bg-marca text-xs font-black uppercase tracking-widest">Hoy</a>{% endif %}
+            <a href="?placa={{ transporte.placa_normalizada|urlencode }}&fecha={{ siguiente|date:'Y-m-d' }}" class="w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 hover:bg-marca" title="Día siguiente" aria-label="Día siguiente"><i class="fas fa-chevron-right"></i></a>
+        </div>
+    </div>
+</section>
+
+<!-- Resumen del día -->
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+    <div class="bg-white rounded-3xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-calendar-check mr-1 text-marca"></i>Programaciones</p>
+        <p class="mt-2 text-2xl font-black text-daryza-dark">{{ r.atendidas }} / {{ r.programadas }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">atendidas{% if r.no_atendidas %} · <span class="text-amber-700">{{ r.no_atendidas }} no atendida{{ r.no_atendidas|pluralize }}</span>{% endif %}{% if r.canceladas %} · {{ r.canceladas }} cancelada{{ r.canceladas|pluralize }}{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border {% if r.salidas_retrasadas %}border-rose-200{% else %}border-slate-100{% endif %} p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-truck-fast mr-1 text-marca"></i>Salidas a ruta</p>
+        <p class="mt-2 text-2xl font-black {% if r.salidas_retrasadas %}text-rose-700{% else %}text-daryza-dark{% endif %}">{% if r.salidas %}{{ r.salidas_a_tiempo }} / {{ r.salidas }}{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if r.salidas_retrasadas %}a tiempo · {{ r.salidas_retrasadas }} con retraso ({{ r.retraso_total }} min en total){% elif r.salidas %}a tiempo: todas{% else %}sin salidas a ruta con hora programada{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-sun mr-1 text-marca"></i>Pre-Ruta</p>
+        <p class="mt-2 text-2xl font-black {% if r.pre_ruta_min is not None and r.pre_ruta_min > r.meta_pre_ruta %}text-rose-700{% else %}text-daryza-dark{% endif %}">{% if r.pre_ruta_min is not None %}{{ r.pre_ruta_min }} min{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if jornada %}meta {{ r.meta_pre_ruta }} min · desde {{ jornada.hora_inicio|time:"H:i" }}{% else %}sin jornada de flota propia{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border {% if r.minutos_fuera %}border-rose-200{% else %}border-slate-100{% endif %} p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-flag-checkered mr-1 text-marca"></i>Retorno</p>
+        <p class="mt-2 text-2xl font-black {% if r.minutos_fuera %}text-rose-700{% else %}text-daryza-dark{% endif %}">{% if jornada.post_ruta_en %}{{ jornada.post_ruta_en|date:"H:i" }}{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if r.calificacion_cierre %}{{ r.calificacion_cierre }}{% if r.minutos_fuera %} · {{ r.minutos_fuera }} min sobre las {{ r.limite_cierre|date:"H:i" }}{% endif %}{% elif jornada %}referencia {{ jornada.hora_cierre|time:"H:i" }}–{{ r.limite_cierre|date:"H:i" }}{% else %}—{% endif %}</p>
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 col-span-2 lg:col-span-1">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-gauge-high mr-1 text-marca"></i>Kilometraje</p>
+        <p class="mt-2 text-2xl font-black text-daryza-dark">{% if r.km_recorridos is not None %}{{ r.km_recorridos }} km{% elif r.km_final is not None %}{{ r.km_final }}{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if r.km_recorridos is not None %}recorridos ({{ r.km_inicial }} → {{ r.km_final }}){% elif r.km_final is not None %}única lectura del día{% else %}sin lecturas este día{% endif %}{% if transporte.km_actual is not None %} · último registrado {{ transporte.km_actual }}{% endif %}</p>
+    </div>
+</div>
+
+<!-- Línea de tiempo -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
+    <h2 class="text-lg font-black text-daryza-dark mb-1">Línea de tiempo</h2>
+    <p class="text-xs text-slate-500 mb-5">Rutas de flota propia: la hora programada es la de <span class="font-black">salida</span> del CD (la primera la atiende la salida de la Pre-Ruta). Clientes y proveedores: la de <span class="font-black">llegada</span>. Retraso = {{ r.tolerancia }} min tarde o más.</p>
+    {% if eventos %}
+    <ol>
+        {% for e in eventos %}
+        <li class="flex gap-2 sm:gap-3 {% if e.otro_dia %}opacity-60{% endif %}">
+            <div class="w-12 sm:w-14 shrink-0 text-right pt-1">
+                <span class="block text-base sm:text-lg font-black text-daryza-dark leading-none">{{ e.hora }}</span>
+                {% if e.otro_dia %}<span class="block mt-1 text-[10px] font-black uppercase text-slate-400">{{ e.momento|date:"d/m" }}</span>{% endif %}
+            </div>
+            <div class="relative w-8 shrink-0 flex justify-center">
+                {% if not forloop.last %}<span class="absolute top-8 bottom-0 w-0.5 bg-slate-100" aria-hidden="true"></span>{% endif %}
+                <span class="relative w-8 h-8 rounded-full inline-flex items-center justify-center text-xs
+                {% if e.nivel == 'critico' %}bg-rose-100 text-rose-700{% elif e.nivel == 'ok' %}bg-emerald-100 text-emerald-700{% elif e.nivel == 'aviso' %}bg-amber-100 text-amber-800{% else %}bg-marca-claro text-marca{% endif %}"><i class="fas {{ e.icono }}"></i></span>
+            </div>
+            <div class="flex-1 min-w-0 pb-6">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p class="font-black text-daryza-dark">{{ e.titulo }}</p>
+                    {% if e.etiqueta %}<span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase {% if e.nivel == 'critico' %}bg-rose-100 text-rose-700{% elif e.nivel == 'ok' %}bg-emerald-100 text-emerald-700{% elif e.nivel == 'aviso' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if e.nivel == 'critico' %}<i class="fas fa-clock mr-1"></i>{% elif e.nivel == 'ok' %}<i class="fas fa-check mr-1"></i>{% endif %}{{ e.etiqueta }}</span>{% endif %}
+                </div>
+                {% if e.referencia %}<p class="text-sm font-bold {% if e.nivel == 'critico' %}text-rose-700{% else %}text-slate-600{% endif %}">{{ e.referencia|capfirst }}{% if e.programada %}: {{ e.programada|time:"H:i" }}{% endif %}{% if e.lectura %} · {{ e.lectura }}{% endif %}</p>{% endif %}
+                {% if e.detalle %}<p class="text-sm text-slate-500">{{ e.detalle }}</p>{% endif %}
+                <p class="text-xs text-slate-400 font-medium">
+                    {% if e.cd %}CD {{ e.cd }}{% endif %}{% if e.conductor %} · {{ e.conductor }}{% endif %}{% if e.km is not None %} · <span class="font-black text-slate-600">{{ e.km }} km</span>{% endif %}{% if e.vigilante %} · registró {{ e.vigilante }}{% endif %}
+                    {% if e.tramo %} · <a href="{% url 'accesos:tramo_detalle' e.tramo.pk %}" class="text-marca font-bold hover:underline">tramo</a>{% endif %}
+                    {% if e.programacion and accesos_lectura %} · <a href="{% url 'accesos:programacion_detalle' e.programacion.pk %}" class="text-marca font-bold hover:underline">{{ e.programacion.codigo }}</a>{% elif e.programacion %} · {{ e.programacion.codigo }}{% endif %}
+                </p>
+                {% if e.obs and e.obs != 'Ninguna' %}<p class="text-xs text-slate-500 italic">«{{ e.obs }}»</p>{% endif %}
+                {% if e.marcas %}<p class="mt-1 flex flex-wrap gap-1">{% for m in e.marcas %}<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-black uppercase">{{ m }}</span>{% endfor %}</p>{% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p class="p-6 text-center text-sm font-bold text-slate-400">Sin movimientos ni programaciones de {{ transporte.placa }} este día.</p>
+    {% endif %}
+</section>
+
+{% if jornada %}
+<p class="p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> El retorno y sus minutos fuera de horario son un indicador operativo del vehículo. No es un registro de asistencia ni sustenta horas extra del personal.</p>
+{% endif %}
+{% endwith %}
+{% endif %}
+{% endblock %}

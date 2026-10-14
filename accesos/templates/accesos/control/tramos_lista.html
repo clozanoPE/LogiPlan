@@ -34,7 +34,7 @@
                 <tr>
                     <th class="text-left px-4 py-3">Placa</th><th class="text-left px-4 py-3">CD</th><th class="text-left px-4 py-3">Programada</th>
                     <th class="text-left px-4 py-3">Entrada</th><th class="text-left px-4 py-3">Salida</th><th class="text-left px-4 py-3">Permanencia</th>
-                    <th class="text-left px-4 py-3">Llegada</th><th class="text-left px-4 py-3">Observaciones</th><th class="text-left px-4 py-3">Marcas</th>
+                    <th class="text-left px-4 py-3" title="Llegada en clientes y proveedores; salida en las rutas INTERNO">Puntualidad</th><th class="text-left px-4 py-3">Observaciones</th><th class="text-left px-4 py-3">Marcas</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -47,7 +47,7 @@
                     <td class="px-4 py-3 font-bold whitespace-nowrap">{% if t.salida_en %}{{ t.salida_en|date:"d/m H:i" }}{% else %}<span class="text-emerald-600">Dentro</span>{% endif %}</td>
                     <td class="px-4 py-3 font-black {% if t.prolongada %}text-rose-600{% endif %}">{{ t.tiempo_dentro }}</td>
                     <td class="px-4 py-3">
-                        {% if t.puntualidad is None %}<span class="text-slate-400">—</span>{% elif t.puntualidad == 'PUNTUAL' %}<span class="text-emerald-600 font-bold">Puntual</span>{% elif t.puntualidad == 'RETRASADO' %}<span class="text-rose-600 font-bold">+{{ t.desviacion_llegada_min }} min</span>{% else %}<span class="text-sky-700 font-bold">{{ t.desviacion_llegada_min }} min</span>{% endif %}
+                        {% if t.puntualidad is None %}<span class="text-slate-400">—</span>{% elif t.puntualidad == 'PUNTUAL' %}<span class="text-emerald-600 font-bold">Puntual</span>{% elif t.puntualidad == 'RETRASADO' %}<span class="text-rose-600 font-bold">+{{ t.desviacion_min }} min</span>{% else %}<span class="text-sky-700 font-bold">{{ t.desviacion_min }} min</span>{% endif %}{% if t.puntualidad %}<span class="block text-[10px] font-black uppercase text-slate-400">{% if t.califica_salida %}salida{% else %}llegada{% endif %}</span>{% endif %}
                     </td>
                     <td class="px-4 py-3 text-xs text-slate-500">{{ t.obs_entrada|truncatechars:30 }}{% if t.salida_en %} / {{ t.obs_salida|truncatechars:30 }}{% endif %}</td>
                     <td class="px-4 py-3 text-[10px] font-black uppercase space-y-1">

@@ -15,7 +15,8 @@
             <div>
                 <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">{{ p.codigo }} · CD {{ p.cd }}</p>
                 <h1 class="text-3xl font-black tracking-tight">{{ p.transporte.placa }} · {{ p.hora|time:"H:i" }}</h1>
-                <p class="text-slate-400 font-medium">{{ fecha_larga }}</p>
+                <p class="text-slate-400 font-medium">{{ fecha_larga }}{% if p.tipo == 'INTERNO' %} · hora de salida del CD{% endif %}</p>
+                <a href="{% url 'accesos:trazabilidad' %}?placa={{ p.transporte.placa_normalizada|urlencode }}&fecha={{ p.fecha|date:'Y-m-d' }}" class="inline-flex items-center gap-1 mt-2 text-xs font-black uppercase tracking-widest text-marca hover:underline"><i class="fas fa-route"></i> Trazabilidad del día</a>
             </div>
             <div>{% include 'accesos/programacion/_estado.html' with codigo=estado_codigo %}</div>
         </div>

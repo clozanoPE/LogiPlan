@@ -9,8 +9,10 @@ disponibilidad (F6). Como en servicios.py, todo lo que depende de la hora recibe
   graba recién cuando la unidad sale (servicios.registrar_salida); antes, su estado se calcula.
 - Post-Ruta: la entrada que registra Vigilancia cuando la placa ya no tiene programaciones
   pendientes. Su calificación compara la hora de retorno con el cierre operativo (16:00) y su
-  tolerancia (16:15). Es un indicador OPERATIVO del vehículo: no es un registro de asistencia
-  ni sustenta horas extra del personal.
+  tolerancia (16:15); los minutos fuera de horario se cuentan sobre las 16:15. Es un indicador
+  OPERATIVO del vehículo: no es un registro de asistencia ni sustenta horas extra del personal.
+- En las rutas INTERNO la hora programada es la de SALIDA del CD: la primera ruta del día la
+  atiende la salida a ruta que cierra la Pre-Ruta (servicios.primera_ruta_pendiente).
 - Domingos y feriados no son laborables: no se programa y no hay jornada.
 - Una avería deja al vehículo NO DISPONIBLE (Incidencia abierta) hasta que se habilite.
 """
@@ -128,11 +130,12 @@ def calificacion_cierre(jornada):
 
 
 def minutos_sobre_cierre(jornada):
-    """Exceso sobre el cierre operativo, solo en retornos fuera de horario: se cuenta desde las 16:00
-    (la tolerancia no suma). Es un indicador operativo del vehículo, no de horas del personal."""
+    """Minutos fuera de horario del retorno: se cuentan sobre el horario de referencia con su tolerancia
+    (16:15), decisión del usuario del 14/10/2026 (antes se contaban desde las 16:00). Solo en retornos fuera de
+    horario. Es un indicador operativo del vehículo, no de horas del personal."""
     if calificacion_cierre(jornada) != FUERA_DE_HORARIO:
         return 0
-    return int((jornada.post_ruta_en - cierre(jornada)).total_seconds() // 60)
+    return int((jornada.post_ruta_en - limite_cierre(jornada)).total_seconds() // 60)
 
 
 def minutos_pre_ruta(jornada):

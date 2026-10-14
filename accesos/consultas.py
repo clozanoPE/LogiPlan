@@ -52,6 +52,9 @@ def programaciones_filtradas(params, *, hoy, ahora, config, cd=None):
         if p.tramo:
             minutos = servicios.minutos_dentro(p.tramo, ahora)
             p.permanencia = servicios.formato_duracion(minutos)
-            p.prolongada = minutos > config.umbral_prolongada_min
+            p.prolongada = p.tramo.es_programado and minutos > config.umbral_prolongada_min
             p.conductor_distinto = p.tramo.conductor_id != p.conductor_id
+            # Llegada (clientes y proveedores) o salida (rutas INTERNO, incluida la que atiende la Pre-Ruta).
+            p.puntualidad = servicios.puntualidad(p.tramo.desviacion_min, config.tolerancia_puntualidad_min)
+            p.texto_desviacion = servicios.texto_desviacion(p.tramo.desviacion_min)
     return filas, filtros

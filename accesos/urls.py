@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import carga, control, dashboard, flota, inicio, maestros, porteria, programacion, tv
+from .views import carga, control, dashboard, flota, inicio, maestros, porteria, programacion, trazabilidad, tv
 
 app_name = 'accesos'
 
@@ -33,6 +33,10 @@ urlpatterns = [
     path('tramos/<int:pk>/cierre/', control.tramo_cierre, name='tramo_cierre'),
     path('tramos/<int:pk>/convertir-post-ruta/', control.tramo_convertir_post_ruta, name='tramo_convertir_post_ruta'),
     path('auditoria/', control.auditoria_lista, name='auditoria_lista'),
+
+    # --- TRAZABILIDAD DE UNA PLACA EN UN DÍA ---
+    path('trazabilidad/', trazabilidad.trazabilidad_placa, name='trazabilidad'),
+    path('trazabilidad/exportar/', trazabilidad.trazabilidad_exportar, name='trazabilidad_exportar'),
 
     # --- PROGRAMACIONES (F2) ---
     path('programaciones/', programacion.agenda, name='programacion_agenda'),

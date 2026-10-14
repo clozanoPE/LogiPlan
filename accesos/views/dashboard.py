@@ -24,8 +24,9 @@ from ..permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, rol_requer
 from .control import cds_de_tramos
 
 MAX_RANGO_DIAS = 180
-ETIQUETAS_LLEGADA = {servicios.ADELANTADO: 'Llegó adelantado', servicios.PUNTUAL: 'Llegó puntual',
-                     servicios.RETRASADO: 'Llegó retrasado'}
+# Puntualidad: la llegada en clientes y proveedores; la salida en las rutas INTERNO (su hora es la de salida).
+ETIQUETAS_LLEGADA = {servicios.ADELANTADO: 'Adelantado', servicios.PUNTUAL: 'Puntual',
+                     servicios.RETRASADO: 'Retrasado'}
 # Filtros que se pueden quitar con un chip (las fechas se cambian con los rangos).
 CLAVES_FILTRO = ['cd', 'tipo', 'tamano', 'placa', 'conductor', 'razon_social', 'motivo', 'dia', 'hora', 'llegada',
                  'rango']
@@ -100,7 +101,7 @@ def _chips(filtros, params):
         'motivo': lambda v: f"Motivo: {v}",
         'dia': lambda v: tiempo.DIAS_SEMANA[v],
         'hora': lambda v: f"{v:02d}:00–{v + 1:02d}:00",
-        'llegada': lambda v: ETIQUETAS_LLEGADA[v],
+        'llegada': lambda v: f"Puntualidad: {ETIQUETAS_LLEGADA[v]}",
         'rango': _etiqueta_rango,
     }
     return [{'clave': clave, 'texto': nombres[clave](filtros[clave]), 'quitar': _url(params, **{clave: None})}
@@ -241,7 +242,8 @@ def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora
         'jornada_efectiva_texto': servicios.formato_duracion(actuales['jornada_efectiva']),
         'cambios': _cambios(indicadores.variacion(actuales, anteriores), 'el día anterior' if un_dia else 'el periodo anterior',
                             {'pct_pre_ruta_a_tiempo': (' pts', False), 'pct_cierre_en_horario': (' pts', False),
-                             'fuera_de_horario': ('', True), 'pct_rutas_cumplidas': (' pts', False)}),
+                             'fuera_de_horario': ('', True), 'pct_rutas_cumplidas': (' pts', False),
+                             'pct_salidas_a_tiempo': (' pts', False)}),
         'cambios_disp': _cambios(
             indicadores.variacion({k: disp[k] for k in ('pct_disponibilidad', 'averias', 'dias_unidad_fuera')},
                                   {k: disp_anterior[k] for k in ('pct_disponibilidad', 'averias', 'dias_unidad_fuera')}),
@@ -314,15 +316,17 @@ def _resumen(desde, hasta, hoy, ahora, filtros, config, params, k_planta, v_plan
         tarjeta('Ocupación ahora', f"{len(dentro)} / {capacidad}", 'vehículos dentro frente a la capacidad', 'fa-warehouse',
                 vista='planta', alerta=capacidad and len(dentro) >= 0.9 * capacidad),
         tarjeta('Rutas cumplidas', _formato(kf.get('pct_rutas_cumplidas'), ' %'),
-                f"{kf.get('rutas_atendidas', 0)} de {kf.get('rutas', 0)} rutas INTERNO (días terminados)", 'fa-route',
+                f"{kf.get('rutas_atendidas', 0)} de {kf.get('rutas', 0)} rutas INTERNO (días terminados)"
+                + (f" · {kf['pct_salidas_a_tiempo']:g} % salió a tiempo" if kf.get('salidas') else ''), 'fa-route',
                 vf.get('pct_rutas_cumplidas'), ' pts', serie=_serie(dias, lambda d: f_dia[d].get('pct_rutas_cumplidas')),
                 vista='flota'),
         tarjeta('Permanencia promedio', servicios.formato_duracion(k_planta['permanencia_promedio']),
                 f"visitas programadas · P90 {servicios.formato_duracion(k_planta['permanencia_p90'])}", 'fa-stopwatch',
                 v_planta.get('permanencia_promedio'), ' min', menor_es_mejor=True,
                 serie=_serie(dias, lambda d: k_dia[d]['permanencia_promedio']), vista='planta'),
-        tarjeta('Llegadas puntuales', _formato(k_planta['pct_puntual'], ' %'),
-                f"±{config.tolerancia_puntualidad_min} min de la hora programada", 'fa-calendar-check',
+        tarjeta('Puntualidad en planta', _formato(k_planta['pct_puntual'], ' %'),
+                f"llegada (clientes y proveedores) o salida (rutas INTERNO) · desde {config.tolerancia_puntualidad_min} "
+                "min tarde es retraso", 'fa-calendar-check',
                 v_planta.get('pct_puntual'), ' pts', serie=_serie(dias, lambda d: k_dia[d]['pct_puntual']), vista='planta'),
         tarjeta('Pre-Ruta a tiempo', _formato(kf['pct_pre_ruta_a_tiempo'], ' %'),
                 f"salida a ruta en {flota['datos']['pre_ruta']['meta']} min o menos · promedio "
@@ -333,7 +337,8 @@ def _resumen(desde, hasta, hoy, ahora, filtros, config, params, k_planta, v_plan
                 vf.get('pct_cierre_en_horario'), ' pts', serie=_serie(dias, lambda d: f_dia[d]['pct_cierre_en_horario']),
                 vista='flota'),
         tarjeta('Retornos fuera de horario', str(kf['fuera_de_horario']),
-                f"exceso operativo total {servicios.formato_duracion(kf['minutos_sobre_cierre'])}", 'fa-clock',
+                f"{servicios.formato_duracion(kf['minutos_sobre_cierre'])} sobre el horario de referencia en total",
+                'fa-clock',
                 vf.get('fuera_de_horario'), '', menor_es_mejor=True,
                 serie=_serie(dias, lambda d: f_dia[d]['fuera_de_horario']), vista='flota', alerta=kf['fuera_de_horario'] > 0),
         tarjeta('Disponibilidad de flota', _formato(disp['pct_disponibilidad'], ' %'),
@@ -423,8 +428,9 @@ def _tarjetas(k, v, config, dentro_ahora, capacidad, un_dia):
         tarjeta('Tramos con demora', porcentaje(k['pct_demora']),
                 f"más de {limite} min" + ('' if config.meta_permanencia_min else ' (meta por definir)'),
                 'pct_demora', ' pts', icono='fa-triangle-exclamation'),
-        tarjeta('Llegadas puntuales', porcentaje(k['pct_puntual']),
-                f"±{config.tolerancia_puntualidad_min} min de la hora programada", 'pct_puntual', ' pts',
+        tarjeta('Puntualidad', porcentaje(k['pct_puntual']),
+                f"llegada a la cita; rutas INTERNO: salida · desde {config.tolerancia_puntualidad_min} min tarde es retraso",
+                'pct_puntual', ' pts',
                 menor_es_mejor=False, icono='fa-calendar-check'),
         tarjeta('Citas no atendidas', porcentaje(k['pct_no_atendidas']),
                 f"{k['citas_no_atendidas']} de {k['citas_programadas']} (días terminados)", 'pct_no_atendidas', ' pts',

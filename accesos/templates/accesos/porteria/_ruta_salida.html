@@ -1,0 +1,8 @@
+{% if ruta_salida %}{% with p=ruta_salida.programacion %}
+<!-- Ruta INTERNO que atiende esta salida: su hora programada es la de SALIDA del CD -->
+<p class="p-4 rounded-2xl font-bold text-sm {% if ruta_salida.retrasada %}bg-rose-50 text-rose-900{% else %}bg-emerald-50 text-emerald-900{% endif %}">
+    <i class="fas fa-route mr-1"></i>
+    Sale a la ruta de las <span class="font-black">{{ p.hora|time:"H:i" }}</span> ({{ p.codigo }}{% if p.motivo %} · {{ p.motivo }}{% endif %}).
+    Si sale ahora: <span class="font-black">{{ ruta_salida.texto }}</span>{% if ruta_salida.retrasada %} · retraso{% endif %}.
+</p>
+{% endwith %}{% endif %}

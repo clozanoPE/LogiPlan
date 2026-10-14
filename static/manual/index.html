@@ -232,7 +232,7 @@ tr:last-child td { border-bottom: 0; }
     <a href="#a-hoy">17. Tablero «Hoy»</a>
     <a href="#a-dashboard">18. Dashboard de Gerencia</a>
     <a href="#a-tv">19. Modo TV</a>
-    <a href="#a-tramos">20. Tramos y correcciones</a>
+    <a href="#a-tramos">20. Tramos, trazabilidad y correcciones</a>
     <a href="#a-auditoria">21. Auditoría y configuración</a>
     <h4>Referencia</h4>
     <a href="#movil">22. Teléfono y tablet</a>
@@ -258,7 +258,7 @@ tr:last-child td { border-bottom: 0; }
             <a class="boton primario" href="#bienvenida">Empezar a leer</a>
             <button class="boton secundario" onclick="window.print()">Imprimir o guardar en PDF</button>
         </div>
-        <p class="meta">Versión 1.1 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta), averías y el modo TV · Las pantallas usan datos ficticios de demostración.</p>
+        <p class="meta">Versión 1.2 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta), la hora de salida de las rutas propias, el kilometraje en el maestro, la trazabilidad por placa, averías y el modo TV · Las pantallas usan datos ficticios de demostración.</p>
     </div>
 </header>
 
@@ -434,6 +434,7 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Ver programaciones</td><td class="si">Todas</td><td class="si">Todas</td><td class="si">Las de su CD</td><td class="si">Todas</td></tr>
             <tr><td>Tablero «Hoy» y Dashboard</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
             <tr><td>Consulta de tramos y exportación</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Los de su CD (solo lectura)</td><td class="si">Sí</td></tr>
+            <tr><td>Trazabilidad de una placa por día (y exportación)</td><td class="si">Sí</td><td class="si">Sí</td><td class="si">Lo de su CD</td><td class="si">Sí</td></tr>
             <tr><td>Registrar inicio de jornada, Post-Ruta e ingreso por avería (portería)</td><td class="no">—</td><td class="no">—</td><td class="si">Sí, en sus CD</td><td class="no">—</td></tr>
             <tr><td>Registrar una avería y habilitar el vehículo (Disponibilidad)</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="si">Solo ver</td></tr>
             <tr><td>Modo TV de un CD</td><td class="si">Sí</td><td class="si">Sí</td><td class="no">—</td><td class="si">Sí</td></tr>
@@ -448,9 +449,10 @@ tr:last-child td { border-bottom: 0; }
 <section class="capitulo naranja-cap" id="a-maestros">
     <h2><span class="num">11</span>Transportes, conductores y código QR</h2>
     <p class="entrada">Los maestros se registran una vez; en cada programación solo se eligen.</p>
-    <figure><div class="marco"><img src="img/a02-transportes.jpg" alt="Lista de transportes" loading="lazy"></div><figcaption>Transportes: búsqueda por placa (escriba «f7j011», «F7J 011» o «F7J-011»: es la misma placa).</figcaption></figure>
+    <figure><div class="marco"><img src="img/a02-transportes.jpg" alt="Lista de transportes" loading="lazy"></div><figcaption>Transportes: búsqueda por placa (escriba «f7j011», «F7J 011» o «F7J-011»: es la misma placa), último kilometraje registrado y acceso a la trazabilidad (⤳).</figcaption></figure>
     <ul>
         <li><b>Transporte</b>: placa, tamaño de vehículo y si es <b>interno</b> (camión propio de Daryza). Un transporte inactivo no se puede programar ni ingresar.</li>
+        <li><b>Último km</b>: la lista de Transportes muestra el <b>último kilometraje registrado</b> en portería, con su fecha y hora (al pasar el mouse, de dónde viene: entrada, salida a ruta o Post-Ruta). Lo actualiza el sistema solo cada vez que Vigilancia registra un kilometraje, y también si el Administrador corrige o anula un tramo. No se edita a mano. El ícono <b>⤳</b> junto a la placa abre su <b>trazabilidad</b> del día (capítulo 20).</li>
         <li><b>Conductor</b>: tipo de documento (DNI de 8 dígitos o Carné de Extranjería), número, apellidos y nombres, y su <b>licencia de conducir</b> (opcional).</li>
         <li>Nada se borra: los registros se <b>desactivan</b>, y todo cambio queda en la auditoría.</li>
     </ul>
@@ -487,7 +489,7 @@ tr:last-child td { border-bottom: 0; }
         <figure><div class="marco"><img src="img/a06-nueva-programacion.jpg" alt="Formulario de nueva programación de ingreso" loading="lazy"></div><figcaption>Nueva programación: cuándo y dónde, vehículo y conductor, y operación.</figcaption></figure>
         <div>
             <ol class="pasos">
-                <li><b>Cuándo y dónde</b>: fecha, hora (puede ser exacta, como 08:17; hay horarios sugeridos) y CD.</li>
+                <li><b>Cuándo y dónde</b>: fecha, hora (puede ser exacta, como 08:17; hay horarios sugeridos) y CD. <b>En una ruta INTERNO (camión propio) la hora es la de SALIDA del CD</b>; en clientes y proveedores, la hora de llegada.</li>
                 <li><b>Vehículo y conductor</b>: elíjalos de la lista. Si no existen, use <b>+ Nuevo transporte</b> o <b>+ Nuevo conductor</b> sin salir del formulario.</li>
                 <li><b>Operación</b>: tipo (Cliente, Proveedor o Interno), RUC o DNI, razón social, motivo y observación de Despacho. En <b>Interno</b> el RUC (20144109458) y la razón social de Daryza se completan solos.</li>
                 <li><b>Guardar</b>. Si hay más vehículos que la capacidad del CD alrededor de esa hora, o la misma placa está programada cerca en otro CD, verá un aviso (no impide guardar).</li>
@@ -506,7 +508,7 @@ tr:last-child td { border-bottom: 0; }
         <li><b>Cancelar</b>: con motivo obligatorio. Despacho puede cancelar hasta la hora programada; después, solo el Administrador.</li>
     </ul>
     <div class="nota cuidado"><div>No se programa en una hora que ya pasó. Si un vehículo perdió su cita y aún debe ingresar, registre una <b>nueva</b> programación.</div></div>
-    <div class="nota cuidado"><div><b>Al programar:</b> no se permite en <b>domingos ni feriados</b>; una programación <b>INTERNO</b> exige un <b>transporte propio</b>; y un vehículo <b>no disponible</b> (en avería) no aparece en la lista hasta que se habilite. La primera ruta INTERNO de una placa en el día crea sola su <b>Pre-Ruta</b> (capítulo 15).</div></div>
+    <div class="nota cuidado"><div><b>Al programar:</b> no se permite en <b>domingos ni feriados</b>; una programación <b>INTERNO</b> exige un <b>transporte propio</b>; y un vehículo <b>no disponible</b> (en avería) no aparece en la lista hasta que se habilite. La primera ruta INTERNO de una placa en el día crea sola su <b>Pre-Ruta</b>, y la salida de la Pre-Ruta <b>atiende esa primera ruta</b> (capítulo 15).</div></div>
 </section>
 
 <section class="capitulo naranja-cap" id="a-carga">
@@ -598,6 +600,7 @@ tr:last-child td { border-bottom: 0; }
                 <li>Revise el tiempo dentro y agregue una observación de salida si corresponde.</li>
                 <li>Pulse <b>Registrar salida</b>. La programación queda <span class="chip cerrada">Cerrada</span> con sus tiempos.</li>
             </ol>
+            <div class="nota consejo"><div>Si es una <b>ruta de un camión propio</b>, la pantalla dice a qué ruta sale y cómo sale frente a su hora: «Sale a la ruta de las 11:15 (PRG-000123). Si sale ahora: 15 min tarde · retraso» (en rojo) o «10 min antes» (en verde).</div></div>
             <div class="nota info"><div>Una salida al día siguiente (por ejemplo, entró a las 23:00 y sale a las 07:00) se registra igual: el sistema la reconoce como <b>permanencia entre días</b>.</div></div>
         </div>
     </div>
@@ -616,25 +619,25 @@ tr:last-child td { border-bottom: 0; }
 
 <section class="capitulo naranja-cap" id="a-jornada">
     <h2><span class="num">15</span>Jornada de la flota propia (Pre-Ruta y Post-Ruta)</h2>
-    <p class="entrada">Los camiones propios (tipo <b>INTERNO</b>) duermen en el CD. Su día empieza con la <b>Pre-Ruta</b> y termina con la <b>Post-Ruta</b>. Ninguna de las dos se programa: el sistema las maneja solo.</p>
+    <p class="entrada">Los camiones propios (tipo <b>INTERNO</b>) duermen en el CD. Su día empieza con la <b>Pre-Ruta</b> y termina con la <b>Post-Ruta</b>. Ninguna de las dos se programa: el sistema las maneja solo. <b>En las rutas INTERNO la hora programada es la hora de SALIDA del CD.</b></p>
     <div class="ejemplo">
-        <h4>Ejemplo · placa F7K-099 en un día</h4>
+        <h4>Ejemplo · placa F5J-011 con rutas programadas a las 08:00 y a las 11:15</h4>
         <table>
-            <thead><tr><th>Tramo</th><th>Qué es</th><th>Entrada</th><th>Salida</th></tr></thead>
+            <thead><tr><th>Tramo</th><th>Qué pasó</th><th>Entrada</th><th>Salida</th><th>Lectura</th></tr></thead>
             <tbody>
-                <tr><td>1</td><td><b>Pre-Ruta</b> (automática)</td><td>06:30</td><td>07:30</td></tr>
-                <tr><td>2</td><td>Ruta programada de las 11:00</td><td>11:00</td><td>11:50</td></tr>
-                <tr><td>3</td><td>Ruta programada de las 14:00</td><td>14:00</td><td>15:45</td></tr>
-                <tr><td>4</td><td><b>Post-Ruta</b>: fin de jornada, se queda en el CD</td><td>16:10</td><td>—</td></tr>
+                <tr><td>1</td><td><b>Pre-Ruta</b> (automática) · sale a la ruta de las 08:00</td><td>06:30</td><td>07:50</td><td>Salió 10 min antes: <b>a tiempo</b></td></tr>
+                <tr><td>2</td><td>Ruta de las 11:15 (visita al CD)</td><td>11:00</td><td>11:30</td><td>Salió 15 min tarde: <b>retraso</b></td></tr>
+                <tr><td>3</td><td><b>Post-Ruta</b>: fin de jornada, se queda en el CD</td><td>16:50</td><td>—</td><td><b>Fuera de horario</b>: 35 min sobre las 16:15</td></tr>
             </tbody>
         </table>
-        <p style="margin:12px 0 0;font-size:14px;color:#cbd5e1">Al día siguiente, a las 06:30, la pernocta termina y empieza la nueva Pre-Ruta.</p>
+        <p style="margin:12px 0 0;font-size:14px;color:#cbd5e1">La Pre-Ruta duró 80 min (meta 60). Al día siguiente, a las 06:30, la pernocta termina y empieza la nueva Pre-Ruta. Todo esto se ve junto en la <b>Trazabilidad</b> de la placa (capítulo 20).</p>
     </div>
     <h3>Cómo funciona</h3>
     <ol class="pasos">
         <li><b>Despacho programa solo las rutas</b>, como siempre. Con la <b>primera ruta INTERNO</b> de una placa en el día, el sistema crea sola su jornada con la <b>Pre-Ruta desde las 06:30</b> (una sola por placa y día; también desde la carga masiva). En la agenda aparece el bloque «Flota propia».</li>
-        <li>La <b>Pre-Ruta termina con la primera salida</b> que registra Vigilancia. La meta es salir en <b>60 minutos</b> o menos; si a las 07:30 sigue dentro, el tablero lo marca «Pre-Ruta excedida».</li>
-        <li>Durante el día, cada ruta se registra como una entrada y salida normales.</li>
+        <li>La <b>Pre-Ruta termina con la primera salida</b> que registra Vigilancia, y esa salida <b>atiende la primera ruta del día</b> (en ese CD): la ruta queda <span class="chip cerrada">Cerrada</span> y se compara su hora programada con la salida real. La meta es salir en <b>60 minutos</b> o menos; si a las 07:30 sigue dentro, el tablero lo marca «Pre-Ruta excedida».</li>
+        <li>Durante el día, cada ruta siguiente se registra como una entrada y salida normales; lo que se califica es la <b>salida</b> frente a su hora programada.</li>
+        <li><b>Puntualidad de la salida</b> (tolerancia de 15 min): salir antes o hasta 14 min después es <b>a tiempo</b>; desde <b>15 min</b> después es <b>retraso</b>.</li>
         <li>Cuando la unidad vuelve y <b>ya no le quedan rutas pendientes</b>, la portería muestra <b>Fin de jornada (Post-Ruta)</b>: se registra el kilometraje y la unidad queda en el CD.</li>
     </ol>
     <div class="duo">
@@ -647,16 +650,17 @@ tr:last-child td { border-bottom: 0; }
         <tbody>
             <tr><td>Antes de las 16:00</td><td>Fin anticipado (informativo)</td></tr>
             <tr><td>De 16:00 a 16:15</td><td>En horario</td></tr>
-            <tr><td>Después de las 16:15</td><td><b>Fuera de horario</b>: el exceso se cuenta desde las 16:00</td></tr>
+            <tr><td>Después de las 16:15</td><td><b>Fuera de horario</b>: los minutos se cuentan sobre las 16:15 (por ejemplo, 16:50 = 35 min)</td></tr>
         </tbody>
     </table></div>
-    <div class="nota cuidado"><div><b>Importante:</b> el «exceso sobre el cierre operativo» es un indicador <b>operativo del retorno del vehículo</b> al CD. <b>No es un registro de asistencia ni sustenta horas extra</b> del personal. Por eso los minutos se muestran por placa y no se suman por conductor.</div></div>
+    <div class="nota cuidado"><div><b>Importante:</b> los «minutos fuera de horario» son un indicador <b>operativo del retorno del vehículo</b> al CD. <b>No es un registro de asistencia ni sustenta horas extra</b> del personal. Por eso los minutos se muestran por placa y no se suman por conductor.</div></div>
+    <div class="nota consejo"><div><b>Primer día con el sistema:</b> ninguna unidad tiene un ingreso registrado. Las que durmieron en el CD se registran con <b>«Está saliendo»</b> y su kilometraje. Desde el día siguiente ya no aparece esta pantalla: la Post-Ruta de la tarde deja a la unidad dentro y su salida de la mañana cierra la pernocta y graba la Pre-Ruta sola.</div></div>
     <h3>Casos especiales en portería</h3>
     <div class="duo">
-        <figure><div class="marco"><img src="img/a37-porteria-inicio-jornada.jpg" alt="Portería: inicio de jornada" loading="lazy"></div><figcaption>Inicio de jornada: la unidad tiene jornada pero no figura dentro del CD.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a37-porteria-inicio-jornada.jpg" alt="Portería: inicio de jornada" loading="lazy"></div><figcaption>Inicio de jornada: la unidad tiene jornada pero no figura dentro del CD. «Está saliendo» pide el kilometraje y muestra a qué ruta sale y cómo sale frente a su hora.</figcaption></figure>
         <div>
             <ul>
-                <li><b>No figura dentro del CD</b> (por ejemplo, durmió fuera o es el primer día de uso): el vigilante elige <b>«Está ingresando»</b> (pide kilometraje; su Pre-Ruta empieza en ese momento) o <b>«Está saliendo»</b> (durmió en el CD sin registro: se registra la salida a ruta con la Pre-Ruta desde las 06:30).</li>
+                <li><b>No figura dentro del CD</b> (por ejemplo, durmió fuera o es el <b>primer día de uso</b> del sistema): el vigilante elige <b>«Está ingresando»</b> (pide kilometraje; su Pre-Ruta empieza en ese momento) o <b>«Está saliendo»</b> (durmió en el CD sin registro: se registra la salida a ruta con la Pre-Ruta desde las 06:30). <b>«Está saliendo» también pide el kilometraje</b> (propone el último registrado; confírmelo o corríjalo con el tablero) y permite elegir otro conductor. La pantalla muestra a qué ruta sale.</li>
                 <li><b>Vuelve sin haber atendido todas sus rutas</b>: puede registrar «Fin de jornada»; las rutas pendientes quedan <span class="chip noatendida">No atendida</span> por cierre de jornada.</li>
                 <li><b>Sale después de su Post-Ruta</b> (por ejemplo, a dormir fuera): se permite, pero exige <b>motivo</b> y queda marcado.</li>
                 <li><b>Domingos y feriados</b> no se programa ni hay jornada. Si aun así sale un vehículo, se registra con motivo y queda marcado como «día no laborable».</li>
@@ -707,8 +711,8 @@ tr:last-child td { border-bottom: 0; }
         <thead><tr><th>Pestaña</th><th>Qué responde</th></tr></thead>
         <tbody>
             <tr><td><b>Resumen ejecutivo</b></td><td>Lo que Gerencia lee en 30 segundos: 8 indicadores (ocupación ahora, rutas cumplidas, permanencia, puntualidad, Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario y disponibilidad), cada uno con su variación frente al periodo anterior y una mini tendencia de 14 días; alertas en vivo; conclusiones; y un calendario de 5 semanas con el % de retornos en horario por día. Toque una tarjeta para ver el detalle.</td></tr>
-            <tr><td><b>Operación en planta</b></td><td>Dónde, cuándo y por qué se demoran los camiones en sus visitas programadas: permanencia, demoras, puntualidad, mapa de calor, rankings y mayores demoras.</td></tr>
-            <tr><td><b>Flota propia</b></td><td>La jornada de los camiones propios: Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario, rutas cumplidas, jornada efectiva; la <b>línea de tiempo del día</b> (un día) o la <b>matriz placa × día</b> (varios días); a qué hora vuelven, cuánto tardan en salir, tendencia y ranking por placa o conductor.</td></tr>
+            <tr><td><b>Operación en planta</b></td><td>Dónde, cuándo y por qué se demoran los camiones en sus visitas programadas: permanencia, demoras, puntualidad (clientes y proveedores por su <b>llegada</b>; rutas propias por su <b>salida</b>), mapa de calor, rankings y mayores demoras.</td></tr>
+            <tr><td><b>Flota propia</b></td><td>La jornada de los camiones propios: Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario, rutas cumplidas, <b>salidas a tiempo</b> (cada salida a ruta frente a su hora programada; con 15 min tarde ya es retraso) y jornada efectiva; la <b>línea de tiempo del día</b> (un día) o la <b>matriz placa × día</b> (varios días); a qué hora vuelven, cuánto tardan en salir, tendencia y ranking por placa o conductor.</td></tr>
             <tr><td><b>Disponibilidad</b></td><td>% de la flota sin avería, vehículos no disponibles, averías y su tipo, tiempo de reparación, días fuera de servicio y las averías del periodo.</td></tr>
         </tbody>
     </table></div>
@@ -716,7 +720,7 @@ tr:last-child td { border-bottom: 0; }
     <h3>Flota propia</h3>
     <figure><div class="marco"><img src="img/a45-dashboard-flota-dia.jpg" alt="Flota propia: línea de tiempo del día" loading="lazy"></div><figcaption>Un día: la línea de tiempo muestra a cada unidad en Pre-Ruta (azul), en visita (naranja), en ruta (línea fina) y en Post-Ruta (aguamarina), con las marcas de 06:30, el cierre y la tolerancia.</figcaption></figure>
     <figure><div class="marco"><img src="img/a46-dashboard-flota-periodo.jpg" alt="Flota propia: matriz placa por día" loading="lazy"></div><figcaption>Varios días: la matriz muestra cómo cerró cada jornada (en horario, fuera de horario, avería, sin Post-Ruta); los domingos y feriados aparecen como «Sin actividad».</figcaption></figure>
-    <div class="nota cuidado"><div>Por conductor solo se muestran conteos y porcentajes. El exceso sobre el cierre es un indicador operativo del vehículo, no de horas del personal.</div></div>
+    <div class="nota cuidado"><div>Por conductor solo se muestran conteos y porcentajes. Los minutos fuera de horario (sobre las 16:15) son un indicador operativo del vehículo, no de horas del personal. En la línea de tiempo, al pasar sobre la Pre-Ruta o una visita se ve a qué ruta salió y cómo («10 min antes», «15 min tarde (retraso)»).</div></div>
     <h3>Operación en planta y disponibilidad</h3>
     <figure><div class="marco"><img src="img/a17-dashboard.jpg" alt="Operación en planta" loading="lazy"></div><figcaption>Operación en planta: conclusiones, indicadores, en planta ahora, mapa de calor, rankings, tendencia, distribución, puntualidad, comparativo de CD y mayores demoras.</figcaption></figure>
     <figure><div class="marco"><img src="img/a47-dashboard-disponibilidad.jpg" alt="Disponibilidad de la flota en el Dashboard" loading="lazy"></div><figcaption>Disponibilidad: línea de tiempo de averías por placa, disponibilidad día a día y averías por tipo.</figcaption></figure>
@@ -746,7 +750,7 @@ tr:last-child td { border-bottom: 0; }
 </section>
 
 <section class="capitulo naranja-cap" id="a-tramos">
-    <h2><span class="num">20</span>Tramos y correcciones</h2>
+    <h2><span class="num">20</span>Tramos, trazabilidad y correcciones</h2>
     <figure><div class="marco"><img src="img/a20-tramos.jpg" alt="Consulta de tramos" loading="lazy"></div><figcaption>Consulta de tramos: filtros por fechas, CD, placa y estado (dentro ahora, prolongados, demoras, con marcas, anulados) y exportación a Excel.</figcaption></figure>
     <div class="duo">
         <figure><div class="marco"><img src="img/a21-tramo-detalle.jpg" alt="Detalle de un tramo" loading="lazy"></div><figcaption>Detalle del tramo con las acciones del Administrador e historial.</figcaption></figure>
@@ -757,6 +761,16 @@ tr:last-child td { border-bottom: 0; }
         <li><b>Corregir datos</b>: horas, kilometraje, programación (de la misma placa), conductor u observaciones.</li>
         <li><b>Cierre administrativo</b>: registra una salida que Vigilancia olvidó, con hora estimada.</li>
         <li><b>Anular</b>: para una entrada equivocada. El tramo no se borra, deja de contar en los indicadores y la programación vuelve a quedar pendiente.</li>
+    </ul>
+    <p>En la lista y el detalle, la columna <b>Puntualidad</b> califica la <b>llegada</b> de clientes y proveedores y la <b>salida</b> de las rutas propias (incluida la primera, que atiende la Pre-Ruta). La exportación a Excel trae las dos desviaciones (llegada y salida) y qué se calificó.</p>
+    <h3>Trazabilidad de una placa en un día</h3>
+    <figure><div class="marco"><img src="img/a49-trazabilidad.jpg" alt="Trazabilidad de una placa en un día" loading="lazy"></div><figcaption>Trazabilidad: resumen del día (programaciones atendidas, salidas a tiempo, Pre-Ruta, retorno y kilómetros recorridos) y la línea de tiempo con la lectura de cada movimiento.</figcaption></figure>
+    <ul>
+        <li>Menú <b>Trazabilidad</b>: escriba la placa (con o sin guion) y elija el día. Las flechas pasan al día anterior o siguiente. También se abre desde el detalle de un tramo o de una programación, desde el bloque «Flota propia» y desde la lista de Transportes.</li>
+        <li>La <b>línea de tiempo</b> muestra en orden la Pre-Ruta, cada <b>salida a ruta</b> con su hora programada y la lectura («10 min antes · a tiempo», «15 min tarde · retraso»), las entradas al CD, la Post-Ruta con su horario de referencia y los minutos fuera de horario, el kilometraje de cada lectura, quién registró y las observaciones.</li>
+        <li>Lo que quedó <b>sin atender</b> (pendiente, «No atendida» o cancelada) aparece a su hora. La pernocta que venía del día anterior o que sigue al día siguiente se muestra atenuada, como contexto.</li>
+        <li><b>Kilómetros recorridos</b> = última lectura del día menos la primera (normalmente, la Post-Ruta menos la salida de la mañana).</li>
+        <li><b>Exportar a Excel</b> descarga la misma línea de tiempo. Vigilancia ve solo lo de su CD.</li>
     </ul>
     <figure class="media"><div class="marco"><img src="img/a31-tramos-vigilancia.jpg" alt="Consulta de tramos vista por Vigilancia en la tablet" loading="lazy"></div><figcaption>Vigilancia también consulta y exporta los tramos, pero solo los de su CD y sin las acciones de corrección.</figcaption></figure>
 </section>
@@ -769,7 +783,7 @@ tr:last-child td { border-bottom: 0; }
         <thead><tr><th>Parámetro</th><th>Valor inicial</th><th>Para qué sirve</th></tr></thead>
         <tbody>
             <tr><td>Ventana de sugerencia</td><td>± 60 min</td><td>Programación sugerida en portería.</td></tr>
-            <tr><td>Tolerancia de puntualidad</td><td>± 15 min</td><td>Llegada puntual en el dashboard.</td></tr>
+            <tr><td>Tolerancia de puntualidad</td><td>15 min</td><td>Desde estos minutos tarde es «Retrasado»: la llegada en clientes y proveedores, la salida en las rutas propias. Más de 15 min antes es «Adelantado».</td></tr>
             <tr><td>Umbral de permanencia prolongada</td><td>240 min (4 h)</td><td>Marca de permanencia prolongada.</td></tr>
             <tr><td>Meta de permanencia</td><td>Por definir (Gerencia)</td><td>Define qué es una «demora».</td></tr>
             <tr><td>Duración estimada de atención</td><td>60 min</td><td>Aviso de capacidad al programar.</td></tr>
@@ -818,7 +832,9 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Capacidad superada</td><td>Aviso, no bloqueo.</td></tr>
             <tr><td>Ingreso sin programación</td><td>Bloqueado: «Vehículo no programado».</td></tr>
             <tr><td>Programación fuera de ±60 min</td><td>Permitida con confirmación; queda marcada.</td></tr>
-            <tr><td>Kilometraje</td><td>Obligatorio en la entrada; si es menor al anterior, aviso y marca.</td></tr>
+            <tr><td>Kilometraje</td><td>Obligatorio en la entrada, en el inicio de jornada, en la Post-Ruta y en «Está saliendo»; si es menor al anterior, aviso y marca. El último queda en el maestro de Transporte.</td></tr>
+            <tr><td>Hora de una ruta INTERNO</td><td>Es la hora de <b>salida</b> del CD. La primera ruta del día la atiende la salida de la Pre-Ruta.</td></tr>
+            <tr><td>Puntualidad</td><td>Desde 15 min tarde es retraso (llegada en clientes y proveedores; salida en rutas propias).</td></tr>
             <tr><td>Un vehículo, dos entradas a la vez</td><td>Imposible: solo un tramo abierto por placa.</td></tr>
             <tr><td>Vehículo dentro de otro CD</td><td>Bloqueado hasta que el Administrador lo resuelva.</td></tr>
             <tr><td>Citas no atendidas</td><td>Sin ingreso al terminar el día de la programación.</td></tr>
@@ -826,7 +842,7 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Domingos y feriados</td><td>No se programa ni hay jornada; un movimiento queda marcado.</td></tr>
             <tr><td>Programación INTERNO</td><td>Solo con un transporte propio (antes era un aviso; ahora bloquea).</td></tr>
             <tr><td>Pre-Ruta</td><td>Automática con la primera ruta INTERNO del día, desde las 06:30; meta de salida 60 min.</td></tr>
-            <tr><td>Post-Ruta</td><td>El ingreso sin rutas pendientes cierra la jornada; las pendientes quedan «No atendida».</td></tr>
+            <tr><td>Post-Ruta</td><td>El ingreso sin rutas pendientes cierra la jornada; las pendientes quedan «No atendida». Después de las 16:15 es fuera de horario y los minutos se cuentan sobre las 16:15.</td></tr>
             <tr><td>Avería</td><td>Vehículo no disponible hasta habilitarlo; cancela las rutas de hoy; las de días siguientes se reasignan.</td></tr>
             <tr><td>Salida después de la Post-Ruta o de un vehículo en avería</td><td>Permitida con motivo; queda marcada.</td></tr>
             <tr><td>Registros históricos</td><td>Nunca se borran: se anulan o desactivan, siempre con auditoría.</td></tr>
@@ -847,6 +863,9 @@ tr:last-child td { border-bottom: 0; }
     <details><summary>No veo el menú «Accesos» en Planificación.</summary><p>El enlace aparece a los usuarios de Planeamiento y a quienes tienen un grupo de Control de Accesos. Si es su caso y no lo ve, pida a TI que revise sus grupos. Comercial no tiene acceso a este módulo.</p></details>
     <details><summary>¿Tengo que programar la Pre-Ruta o la Post-Ruta?</summary><p>No. La Pre-Ruta se crea sola con la primera ruta INTERNO del día y la Post-Ruta la registra Vigilancia cuando el camión vuelve sin rutas pendientes.</p></details>
     <details><summary>Un camión propio está en el taller. ¿Cómo lo saco de la programación?</summary><p>Regístrelo en <b>Disponibilidad → Registrar avería</b>. Deja de aparecer para programar; sus programaciones de los días siguientes aparecen allí para cambiarles la placa o cancelarlas. Cuando vuelva a operar, pulse <b>Habilitar</b>.</p></details>
+    <details><summary>Es el primer día con el sistema y la portería me ofrece «Está ingresando» o «Está saliendo».</summary><p>Si la unidad durmió en el CD, elija <b>«Está saliendo»</b> y digite el kilometraje del tablero. Se registra su salida a ruta con la Pre-Ruta desde las 06:30 y queda atendida su primera ruta. Desde el día siguiente ya no aparece esta pantalla.</p></details>
+    <details><summary>¿Con qué hora se compara la salida de un camión propio?</summary><p>Con la hora programada de su ruta: en las rutas INTERNO es la hora de <b>salida</b> del CD. La primera ruta se compara con la salida de la Pre-Ruta; las siguientes, con la salida de cada visita. Desde 15 min tarde es retraso.</p></details>
+    <details><summary>¿Dónde veo el último kilometraje de un camión?</summary><p>En la lista de <b>Transportes</b> (columna «Último km», con su fecha y hora) y en la portería, junto al campo de kilometraje. En la <b>Trazabilidad</b> de la placa se ven todas las lecturas del día y los kilómetros recorridos.</p></details>
     <details><summary>¿El «fuera de horario» sirve para pagar horas extra?</summary><p>No. Es un indicador operativo del retorno del vehículo al CD; no es un registro de asistencia ni sustenta horas extra del personal.</p></details>
     <details><summary>¿Cómo sé en qué módulo estoy?</summary><p>Por el color: verde es Planificación y naranja es Control de Accesos (barra superior, botones y pie de página). El Dashboard de Gerencia y el Modo TV también usan el naranja con negro de Control de Accesos.</p></details>
 </section>
@@ -860,7 +879,10 @@ tr:last-child td { border-bottom: 0; }
         <dt>Permanencia</dt><dd>Tiempo desde la entrada hasta la salida de un tramo.</dd>
         <dt>Permanencia prolongada</dt><dd>Más de 4 horas dentro del CD (configurable).</dd>
         <dt>Demora</dt><dd>Permanencia por encima de la meta de Gerencia (o de 4 horas mientras no haya meta).</dd>
-        <dt>Puntual</dt><dd>Llegada dentro de ±15 minutos de la hora programada.</dd>
+        <dt>Puntual</dt><dd>Llegada (clientes y proveedores) o salida (rutas propias) desde 15 minutos antes hasta menos de 15 minutos después de la hora programada. Desde 15 minutos tarde es «Retrasado».</dd>
+        <dt>Salida a ruta</dt><dd>Salida de un camión propio hacia una ruta INTERNO; se compara con la hora programada de la ruta, que es la hora de salida. La primera del día cierra la Pre-Ruta.</dd>
+        <dt>Trazabilidad</dt><dd>Línea de tiempo de una placa en un día: lo programado frente a lo real, con kilometraje.</dd>
+        <dt>Último km</dt><dd>Último kilometraje registrado en portería para la placa; se ve en el maestro de Transporte.</dd>
         <dt>P90</dt><dd>El tiempo que supera el 10 % más lento de los tramos.</dd>
         <dt>Ventana de sugerencia</dt><dd>±60 minutos alrededor de la hora actual para proponer la programación en portería.</dd>
         <dt>Cita no atendida</dt><dd>Programación cuyo día terminó sin ingreso.</dd>
@@ -871,7 +893,7 @@ tr:last-child td { border-bottom: 0; }
         <dt>Pre-Ruta</dt><dd>Tiempo en el CD desde las 06:30 hasta la salida a ruta. Automática; meta 60 minutos.</dd>
         <dt>Post-Ruta</dt><dd>Último ingreso del día de un camión propio (sin rutas pendientes): cierra la jornada y la unidad duerme en el CD.</dd>
         <dt>Cierre operativo</dt><dd>Hora de retorno esperada de la flota propia (16:00, con tolerancia hasta 16:15).</dd>
-        <dt>Exceso sobre el cierre operativo</dt><dd>Minutos de un retorno fuera de horario, desde las 16:00. Indicador operativo del vehículo; no es asistencia ni horas extra.</dd>
+        <dt>Minutos fuera de horario</dt><dd>Minutos de un retorno (Post-Ruta) después de las 16:15, contados sobre las 16:15. Indicador operativo del vehículo; no es asistencia ni horas extra.</dd>
         <dt>Avería (no disponible)</dt><dd>Incidencia que impide programar el vehículo hasta habilitarlo.</dd>
         <dt>Disponibilidad</dt><dd>% de días-unidad laborables de la flota propia sin avería.</dd>
         <dt>Modo TV</dt><dd>Pantalla de un CD para un televisor: se actualiza sola cada minuto.</dd>

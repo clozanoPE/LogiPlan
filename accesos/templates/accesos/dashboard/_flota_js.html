@@ -71,7 +71,8 @@
                 const f = gantt.filas[+seg.dataset.fila], s = f.segmentos[+seg.dataset.seg];
                 mostrar(e, `<p class="font-black">${escapar(f.placa)} · ${escapar(s.etiqueta)}</p><p>Entrada ${escapar(s.entrada)} · salida ${escapar(s.salida)}</p>`
                     + `<p>${s.hasta - s.desde} min</p>${s.tipo === 'pre' && f.pre_ruta_min !== null ? `<p>Pre-Ruta: ${f.pre_ruta_min} min</p>` : ''}`
-                    + `${s.tipo === 'post' && f.exceso_min ? `<p class="text-rose-300">Fuera de horario: +${f.exceso_min} min (operativo)</p>` : ''}`);
+                    + `${s.ruta ? `<p>${escapar(s.ruta)}</p>` : ''}`
+                    + `${s.tipo === 'post' && f.exceso_min ? `<p class="text-rose-300">Fuera de horario: +${f.exceso_min} min sobre la tolerancia (operativo)</p>` : ''}`);
             });
             contenedorGantt.addEventListener('mouseleave', ocultar);
             contenedorGantt.addEventListener('click', (e) => {
@@ -132,13 +133,14 @@
         document.querySelectorAll('#ranking-flota th[data-orden]').forEach(th => {
             th.textContent = th.textContent.replace(/ [▼▲]$/, '') + (th.dataset.orden === orden ? (descendente ? ' ▼' : ' ▲') : '');
         });
-        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-bold">Sin jornadas con estos filtros.</td></tr>'; return; }
+        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">Sin jornadas con estos filtros.</td></tr>'; return; }
         const activo = String(datos.filtros[dimension] ?? '');
         cuerpo.innerHTML = filas.map(f => `<tr class="fila-filtrable ${activo === String(f.valor) ? 'bg-marca-claro' : 'hover:bg-marca-claro'}" data-valor="${escapar(f.valor)}" title="Filtrar todo el dashboard por ${escapar(f.nombre)}">
             <td class="px-3 py-3 font-black text-daryza-dark whitespace-nowrap">${escapar(f.nombre)}</td>
             <td class="px-3 py-3 text-right font-bold">${f.jornadas}</td>
             <td class="px-3 py-3 text-right whitespace-nowrap ${f.pre_ruta_promedio > (flota.pre_ruta.meta || 60) ? 'font-black text-rose-700' : ''}">${f.pre_ruta_promedio === null ? '—' : f.pre_ruta_promedio + ' min'}</td>
             <td class="hidden sm:table-cell px-3 py-3 text-right">${pct(f.pct_pre_ruta_a_tiempo)}</td>
+            <td class="hidden lg:table-cell px-3 py-3 text-right">${pct(f.pct_salidas_a_tiempo)}</td>
             <td class="px-3 py-3 text-right">${pct(f.pct_cierre_en_horario)}</td>
             <td class="px-3 py-3 text-right font-black whitespace-nowrap ${f.fuera_de_horario ? 'text-rose-700' : 'text-slate-400'}">${f.fuera_de_horario ? '<i class="fas fa-clock mr-1"></i>' : ''}${f.fuera_de_horario}</td>
             <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap col-placa ${dimension !== 'placa' ? '!hidden' : ''}">${f.minutos_sobre_cierre !== undefined ? f.minutos_sobre_cierre + ' min' : ''}</td>
@@ -205,17 +207,19 @@
                 tooltip: { callbacks: { label: (c) => `${c.raw} jornadas${pre.sobre_meta[c.dataIndex] ? ' · sobre la meta' : ''}` } } } },
     });
 
-    // Tendencia: dos porcentajes en el mismo eje (0–100 %). Clic = ese día o esa semana.
+    // Tendencia: tres porcentajes en el mismo eje (0–100 %). Clic = ese día o esa semana.
     const tend = flota.tendencia;
     if (tend) {
-        if (!tend.cierre.some(v => v !== null) && !tend.pre_ruta.some(v => v !== null)) sinDatos('grafico-tendencia-flota', 'Sin jornadas terminadas en el rango.');
+        if (![tend.cierre, tend.pre_ruta, tend.salidas].some(serie => serie.some(v => v !== null))) sinDatos('grafico-tendencia-flota', 'Sin jornadas terminadas en el rango.');
         else new Chart(document.getElementById('grafico-tendencia-flota'), {
             type: 'line',
             data: { labels: tend.etiquetas, datasets: [
                 { label: 'Cierre en horario', data: tend.cierre, borderColor: color('--serie-1'), backgroundColor: color('--serie-1'),
                   borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25 },
                 { label: 'Pre-Ruta a tiempo', data: tend.pre_ruta, borderColor: color('--serie-2'), backgroundColor: color('--serie-2'),
-                  borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25, pointStyle: 'rectRot' } ] },
+                  borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25, pointStyle: 'rectRot' },
+                { label: 'Salidas a tiempo', data: tend.salidas, borderColor: color('--serie-3'), backgroundColor: color('--serie-3'),
+                  borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 14, spanGaps: true, tension: .25, pointStyle: 'triangle' } ] },
             options: { interaction: { mode: 'index', intersect: false }, onHover: manito,
                 onClick: (e, el) => {
                     if (!el.length) return;

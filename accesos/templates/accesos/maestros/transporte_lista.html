@@ -30,6 +30,7 @@
                     <th class="text-left px-6 py-3">Placa</th>
                     <th class="text-left px-6 py-3">Tamaño</th>
                     <th class="text-left px-6 py-3">Tipo</th>
+                    <th class="hidden md:table-cell text-right px-6 py-3">Último km</th>
                     <th class="text-left px-6 py-3">Estado</th>
                     {% if 'administrador' in accesos_roles %}<th class="text-right px-6 py-3">Acciones</th>{% endif %}
                 </tr>
@@ -37,7 +38,7 @@
             <tbody class="divide-y divide-slate-100">
                 {% for transporte in page_obj %}
                 <tr class="hover:bg-slate-50/60">
-                    <td class="px-6 py-4 font-black text-daryza-dark tracking-wider">{{ transporte.placa }}</td>
+                    <td class="px-6 py-4 font-black text-daryza-dark tracking-wider whitespace-nowrap">{{ transporte.placa }} <a href="{% url 'accesos:trazabilidad' %}?placa={{ transporte.placa_normalizada|urlencode }}" class="ml-1 text-xs text-slate-300 hover:text-marca" title="Trazabilidad de hoy" aria-label="Trazabilidad de {{ transporte.placa }}"><i class="fas fa-route"></i></a></td>
                     <td class="px-6 py-4 text-slate-600">{{ transporte.tamano }}</td>
                     <td class="px-6 py-4">
                         {% if transporte.es_interno %}
@@ -46,6 +47,7 @@
                         <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase">Externo</span>
                         {% endif %}
                     </td>
+                    <td class="hidden md:table-cell px-6 py-4 text-right whitespace-nowrap">{% if transporte.km_actual is not None %}<span class="font-black text-slate-700">{{ transporte.km_actual }}</span><span class="block text-[10px] font-bold text-slate-400" title="{{ transporte.km_origen }}">{{ transporte.km_actualizado_en|date:"d/m/Y H:i" }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
                     <td class="px-6 py-4">
                         {% if transporte.activo %}<span class="text-emerald-600 font-bold">Activo</span>{% else %}<span class="text-slate-400 font-bold">Inactivo</span>{% endif %}
                         {% if transporte.pk in no_disponibles %}<a href="{% url 'accesos:flota_disponibilidad' %}" class="block text-[11px] font-black uppercase text-rose-600 hover:underline"><i class="fas fa-screwdriver-wrench"></i> No disponible</a>
@@ -61,7 +63,7 @@
                     {% endif %}
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 font-bold">No hay transportes{% if busqueda %} que coincidan con «{{ busqueda }}»{% endif %}.</td></tr>
+                <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 font-bold">No hay transportes{% if busqueda %} que coincidan con «{{ busqueda }}»{% endif %}.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

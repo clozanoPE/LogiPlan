@@ -1,5 +1,5 @@
 {% load static %}{# Enlaces del menú del módulo. Se usa dos veces: en escritorio (fila) y en el panel móvil (lista). #}
-{% with actual=request.resolver_match.url_name base_clase=movil|yesno:"flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all,px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap" %}
+{% with actual=request.resolver_match.url_name base_clase=movil|yesno:"flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all,px-3 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap" %}
 {% with activo="bg-marca text-white shadow-md shadow-marca/30" inactivo="text-slate-600 hover:bg-marca-claro hover:text-marca" %}
 <a href="{% url 'accesos:inicio' %}" class="{{ base_clase }} {% if actual == 'inicio' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-house w-4 text-center"></i> Inicio</a>
 {% if 'vigilancia' in accesos_roles %}
@@ -17,6 +17,7 @@
 {% endif %}
 {% if accesos_ve_tramos %}
 <a href="{% url 'accesos:tramos_lista' %}" class="{{ base_clase }} {% if actual|slice:':5' == 'tramo' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-right-left w-4 text-center"></i> Tramos</a>
+<a href="{% url 'accesos:trazabilidad' %}" class="{{ base_clase }} {% if actual == 'trazabilidad' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-route w-4 text-center"></i> Trazabilidad</a>
 {% endif %}
 {% if accesos_puede_programar %}
 <a href="{% url 'accesos:transportes_lista' %}" class="{{ base_clase }} {% if 'transporte' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-truck w-4 text-center"></i> Transportes</a>

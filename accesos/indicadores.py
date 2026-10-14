@@ -4,7 +4,9 @@ del rango, usando los campos ya copiados en cada tramo (fecha y hora local, minu
 permanencia, desviación de llegada, tipo y tamaño). No se usan funciones de fecha de MySQL:
 producción y local tienen distinta configuración de zonas horarias.
 
-Solo los tramos cerrados (con salida) aportan permanencia; la puntualidad usa todos.
+Solo los tramos cerrados (con salida) aportan permanencia; la puntualidad usa todos los que ya se pueden
+calificar: la llegada en las visitas de clientes y proveedores y la SALIDA en las rutas INTERNO (su hora
+programada es la de salida del CD; decisión del usuario del 14/10/2026).
 """
 from collections import Counter, defaultdict
 from datetime import timedelta
@@ -53,7 +55,8 @@ def es_demora(minutos, config):
 
 
 def _puntualidad(tramo, config):
-    return servicios.puntualidad(tramo.desviacion_llegada_min, config.tolerancia_puntualidad_min)
+    """Llegada (clientes y proveedores) o salida (rutas INTERNO), según el tramo."""
+    return servicios.puntualidad(tramo.desviacion_min, config.tolerancia_puntualidad_min)
 
 
 # --- DATOS DEL PERIODO ---
@@ -292,10 +295,11 @@ def puntualidad_por(tramos, config, clave):
 
 
 def permanencia_segun_llegada(tramos, config):
-    """¿Llegar tarde alarga la estadía? Permanencia promedio según la puntualidad de llegada."""
+    """¿Llegar tarde alarga la estadía? Permanencia promedio según la puntualidad de llegada. Solo clientes y
+    proveedores: en las rutas INTERNO se califica la salida, que depende de la propia permanencia."""
     grupos = defaultdict(list)
     for t in tramos:
-        if t.minutos_permanencia is not None:
+        if t.minutos_permanencia is not None and not t.califica_salida:
             grupos[_puntualidad(t, config)].append(t.minutos_permanencia)
     return {'categorias': list(ORDEN_PUNTUALIDAD),
             'promedio': [_promedio(grupos[c]) for c in ORDEN_PUNTUALIDAD],
@@ -306,7 +310,7 @@ def comparativo_cd(tramos, config):
     filas = []
     for fila in ranking(tramos, config, 'cd', limite=None):
         del_cd = [t for t in tramos if t.cd_id == fila['valor']]
-        retrasos = [t.desviacion_llegada_min for t in del_cd if _puntualidad(t, config) == servicios.RETRASADO]
+        retrasos = [t.desviacion_min for t in del_cd if _puntualidad(t, config) == servicios.RETRASADO]
         fila['pct_puntual'] = _porcentaje(sum(1 for t in del_cd if _puntualidad(t, config) == servicios.PUNTUAL),
                                           len(del_cd))
         fila['retraso_promedio'] = _promedio(retrasos)

@@ -235,20 +235,15 @@ class SalidaForm(forms.Form):
 
 class InicioJornadaForm(forms.Form):
     """Unidad propia con jornada y sin tramo abierto: el vigilante indica si ENTRA (viene de afuera) o
-    SALE (durmió en el CD sin registro previo). Al entrar se pide el kilometraje."""
+    SALE (durmió en el CD sin registro previo). En los dos casos se pide el kilometraje."""
     INGRESA = 'ingresa'
     SALE = 'sale'
     transporte = forms.IntegerField(widget=forms.HiddenInput)
     sentido = forms.ChoiceField(choices=[(INGRESA, 'Ingresa'), (SALE, 'Sale')])
-    km = forms.IntegerField(required=False, min_value=0, max_value=9_999_999, label="Kilometraje")
+    km = forms.IntegerField(min_value=0, max_value=9_999_999, label="Kilometraje",
+                            error_messages={'required': 'Ingrese el kilometraje.'})
     obs = forms.CharField(required=False, max_length=500, label="Observación")
     conductor = forms.IntegerField(required=False)
-
-    def clean(self):
-        datos = super().clean()
-        if datos.get('sentido') == self.INGRESA and datos.get('km') is None:
-            self.add_error('km', "Ingrese el kilometraje.")
-        return datos
 
 
 class PostRutaForm(forms.Form):

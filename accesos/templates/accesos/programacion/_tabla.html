@@ -4,7 +4,7 @@
         <table class="w-full text-sm">
             <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
                 <tr>
-                    <th class="text-left px-4 py-3">Hora</th>
+                    <th class="text-left px-4 py-3" title="En las rutas INTERNO es la hora de salida del CD">Hora</th>
                     <th class="text-left px-4 py-3">Placa</th>
                     {% if mostrar_cd %}<th class="text-left px-4 py-3">CD</th>{% endif %}
                     <th class="text-left px-4 py-3">Tipo / Razón social</th>
@@ -37,8 +37,8 @@
                         {% else %}{{ p.conductor.nombre_completo }}{% endif %}
                     </td>
                     <td class="px-4 py-3">{% include 'accesos/programacion/_estado.html' with codigo=p.estado_codigo %}</td>
-                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo %}{{ p.tramo.entrada_en|date:"H:i" }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
-                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo.salida_en %}{{ p.tramo.salida_en|date:"H:i" }}{% if p.tramo.entre_dias %}<span class="block text-[10px] text-slate-400">{{ p.tramo.salida_en|date:"d/m" }}</span>{% endif %}{% elif p.tramo %}<span class="text-emerald-600">Dentro</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo %}{{ p.tramo.entrada_en|date:"H:i" }}{% if p.tramo.clase == 'PRE_RUTA' %}<span class="block text-[10px] font-black uppercase text-emerald-700">Pre-Ruta</span>{% elif p.puntualidad and not p.tramo.califica_salida %}<span class="block text-[10px] font-black {% if p.puntualidad == 'RETRASADO' %}text-rose-600{% else %}text-slate-400{% endif %}">{{ p.texto_desviacion }}</span>{% endif %}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+                    <td class="px-4 py-3 font-bold whitespace-nowrap">{% if p.tramo.salida_en %}{{ p.tramo.salida_en|date:"H:i" }}{% if p.tramo.entre_dias %}<span class="block text-[10px] text-slate-400">{{ p.tramo.salida_en|date:"d/m" }}</span>{% endif %}{% if p.puntualidad and p.tramo.califica_salida %}<span class="block text-[10px] font-black {% if p.puntualidad == 'RETRASADO' %}text-rose-600{% else %}text-emerald-700{% endif %}">{{ p.texto_desviacion }}{% if p.puntualidad == 'RETRASADO' %} · retraso{% endif %}</span>{% endif %}{% elif p.tramo %}<span class="text-emerald-600">Dentro</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
                     <td class="px-4 py-3 font-black whitespace-nowrap {% if p.prolongada %}text-rose-600{% endif %}">{% if p.tramo %}{{ p.permanencia }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         {% if con_acciones %}

@@ -82,6 +82,11 @@ def porteria(request, cd):
         contexto.update({'texto': texto, 'resultado': resultado, 'modo': modo})
         if resultado.jornada is not None:
             contexto['jornada_limite_cierre'] = jornadas.limite_cierre(resultado.jornada)
+        if resultado.transporte is not None:
+            # Último kilometraje de la placa: referencia junto a cada campo de km («Está saliendo» lo propone).
+            contexto['ultimo_km'] = resultado.transporte.km_actual
+        if resultado.accion == servicios.INICIO_JORNADA:
+            contexto['ruta_salida'] = _ruta_salida(resultado.ruta_salida, ahora, config)
         if resultado.accion in (servicios.POST_RUTA, servicios.INICIO_JORNADA):
             contexto.update({
                 'conductores': Conductor.objects.filter(activo=True).select_related('tipo_documento'),
@@ -99,6 +104,9 @@ def porteria(request, cd):
             if resultado.tipo_salida == servicios.SALIDA_PRE_RUTA_AUTOMATICA:
                 desde = min(ahora, max(jornadas.inicio(resultado.jornada), tramo.entrada_en))
                 contexto['minutos_pre_ruta'] = servicios.formato_duracion(int((ahora - desde).total_seconds() // 60))
+            # Ruta INTERNO que atiende esta salida (su hora programada es la de salida) y cómo sale frente a ella.
+            ruta = resultado.ruta_salida or (tramo.programacion if tramo.programacion_id and tramo.califica_salida else None)
+            contexto['ruta_salida'] = _ruta_salida(ruta, ahora, config)
         elif resultado.accion == servicios.ENTRADA:
             for candidata in resultado.candidatas:
                 minutos = abs(candidata.minutos)
@@ -115,6 +123,16 @@ def porteria(request, cd):
     contexto['registrado'] = request.GET.get('registrado', '')
     contexto['registrado_placa'] = request.GET.get('registrado_placa', '')
     return render(request, 'accesos/porteria/porteria.html', contexto)
+
+
+def _ruta_salida(programacion, ahora, config):
+    """Datos para mostrar la ruta INTERNO que atiende una salida a ruta: hora programada (de salida) y cómo
+    saldría si se registra ahora (a tiempo o con retraso, según la tolerancia)."""
+    if programacion is None:
+        return None
+    desviacion = round((ahora - servicios.momento(programacion)).total_seconds() / 60)
+    return {'programacion': programacion, 'desviacion': desviacion, 'texto': servicios.texto_desviacion(desviacion),
+            'retrasada': servicios.puntualidad(desviacion, config.tolerancia_puntualidad_min) == servicios.RETRASADO}
 
 
 def _volver(placa=None, **extra):
@@ -172,9 +190,10 @@ def registrar_inicio_jornada(request, cd):
                 conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora())
             registrado = 'INICIO'
         else:
-            tramo = servicios.registrar_salida_sin_registro(transporte_id=datos['transporte'], cd=cd, obs=datos['obs'],
-                                                            usuario=request.user, ahora=tiempo.ahora())
-            avisos, registrado = [], 'PRE_RUTA'
+            tramo, avisos = servicios.registrar_salida_sin_registro(
+                transporte_id=datos['transporte'], cd=cd, km=datos['km'], obs=datos['obs'],
+                conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora())
+            registrado = 'PRE_RUTA'
     except ValidationError as error:
         messages.error(request, ' '.join(error.messages))
         return _volver(placa)

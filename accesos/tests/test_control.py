@@ -175,7 +175,9 @@ class VistasDeControlTests(PorteriaBase):
         fila = [celda.value for celda in hoja[2]]
         self.assertEqual(fila[6], 'F7J-011')
         self.assertEqual(fila[4], 30)
-        self.assertEqual(fila[19], 'Sin novedad')
+        self.assertEqual(fila[21], 'Sin novedad')
+        # Cita de cliente: se califica la llegada (09:00 en punto); la desviación de salida queda vacía.
+        self.assertEqual((fila[15], fila[16], fila[17], fila[18]), (0, None, 'Puntual', 'Llegada'))
 
     def test_tablero_hoy_cuenta_dentro_y_atendidas(self):
         self.entrar_en(self.programar(9, 0))

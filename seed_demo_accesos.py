@@ -6,7 +6,8 @@ llegadas tarde que alargan la estadía) y un día de HOY a medio camino: tramos 
 vehículos todavía dentro y programaciones pendientes para la tarde y para mañana.
 
 La flota propia (6 placas internas) tiene su jornada completa cada día laborable: Pre-Ruta desde las
-06:30, 1 a 3 rutas INTERNO, Post-Ruta (con una placa que suele volver fuera de horario y otra que
+06:30, la primera ruta INTERNO a las 07:15 (la atiende la salida de la Pre-Ruta: en las rutas INTERNO la hora
+programada es la de SALIDA del CD) y hasta 2 rutas más con visita al CD, Post-Ruta (con una placa que suele volver fuera de horario y otra que
 tarda en salir), pernocta en el CD, una avería ya resuelta y otra abierta (vehículo no disponible
 con una programación afectada).
 
@@ -150,8 +151,11 @@ def _a_las(fecha, minutos):
 
 def _tramo_jornada(clase, jornada, transporte, cd, conductor, entrada, salida, km, usuario, programacion=None,
                    **marcas):
-    """Tramo de la flota propia (Pre-Ruta, visita programada o Post-Ruta). `salida` None = sigue dentro."""
+    """Tramo de la flota propia (Pre-Ruta, visita programada o Post-Ruta). `salida` None = sigue dentro.
+    En las rutas INTERNO la hora programada es la de SALIDA: se guarda la desviación de salida (y la de llegada
+    solo en las visitas)."""
     entrada_lima = tiempo.a_lima(entrada)
+    hora_programada = tiempo.combinar(programacion.fecha, programacion.hora) if programacion else None
     return Tramo.objects.create(
         clase=clase, jornada=jornada, programacion=programacion, transporte=transporte, cd=cd, conductor=conductor,
         entrada_en=entrada, fecha_local_entrada=entrada_lima.date(), hora_local_entrada=entrada_lima.time().replace(microsecond=0),
@@ -161,8 +165,9 @@ def _tramo_jornada(clase, jornada, transporte, cd, conductor, entrada, salida, k
         obs_salida='Ninguna' if salida else '', vigilante_salida=usuario if salida else None,
         abierto=None if salida else True,
         minutos_permanencia=int((salida - entrada).total_seconds() // 60) if salida else None,
-        desviacion_llegada_min=(round((entrada - tiempo.combinar(programacion.fecha, programacion.hora)).total_seconds() / 60)
-                                if programacion else None),
+        desviacion_llegada_min=(round((entrada - hora_programada).total_seconds() / 60)
+                                if programacion and clase == Tramo.Clase.PROGRAMADO else None),
+        desviacion_salida_min=round((salida - hora_programada).total_seconds() / 60) if programacion and salida else None,
         tamano_snapshot=transporte.tamano, tipo_snapshot='INTERNO', **marcas)
 
 
@@ -203,8 +208,10 @@ def flota_propia(internos, conductores, centros, usuario, ahora):
                 continue  # día sin rutas
             cd = centros[indice % len(centros)]
             conductor = conductores[indice]
-            horas = sorted(random.sample([9 * 60, 10 * 60, 11 * 60 + 30, 13 * 60, 14 * 60, 14 * 60 + 30],
-                                         random.randint(1, 3)))
+            # Hora programada = hora de SALIDA del CD: la primera ruta (07:15) la atiende la salida de la Pre-Ruta;
+            # las demás, una visita al CD que termina con la salida a ruta.
+            horas = [7 * 60 + 15] + sorted(random.sample([10 * 60 + 30, 12 * 60, 13 * 60 + 30, 14 * 60 + 30, 15 * 60],
+                                                         random.randint(0, 2)))
             rutas = [Programacion.objects.create(
                 cd=cd, fecha=fecha, hora=time(h // 60, h % 60), tipo='INTERNO', transporte=transporte,
                 conductor=conductor, documento='20144109458', razon_social='Daryza S.A.C.',
@@ -218,7 +225,8 @@ def flota_propia(internos, conductores, centros, usuario, ahora):
 
             # Pre-Ruta: placa 1 suele tardar en salir.
             inicio = _a_las(fecha, 6 * 60 + 30)
-            salida_pre = inicio + timedelta(minutes=max(15, int(random.gauss(48, 12)) + (30 if indice == 1 and random.random() < .6 else 0)))
+            salida_pre = _a_las(fecha, horas[0] + int(random.gauss(-6, 8)) + (30 if indice == 1 and random.random() < .6 else 0))
+            salida_pre = max(salida_pre, inicio + timedelta(minutes=15))
             # Post-Ruta: placa 3 suele volver fuera de horario; a veces alguna vuelve antes.
             retorno = int(random.gauss(16 * 60 + 6, 6))
             if indice == 3 and random.random() < .6:
@@ -242,16 +250,18 @@ def flota_propia(internos, conductores, centros, usuario, ahora):
             if anterior:
                 _cerrar_pernocta(anterior, inicio)
             _tramo_jornada(Tramo.Clase.PRE_RUTA, jornada, transporte, cd, conductor, inicio, salida_pre,
-                           km[transporte.pk], usuario)
+                           km[transporte.pk], usuario, programacion=rutas[0])
+            Programacion.objects.filter(pk=rutas[0].pk).update(estado='CERRADA')
             creados += 1
             jornada.estado, jornada.inicio_real, jornada.primera_salida = Jornada.Estado.EN_RUTA, inicio, salida_pre
 
-            for ruta in rutas:
-                entrada = tiempo.combinar(fecha, ruta.hora) + timedelta(minutes=int(random.gauss(0, 12)))
+            for ruta in rutas[1:]:
+                hora_salida = tiempo.combinar(fecha, ruta.hora)
+                entrada = hora_salida - timedelta(minutes=max(15, int(random.gauss(40, 12))))
                 if entrada >= retorno or entrada > ahora or entrada <= salida_pre:
                     continue
                 km[transporte.pk] += random.randint(20, 60)
-                salida = entrada + timedelta(minutes=max(15, int(random.gauss(42, 12))))
+                salida = max(entrada + timedelta(minutes=10), hora_salida + timedelta(minutes=int(random.gauss(3, 12))))
                 sigue = salida > ahora
                 _tramo_jornada(Tramo.Clase.PROGRAMADO, jornada, transporte, cd, ruta.conductor, entrada,
                                None if sigue else salida, km[transporte.pk], usuario, programacion=ruta)

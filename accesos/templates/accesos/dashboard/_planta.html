@@ -96,7 +96,7 @@
                     <th class="hidden md:table-cell text-right px-3 py-3" data-orden="p90">P90</th>
                     <th class="hidden md:table-cell text-right px-3 py-3" data-orden="maximo">Máximo</th>
                     <th class="text-right px-3 py-3" data-orden="demoras">Demoras</th>
-                    <th class="hidden lg:table-cell text-right px-3 py-3" data-orden="pct_retraso">Llegó tarde</th>
+                    <th class="hidden lg:table-cell text-right px-3 py-3" data-orden="pct_retraso" title="Llegada tarde (clientes y proveedores) o salida tarde (rutas INTERNO)">Con retraso</th>
                     <th class="hidden lg:table-cell text-right px-3 py-3" data-orden="total_horas">Horas en planta</th>
                 </tr>
             </thead>
@@ -120,14 +120,14 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
-        <h2 class="text-lg font-black text-daryza-dark">¿Llegan a su hora programada?</h2>
-        <p class="text-xs text-slate-500 mb-4">Puntual = dentro de ±{{ config.tolerancia_puntualidad_min }} min de la hora programada. Toque un segmento para filtrar.</p>
+        <h2 class="text-lg font-black text-daryza-dark">¿Cumplen su hora programada?</h2>
+        <p class="text-xs text-slate-500 mb-4">Clientes y proveedores: hora de <span class="font-black">llegada</span>. Rutas INTERNO: hora de <span class="font-black">salida</span> del CD. Retrasado = {{ config.tolerancia_puntualidad_min }} min tarde o más; adelantado = más de {{ config.tolerancia_puntualidad_min }} min antes. Toque un segmento para filtrar.</p>
         <div class="h-36"><canvas id="grafico-puntualidad-cd" role="img" aria-label="Puntualidad por CD"></canvas></div>
         <div class="h-44 mt-4"><canvas id="grafico-puntualidad-tipo" role="img" aria-label="Puntualidad por tipo de operación"></canvas></div>
     </section>
     <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
         <h2 class="text-lg font-black text-daryza-dark">¿Llegar tarde alarga la estadía?</h2>
-        <p class="text-xs text-slate-500 mb-4">Permanencia promedio según cómo llegó el camión respecto de su hora programada. Toque una barra para filtrar.</p>
+        <p class="text-xs text-slate-500 mb-4">Clientes y proveedores: permanencia promedio según cómo llegó el camión respecto de su hora programada. Toque una barra para filtrar.</p>
         <div class="h-72 sm:h-80"><canvas id="grafico-llegada" role="img" aria-label="Permanencia según puntualidad de llegada"></canvas></div>
     </section>
 </div>
