@@ -16,6 +16,7 @@ from .. import consultas, jornadas, servicios, tiempo
 from ..forms import EntradaForm, InicioJornadaForm, PostRutaForm, SalidaForm
 from ..models import CentroDistribucion, Conductor, ConfiguracionAccesos, TipoIncidencia, Tramo
 from ..permisos import VIGILANCIA, rol_requerido
+from .programacion import respuesta_programaciones
 
 CLAVE_SESION_CD = 'accesos_cd_id'
 
@@ -280,3 +281,10 @@ def programaciones_hoy(request, cd):
                      'fecha_larga': tiempo.fecha_larga(filtros['fecha']),
                      'etiquetas_estado': servicios.ETIQUETAS_ESTADO})
     return render(request, 'accesos/porteria/programaciones_hoy.html', contexto)
+
+
+@rol_requerido(VIGILANCIA)
+@_requiere_cd
+def programaciones_exportar(request, cd):
+    """Excel de las programaciones de la consulta de Vigilancia: siempre solo de su CD."""
+    return respuesta_programaciones(request, cd=cd)

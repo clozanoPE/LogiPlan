@@ -7,6 +7,7 @@
     <div>
         <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Disponibilidad de flota</h1>
         <p class="text-slate-500 text-sm font-medium">Una avería (leve o de varios días) deja al vehículo NO DISPONIBLE: no aparece para programar hasta que se habilite.</p>
+        <div class="mt-3"><a href="{% url 'accesos:flota_exportar' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a></div>
     </div>
     <div class="flex gap-3 text-center">
         <div class="rounded-2xl bg-white border {% if abiertas %}border-rose-200{% else %}border-slate-100{% endif %} px-5 py-3">

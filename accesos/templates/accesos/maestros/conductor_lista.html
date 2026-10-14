@@ -9,6 +9,7 @@
         <p class="text-slate-500 text-sm font-medium">Maestro de conductores. En la programación solo se seleccionan.</p>
     </div>
     <div class="action-row">
+    <a href="{% url 'accesos:conductores_exportar' %}?q={{ busqueda|urlencode }}&licencia={{ filtro_licencia|urlencode }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
     <a href="{% url 'accesos:carga_masiva' 'conductores' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Carga masiva</a>
     <a href="{% url 'accesos:carga_masiva' 'licencias' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-id-card"></i> Actualizar licencias</a>
     <a href="{% url 'accesos:conductor_crear' %}" class="inline-flex items-center justify-center gap-2 bg-marca hover:bg-marca-oscuro text-white px-5 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-lg shadow-marca/30 transition-all">

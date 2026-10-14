@@ -2,12 +2,18 @@
 Consulta de programaciones con filtros (fecha, CD, placa, conductor, estado), compartida por la
 agenda de Despacho y la consulta de Vigilancia. Cada fila trae su tramo con los tiempos reales.
 """
-from datetime import date
+from datetime import date, timedelta
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 
 from . import servicios
-from .models import Programacion, normalizar_placa
+from .models import Programacion, Tramo, normalizar_placa
+
+MAX_RANGO_EXPORTAR_DIAS = 31  # la exportación por rango admite hasta 31 días (un mes)
+
+# Igual que servicios.PREFETCH_TRAMO_VIGENTE, con el conductor que ingresó (se muestra si cambió).
+PREFETCH_TRAMO = Prefetch('tramos', queryset=Tramo.objects.filter(vigente=True).select_related('conductor'),
+                          to_attr='tramos_vigentes')
 
 
 def _fecha(valor, por_defecto):
@@ -17,8 +23,23 @@ def _fecha(valor, por_defecto):
         return por_defecto
 
 
-def programaciones_filtradas(params, *, hoy, ahora, config, cd=None):
-    """`cd` fija el CD (Vigilancia); si es None, se toma del filtro `cd` de los parámetros."""
+def rango_exportar(params, fecha):
+    """(desde, hasta, recortado) de la exportación por rango. Sin `desde`, el día de la pantalla."""
+    desde = _fecha(params.get('desde'), None)
+    if desde is None:
+        return fecha, fecha, False
+    hasta = _fecha(params.get('hasta'), desde)
+    if hasta < desde:
+        desde, hasta = hasta, desde
+    recortado = (hasta - desde).days >= MAX_RANGO_EXPORTAR_DIAS
+    if recortado:
+        hasta = desde + timedelta(days=MAX_RANGO_EXPORTAR_DIAS - 1)
+    return desde, hasta, recortado
+
+
+def programaciones_filtradas(params, *, hoy, ahora, config, cd=None, rango=None):
+    """`cd` fija el CD (Vigilancia); si es None, se toma del filtro `cd` de los parámetros. `rango` (desde,
+    hasta) reemplaza la fecha: solo lo usa la exportación a Excel (las pantallas muestran un día)."""
     filtros = {
         'fecha': _fecha(params.get('fecha'), hoy),
         'cd': params.get('cd', '') if cd is None else str(cd.pk),
@@ -26,9 +47,10 @@ def programaciones_filtradas(params, *, hoy, ahora, config, cd=None):
         'conductor': params.get('conductor', '').strip(),
         'estado': params.get('estado', '') if params.get('estado', '') in servicios.ETIQUETAS_ESTADO else '',
     }
-    programaciones = (Programacion.objects.filter(fecha=filtros['fecha'])
-                      .select_related('cd', 'transporte__tamano', 'conductor__tipo_documento')
-                      .prefetch_related(servicios.PREFETCH_TRAMO_VIGENTE))
+    fechas = {'fecha__range': rango} if rango else {'fecha': filtros['fecha']}
+    programaciones = (Programacion.objects.filter(**fechas)
+                      .select_related('cd', 'transporte__tamano', 'conductor__tipo_documento', 'creado_por', 'incidencia')
+                      .prefetch_related(PREFETCH_TRAMO))
     if filtros['cd'].isdigit():
         programaciones = programaciones.filter(cd_id=int(filtros['cd']))
     if filtros['q']:
@@ -45,7 +67,7 @@ def programaciones_filtradas(params, *, hoy, ahora, config, cd=None):
         ).distinct()
     programaciones = servicios.filtrar_por_estado_visible(programaciones, filtros['estado'], hoy)
 
-    filas = list(programaciones.order_by('hora', 'cd__nombre'))
+    filas = list(programaciones.order_by('fecha', 'hora', 'cd__nombre', 'id'))
     for p in filas:
         p.estado_codigo = servicios.estado_visible(p, hoy)
         p.tramo = servicios.tramo_vigente(p)

@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import excel, indicadores, jornadas, servicios, tiempo
+from .. import excel, exportaciones, indicadores, jornadas, servicios, tiempo
 from ..forms import CierreAdministrativoForm, ConvertirPostRutaForm, CorreccionTramoForm, MotivoForm
 from ..models import CentroDistribucion, ConfiguracionAccesos, Programacion, RegistroAuditoria, Tramo, normalizar_placa
 from ..paginacion import paginar
@@ -329,8 +329,7 @@ def tramo_convertir_post_ruta(request, pk):
     return redirect('accesos:tramo_detalle', pk=pk)
 
 
-@rol_requerido(ADMINISTRADOR)
-def auditoria_lista(request):
+def _auditoria_filtrada(request):
     registros = RegistroAuditoria.objects.select_related('usuario', 'cd')
     filtros = {'accion': request.GET.get('accion', ''), 'entidad': request.GET.get('entidad', ''),
                'q': request.GET.get('q', '').strip()}
@@ -340,6 +339,29 @@ def auditoria_lista(request):
         registros = registros.filter(entidad=filtros['entidad'])
     if filtros['q']:
         registros = registros.filter(objeto_repr__icontains=filtros['q'])
+    return registros, filtros
+
+
+MAX_FILAS_AUDITORIA = 10_000
+
+
+@rol_requerido(ADMINISTRADOR)
+def auditoria_exportar(request):
+    """Los registros del filtro, del más reciente al más antiguo (máximo 10.000 por archivo)."""
+    registros, _ = _auditoria_filtrada(request)
+    total = registros.count()
+    encabezados, filas, formatos = exportaciones.auditoria(registros[:MAX_FILAS_AUDITORIA])
+    notas = None
+    if total > MAX_FILAS_AUDITORIA:
+        notas = [f"El filtro tiene {total:,} registros; se exportaron los {MAX_FILAS_AUDITORIA:,} más recientes. "
+                 "Use los filtros para acotar la búsqueda.".replace(',', '.')]
+    return excel.respuesta_excel(f"Auditoria_{tiempo.hoy():%Y%m%d}.xlsx", 'Auditoría', encabezados, filas,
+                                 formatos, notas)
+
+
+@rol_requerido(ADMINISTRADOR)
+def auditoria_lista(request):
+    registros, filtros = _auditoria_filtrada(request)
     return render(request, 'accesos/control/auditoria_lista.html', {
         **paginar(request, registros), 'filtros': filtros,
         'acciones': RegistroAuditoria.Accion.choices,

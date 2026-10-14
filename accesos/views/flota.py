@@ -4,12 +4,14 @@ historial de incidencias. Administrador y Despacho registran la no disponibilida
 detectada en el CD; la de portería la registra Vigilancia al ingreso) y habilitan el vehículo cuando
 vuelve a operar. Consulta solo lee.
 """
+from collections import Counter
+
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import jornadas, servicios, tiempo
+from .. import excel, exportaciones, jornadas, servicios, tiempo
 from ..forms import HabilitarForm, NoDisponibilidadForm
 from ..models import Incidencia
 from ..paginacion import paginar
@@ -43,6 +45,18 @@ def disponibilidad(request):
         'form': NoDisponibilidadForm(initial=inicial) if puede_gestionar else None,
         'form_habilitar': HabilitarForm(),
     })
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO, CONSULTA)
+def disponibilidad_exportar(request):
+    """Todas las incidencias (no disponibles ahora e historial), con sus programaciones por reasignar."""
+    ahora = tiempo.ahora()
+    afectadas = Counter(p.transporte_id for p in jornadas.programaciones_afectadas(ahora.date()))
+    incidencias = Incidencia.objects.select_related('transporte__tamano', 'tipo', 'cd', 'registrada_por',
+                                                    'cerrada_por').order_by('-inicio', '-id')
+    encabezados, filas, formatos, notas = exportaciones.incidencias(incidencias, afectadas, ahora)
+    return excel.respuesta_excel(f"Disponibilidad_flota_{tiempo.hoy():%Y%m%d}.xlsx", 'Incidencias', encabezados,
+                                 filas, formatos, notas)
 
 
 @require_POST

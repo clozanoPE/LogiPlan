@@ -16,6 +16,7 @@ urlpatterns = [
     path('porteria/post-ruta/', porteria.registrar_post_ruta, name='porteria_post_ruta'),
     path('porteria/dentro/', porteria.dentro_ahora, name='porteria_dentro'),
     path('porteria/programaciones/', porteria.programaciones_hoy, name='porteria_programaciones'),
+    path('porteria/programaciones/exportar/', porteria.programaciones_exportar, name='porteria_programaciones_exportar'),
 
     # --- DASHBOARD DE GERENCIA (F5, F6.3) Y MODO TV (F6.4) ---
     path('dashboard/', dashboard.dashboard, name='dashboard'),
@@ -33,6 +34,7 @@ urlpatterns = [
     path('tramos/<int:pk>/cierre/', control.tramo_cierre, name='tramo_cierre'),
     path('tramos/<int:pk>/convertir-post-ruta/', control.tramo_convertir_post_ruta, name='tramo_convertir_post_ruta'),
     path('auditoria/', control.auditoria_lista, name='auditoria_lista'),
+    path('auditoria/exportar/', control.auditoria_exportar, name='auditoria_exportar'),
 
     # --- TRAZABILIDAD DE UNA PLACA EN UN DÍA ---
     path('trazabilidad/', trazabilidad.trazabilidad_placa, name='trazabilidad'),
@@ -40,6 +42,7 @@ urlpatterns = [
 
     # --- PROGRAMACIONES (F2) ---
     path('programaciones/', programacion.agenda, name='programacion_agenda'),
+    path('programaciones/exportar/', programacion.exportar, name='programacion_exportar'),
     path('programaciones/nueva/', programacion.crear, name='programacion_crear'),
     path('programaciones/<int:pk>/', programacion.detalle, name='programacion_detalle'),
     path('programaciones/<int:pk>/editar/', programacion.editar, name='programacion_editar'),
@@ -48,17 +51,20 @@ urlpatterns = [
 
     # --- DISPONIBILIDAD DE FLOTA (F6: averías) ---
     path('flota/disponibilidad/', flota.disponibilidad, name='flota_disponibilidad'),
+    path('flota/disponibilidad/exportar/', flota.disponibilidad_exportar, name='flota_exportar'),
     path('flota/no-disponible/', flota.registrar_no_disponible, name='flota_registrar'),
     path('flota/incidencias/<int:pk>/habilitar/', flota.habilitar, name='flota_habilitar'),
 
     # --- MAESTROS ---
     path('transportes/', maestros.transportes_lista, name='transportes_lista'),
+    path('transportes/exportar/', maestros.transportes_exportar, name='transportes_exportar'),
     path('transportes/nuevo/', maestros.transporte_crear, name='transporte_crear'),
     path('transportes/nuevo-rapido/', maestros.transporte_crear_rapido, name='transporte_crear_rapido'),
     path('transportes/<int:pk>/editar/', maestros.transporte_editar, name='transporte_editar'),
     path('transportes/<int:pk>/qr/', maestros.transporte_qr, name='transporte_qr'),
     path('transportes/<int:pk>/qr.png', maestros.transporte_qr_png, name='transporte_qr_png'),
     path('conductores/', maestros.conductores_lista, name='conductores_lista'),
+    path('conductores/exportar/', maestros.conductores_exportar, name='conductores_exportar'),
     path('conductores/nuevo/', maestros.conductor_crear, name='conductor_crear'),
     path('conductores/nuevo-rapido/', maestros.conductor_crear_rapido, name='conductor_crear_rapido'),
     path('conductores/<int:pk>/editar/', maestros.conductor_editar, name='conductor_editar'),

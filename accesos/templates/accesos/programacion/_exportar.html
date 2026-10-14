@@ -1,0 +1,22 @@
+{# Exportación a Excel de programaciones (agenda de Despacho y consulta de Vigilancia): el día mostrado con sus filtros o un rango de hasta 31 días. `url_exportar`: nombre de la ruta. #}
+{% url url_exportar as destino %}
+<div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-start gap-3 -mt-3 mb-6">
+    <a href="{{ destino }}?fecha={{ filtros.fecha|date:'Y-m-d' }}&cd={{ filtros.cd|urlencode }}&q={{ filtros.q|urlencode }}&conductor={{ filtros.conductor|urlencode }}&estado={{ filtros.estado|urlencode }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+    <details class="group">
+        <summary class="cursor-pointer list-none inline-flex items-center gap-2 px-4 py-3 rounded-full text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100"><i class="fas fa-calendar-week"></i> Exportar un rango <i class="fas fa-chevron-down text-[10px] group-open:rotate-180 transition-transform"></i></summary>
+        <form method="get" action="{{ destino }}" class="mt-2 bg-white rounded-3xl border border-slate-100 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <input type="hidden" name="cd" value="{{ filtros.cd }}">
+            <input type="hidden" name="q" value="{{ filtros.q }}">
+            <input type="hidden" name="conductor" value="{{ filtros.conductor }}">
+            <input type="hidden" name="estado" value="{{ filtros.estado }}">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Desde
+                <input type="date" name="desde" value="{{ filtros.fecha|date:'Y-m-d' }}" class="campo-accesos mt-1" required>
+            </label>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Hasta
+                <input type="date" name="hasta" value="{{ filtros.fecha|date:'Y-m-d' }}" class="campo-accesos mt-1" required>
+            </label>
+            <button type="submit" class="px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-download mr-1"></i> Descargar</button>
+            <p class="sm:col-span-3 text-xs text-slate-400 font-medium">Hasta 31 días, con los mismos filtros de placa, conductor, estado{% if cds %} y CD{% endif %}.</p>
+        </form>
+    </details>
+</div>

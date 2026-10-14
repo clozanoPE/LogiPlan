@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import auditoria, jornadas, licencias, qr, tiempo
+from .. import auditoria, excel, exportaciones, jornadas, licencias, qr, tiempo
 from ..forms import (ConductorForm, ConductorRapidoForm, TransporteForm, etiqueta_conductor,
                      etiqueta_transporte)
 from ..models import ConfiguracionAccesos, Conductor, Transporte, normalizar_placa
@@ -38,15 +38,31 @@ def _respuesta_rapida(form, usuario, etiqueta):
 
 # --- TRANSPORTES ---
 
-@rol_requerido(ADMINISTRADOR, DESPACHO)
-def transportes_lista(request):
+def _transportes_filtrados(request):
+    """Búsqueda compartida por la lista y su exportación a Excel."""
     busqueda = request.GET.get('q', '').strip()
     transportes = Transporte.objects.select_related('tamano')
     if busqueda:
         transportes = transportes.filter(placa_normalizada__icontains=normalizar_placa(busqueda))
+    return transportes, busqueda
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO)
+def transportes_lista(request):
+    transportes, busqueda = _transportes_filtrados(request)
     return render(request, 'accesos/maestros/transporte_lista.html', {
         **paginar(request, transportes), 'busqueda': busqueda, 'no_disponibles': jornadas.ids_no_disponibles(),
     })
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO)
+def transportes_exportar(request):
+    """Todos los transportes de la búsqueda (no solo la página visible)."""
+    transportes, _ = _transportes_filtrados(request)
+    encabezados, filas, formatos = exportaciones.transportes(
+        transportes.select_related('creado_por', 'modificado_por'), jornadas.ids_no_disponibles())
+    return excel.respuesta_excel(f"Transportes_{tiempo.hoy():%Y%m%d}.xlsx", 'Transportes', encabezados, filas,
+                                 formatos)
 
 
 @rol_requerido(ADMINISTRADOR, DESPACHO)
@@ -101,11 +117,10 @@ FILTROS_LICENCIA = [('', 'Todas las licencias'), ('alerta', 'Por vencer o vencid
                     ('vencidas', 'Con alguna licencia vencida'), ('sin', 'Sin licencia registrada')]
 
 
-@rol_requerido(ADMINISTRADOR, DESPACHO)
-def conductores_lista(request):
+def _conductores_filtrados(request, hoy, config):
+    """Búsqueda y filtro de licencias compartidos por la lista y su exportación a Excel."""
     busqueda = request.GET.get('q', '').strip()
     filtro_licencia = request.GET.get('licencia', '')
-    hoy, config = tiempo.hoy(), ConfiguracionAccesos.obtener()
     conductores = Conductor.objects.select_related('tipo_documento')
     if busqueda:
         conductores = conductores.filter(
@@ -124,7 +139,14 @@ def conductores_lista(request):
     else:
         filtro_licencia = ''
     # El id desempata a los homónimos: sin él, un conductor podría repetirse o faltar al cambiar de página.
-    contexto = paginar(request, conductores.order_by('apellido_paterno', 'apellido_materno', 'nombres', 'id'))
+    return conductores.order_by('apellido_paterno', 'apellido_materno', 'nombres', 'id'), busqueda, filtro_licencia
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO)
+def conductores_lista(request):
+    hoy, config = tiempo.hoy(), ConfiguracionAccesos.obtener()
+    conductores, busqueda, filtro_licencia = _conductores_filtrados(request, hoy, config)
+    contexto = paginar(request, conductores)
     for conductor in contexto['page_obj']:
         conductor.estados_licencia = [(etiqueta, categoria, vencimiento, licencias.estado(vencimiento, hoy, config))
                                       for etiqueta, categoria, vencimiento in conductor.licencias()]
@@ -133,6 +155,17 @@ def conductores_lista(request):
         'filtro_licencia': filtro_licencia, 'filtros_licencia': FILTROS_LICENCIA,
         'aviso_dias': config.aviso_licencia_dias,
     })
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO)
+def conductores_exportar(request):
+    """Todos los conductores del filtro, con la hoja «Datos» compatible con «Actualizar licencias»."""
+    hoy, config = tiempo.hoy(), ConfiguracionAccesos.obtener()
+    conductores, _, _ = _conductores_filtrados(request, hoy, config)
+    encabezados, filas, formatos, notas = exportaciones.conductores(conductores.select_related('creado_por'),
+                                                                    hoy, config)
+    return excel.respuesta_excel(f"Conductores_{hoy:%Y%m%d}.xlsx", exportaciones.HOJA_CONDUCTORES, encabezados,
+                                 filas, formatos, notas)
 
 
 @rol_requerido(ADMINISTRADOR, DESPACHO)

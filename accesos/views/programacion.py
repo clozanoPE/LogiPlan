@@ -10,7 +10,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import auditoria, consultas, jornadas, qr, servicios, tiempo
+from .. import auditoria, consultas, excel, exportaciones, jornadas, qr, servicios, tiempo
 from ..forms import CancelacionForm, ConductorRapidoForm, ProgramacionForm, TransporteForm
 from ..models import CentroDistribucion, ConfiguracionAccesos, Programacion, RegistroAuditoria, TamanoVehiculo
 from ..permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, rol_requerido
@@ -66,6 +66,28 @@ def agenda(request):
         'cds': CentroDistribucion.objects.filter(activo=True),
         'etiquetas_estado': servicios.ETIQUETAS_ESTADO,
     })
+
+
+def respuesta_programaciones(request, *, cd=None):
+    """Excel de programaciones con los filtros de la pantalla: el día mostrado o, con `desde`/`hasta`, un rango
+    de hasta 31 días. `cd` fija el CD (Vigilancia)."""
+    hoy, ahora = tiempo.hoy(), tiempo.ahora()
+    fecha = consultas._fecha(request.GET.get('fecha'), hoy)
+    desde, hasta, recortado = consultas.rango_exportar(request.GET, fecha)
+    programaciones, _ = consultas.programaciones_filtradas(
+        request.GET, hoy=hoy, ahora=ahora, config=ConfiguracionAccesos.obtener(), cd=cd, rango=(desde, hasta))
+    encabezados, filas, formatos, notas = exportaciones.programaciones(programaciones, ahora)
+    if recortado:
+        notas.insert(0, f"El rango pedido superaba {consultas.MAX_RANGO_EXPORTAR_DIAS} días: se exportó del "
+                        f"{desde:%d/%m/%Y} al {hasta:%d/%m/%Y}.")
+    sufijo = f"{desde:%Y%m%d}" if desde == hasta else f"{desde:%Y%m%d}_{hasta:%Y%m%d}"
+    return excel.respuesta_excel(f"Programaciones_{sufijo}.xlsx", 'Programaciones', encabezados, filas,
+                                 formatos, notas)
+
+
+@rol_requerido(ADMINISTRADOR, DESPACHO, CONSULTA)
+def exportar(request):
+    return respuesta_programaciones(request)
 
 
 def _render_form(request, form, programacion=None):
