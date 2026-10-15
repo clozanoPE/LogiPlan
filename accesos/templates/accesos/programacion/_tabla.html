@@ -19,7 +19,7 @@
             <tbody class="divide-y divide-slate-100">
                 {% for p in programaciones %}
                 <tr class="hover:bg-slate-50/60 {% if p.esta_cancelada %}opacity-60{% endif %}">
-                    <td class="px-4 py-3 font-black text-lg text-daryza-dark">{{ p.hora|time:"H:i" }}</td>
+                    <td class="px-4 py-3 font-black text-lg text-daryza-dark whitespace-nowrap">{{ p.hora|time:"H:i" }}{% if p.jornada_id and p.jornada.es_noche %}<span class="block text-[10px] font-black uppercase tracking-normal text-slate-500" title="Turno noche del {{ p.jornada.fecha|date:'d/m' }}"><i class="fas fa-moon"></i> Noche{% if p.jornada.fecha != p.fecha %} {{ p.jornada.fecha|date:'d/m' }}{% endif %}</span>{% endif %}</td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         <a href="{% url 'accesos:programacion_pase' p.pk %}" class="inline-flex items-center gap-2 font-black tracking-wider hover:text-marca" title="Ver QR y pase de {{ p.transporte.placa }}">
                             <i class="fas fa-qrcode text-marca"></i>{{ p.transporte.placa }}

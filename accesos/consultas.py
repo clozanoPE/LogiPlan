@@ -49,7 +49,8 @@ def programaciones_filtradas(params, *, hoy, ahora, config, cd=None, rango=None)
     }
     fechas = {'fecha__range': rango} if rango else {'fecha': filtros['fecha']}
     programaciones = (Programacion.objects.filter(**fechas)
-                      .select_related('cd', 'transporte__tamano', 'conductor__tipo_documento', 'creado_por', 'incidencia')
+                      .select_related('cd', 'transporte__tamano', 'conductor__tipo_documento', 'creado_por', 'incidencia',
+                                      'jornada')
                       .prefetch_related(PREFETCH_TRAMO))
     if filtros['cd'].isdigit():
         programaciones = programaciones.filter(cd_id=int(filtros['cd']))

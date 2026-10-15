@@ -60,7 +60,7 @@
         <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
             <div class="flex items-end justify-between mb-2">
                 <div>
-                    <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-truck text-marca mr-2"></i>Flota propia hoy</h2>
+                    <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-truck text-marca mr-2"></i><span id="tv-titulo-gantt">Flota propia hoy</span></h2>
                     <p class="text-[0.95rem] font-semibold text-slate-500">Pre-Ruta, rutas y retorno de cada unidad · <span id="tv-pagina-gantt"></span></p>
                 </div>
                 <ul class="flex gap-5 text-[0.95rem] font-bold text-slate-600">
@@ -93,7 +93,7 @@
         const SEGUNDOS = {{ segundos }};
         const ROTACION_MS = 20000;  // páginas de la línea de tiempo y de «En planta ahora»
         const escapar = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-        const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
         let datos = JSON.parse(document.getElementById('tv-datos').textContent);
         let pagina = 0;
         let ultimoExito = new Date();
@@ -117,7 +117,7 @@
                         ocupacion > 1 ? 'critico' : (ocupacion >= 0.9 ? 'aviso' : '')),
                 tarjeta('Citas de hoy', `${c.atendidas}<span class="text-[1.6rem] text-slate-400"> / ${c.programadas}</span>`,
                         `atendidas · ${c.pendientes} pendientes`, 'fa-calendar-check'),
-                tarjeta('Flota propia', c.jornadas, grupos || 'sin jornadas hoy', 'fa-truck'),
+                tarjeta('Flota propia', c.placas, (c.noche ? `${c.dia} en turno día · ${c.noche} en turno noche · ` : '') + (grupos || 'sin jornadas hoy'), 'fa-truck'),
                 tarjeta('En ruta', c.grupos[2].total, `${c.grupos[1].total} en Pre-Ruta · ${c.grupos[3].total} retornaron`, 'fa-route'),
                 tarjeta('Fuera de horario', c.fuera_de_horario, 'retornos después de la tolerancia', 'fa-clock', c.fuera_de_horario ? 'critico' : ''),
                 tarjeta('No disponibles', c.no_disponibles, 'vehículos en avería', 'fa-screwdriver-wrench', c.no_disponibles ? 'serio' : ''),
@@ -126,6 +126,7 @@
 
         function gantt(d, numeroPagina) {
             const g = d.gantt;
+            document.getElementById('tv-titulo-gantt').textContent = g.turno === 'NOCHE' ? `Flota propia · ${g.titulo.toLowerCase()}` : 'Flota propia hoy';
             const contenedor = document.getElementById('tv-gantt');
             const rotulo = document.getElementById('tv-pagina-gantt');
             if (d.no_laborable) { contenedor.innerHTML = `<p class="h-full flex items-center justify-center text-[2rem] font-black text-slate-400"><i class="fas fa-moon mr-3"></i>Sin actividad (${escapar(d.no_laborable)})</p>`; rotulo.textContent = ''; return 1; }

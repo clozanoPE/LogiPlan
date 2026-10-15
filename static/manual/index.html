@@ -258,7 +258,7 @@ tr:last-child td { border-bottom: 0; }
             <a class="boton primario" href="#bienvenida">Empezar a leer</a>
             <button class="boton secundario" onclick="window.print()">Imprimir o guardar en PDF</button>
         </div>
-        <p class="meta">Versión 1.3 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta), la hora de salida de las rutas propias, el kilometraje en el maestro, la trazabilidad por placa, averías, el modo TV y la descarga a Excel de todas las listas · Las pantallas usan datos ficticios de demostración.</p>
+        <p class="meta">Versión 1.4 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta) con <b>turno día y turno noche</b>, la hora de salida de las rutas propias, el kilometraje en el maestro, la trazabilidad por placa, averías, el modo TV y la descarga a Excel de todas las listas · Las pantallas usan datos ficticios de demostración.</p>
     </div>
 </header>
 
@@ -558,7 +558,7 @@ tr:last-child td { border-bottom: 0; }
             <tr><td><b>Transportes</b></td><td>Placa de 5 a 8 letras o números (con o sin guion), tamaño de la lista, interno SI/NO.</td><td>La placa se <b>omite</b> (no se modifica).</td></tr>
             <tr><td><b>Conductores</b></td><td>DNI de 8 dígitos o CE de 9 a 12 caracteres; apellido paterno y nombres obligatorios. Si Excel quitó el cero inicial de un DNI (8123456), se completa solo. Licencia opcional: si se escribe, número, categoría y vencimiento (y vencimiento de la A-IV si se indica). Las categorías se aceptan escritas con espacio o guion («A IIIb»).</td><td>El documento se <b>omite</b> (no se modifica).</td></tr>
             <tr><td><b>Actualizar licencias</b></td><td>El conductor debe estar <b>registrado</b> (tipo y número de documento). Número, categoría y vencimiento obligatorios. Si las columnas de la A-IV quedan vacías, se conserva la registrada. «notificar» vacío conserva el valor actual. Un conductor no puede repetirse en el archivo.</td><td>Es la única carga que <b>modifica</b>: solo la licencia y las notificaciones. Las filas sin cambios se omiten.</td></tr>
-            <tr><td><b>Programaciones</b></td><td>CD y tipo válidos; fecha y hora futuras (hora de Lima); placa y conductor <b>registrados y activos</b>; RUC con dígito verificador o DNI; en INTERNO el RUC y la razón social de Daryza se completan solos; la placa no se repite en la misma fecha y hora, ni en el sistema ni dentro del mismo archivo.</td><td>Es un <b>error</b>: indica el código de la programación existente.</td></tr>
+            <tr><td><b>Programaciones</b></td><td>CD y tipo válidos; fecha y hora futuras (hora de Lima); placa y conductor <b>registrados y activos</b>; RUC con dígito verificador o DNI; en INTERNO el RUC y la razón social de Daryza se completan solos; la placa no se repite en la misma fecha y hora, ni en el sistema ni dentro del mismo archivo. En INTERNO la hora es la de <b>salida</b> y decide el turno: de 20:00 a 06:15 es <b>turno noche</b> (la madrugada se carga con la fecha en que sale); la vista previa indica «Se creará el turno noche del dd/mm». Sábado en la noche y mismo conductor en los dos turnos son avisos; la noche anterior a un feriado es error.</td><td>Es un <b>error</b>: indica el código de la programación existente.</td></tr>
         </tbody>
     </table></div>
     <div class="nota consejo"><div><b>Orden recomendado:</b> primero cargue los transportes y conductores nuevos, y después las programaciones que los usan. Los avisos (capacidad del CD, misma placa cerca en otro CD, INTERNO con transporte externo) no impiden grabar.</div></div>
@@ -621,7 +621,7 @@ tr:last-child td { border-bottom: 0; }
 </section>
 
 <section class="capitulo naranja-cap" id="a-jornada">
-    <h2><span class="num">15</span>Jornada de la flota propia (Pre-Ruta y Post-Ruta)</h2>
+    <h2><span class="num">15</span>Jornada de la flota propia (Pre-Ruta y Post-Ruta, turno día y turno noche)</h2>
     <p class="entrada">Los camiones propios (tipo <b>INTERNO</b>) duermen en el CD. Su día empieza con la <b>Pre-Ruta</b> y termina con la <b>Post-Ruta</b>. Ninguna de las dos se programa: el sistema las maneja solo. <b>En las rutas INTERNO la hora programada es la hora de SALIDA del CD.</b></p>
     <div class="ejemplo">
         <h4>Ejemplo · placa F5J-011 con rutas programadas a las 08:00 y a las 11:15</h4>
@@ -658,6 +658,44 @@ tr:last-child td { border-bottom: 0; }
     </table></div>
     <div class="nota cuidado"><div><b>Importante:</b> los «minutos fuera de horario» son un indicador <b>operativo del retorno del vehículo</b> al CD. <b>No es un registro de asistencia ni sustenta horas extra</b> del personal. Por eso los minutos se muestran por placa y no se suman por conductor.</div></div>
     <div class="nota consejo"><div><b>Primer día con el sistema:</b> ninguna unidad tiene un ingreso registrado. Las que durmieron en el CD se registran con <b>«Está saliendo»</b> y su kilometraje. Desde el día siguiente ya no aparece esta pantalla: la Post-Ruta de la tarde deja a la unidad dentro y su salida de la mañana cierra la pernocta y graba la Pre-Ruta sola.</div></div>
+    <h3 id="a-turno-noche">Turno noche</h3>
+    <p>Una misma placa puede trabajar de día con un conductor y de noche con otro. Cada turno es una <b>jornada propia</b>, con su conductor, sus rutas, su Pre-Ruta y su Post-Ruta. <b>Despacho programa igual que siempre</b>: una ruta INTERNO por cada salida del CD, con la fecha y la hora en que sale. El sistema decide el turno por la <b>hora de salida</b>:</p>
+    <div class="tabla"><table>
+        <thead><tr><th>Salida programada</th><th>Turno</th></tr></thead>
+        <tbody>
+            <tr><td>De 06:16 a 19:59</td><td><b>Turno día</b> (Pre-Ruta 06:30, cierre 16:00 + 15 min)</td></tr>
+            <tr><td>Desde las 20:00</td><td><b>Turno noche</b> de ese día (Pre-Ruta 20:00, meta 60 min)</td></tr>
+            <tr><td>De 00:00 a 06:15</td><td><b>Turno noche del día anterior</b> (la madrugada). El turno noche cierra a las <b>06:15 + 15 min</b> (hasta las 06:30 es en horario; no hay «fin anticipado»)</td></tr>
+        </tbody>
+    </table></div>
+    <div class="ejemplo">
+        <h4>Ejemplo · la misma placa en los dos turnos</h4>
+        <table>
+            <thead><tr><th>Hora</th><th>Qué registra Vigilancia</th><th>Qué entiende el sistema</th></tr></thead>
+            <tbody>
+                <tr><td>07:40</td><td>Salida</td><td><b>Turno día</b> (conductor A): fin de la Pre-Ruta, sale a su ruta</td></tr>
+                <tr><td>16:00</td><td>Entrada</td><td><b>Post-Ruta del día</b>. Las rutas de la noche <b>siguen pendientes</b>: este registro no las cierra</td></tr>
+                <tr><td>22:00</td><td>Salida</td><td><b>Turno noche</b> (conductor B): la espera en el CD termina a las 20:00 y la Pre-Ruta noche dura de 20:00 a 22:00</td></tr>
+                <tr><td>23:10 / 23:30</td><td>Entrada / salida</td><td>Vuelve a cargar y sale a la ruta de las 23:30</td></tr>
+                <tr><td>02:00 (día siguiente)</td><td>Entrada</td><td><b>Post-Ruta del turno noche</b> (en horario): la unidad queda en el CD</td></tr>
+                <tr><td>06:30</td><td>—</td><td>Empieza la Pre-Ruta del turno día siguiente, como siempre</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <ul>
+        <li><b>El turno noche es de lunes a viernes.</b> El sábado se permite como <b>excepcional</b> (aviso al programar). No hay turno noche la noche de un feriado ni la noche anterior a un feriado. Las salidas de madrugada del domingo que vienen del turno del sábado sí se programan.</li>
+        <li><b>Portería solo ofrece las rutas del turno en curso.</b> Si la unidad vuelve a las 16:00, no le aparecen las rutas de la noche; la pantalla de Post-Ruta muestra «Próximo turno de la placa: noche desde las 20:00».</li>
+        <li><b>Cada Post-Ruta cierra solo las rutas de su turno.</b> Si una ruta de la noche no se hace, queda «No atendida» recién al cerrar el turno noche.</li>
+        <li><b>Si un turno vuelve tarde</b> y ya empezó el siguiente (por ejemplo, el turno noche vuelve a las 07:00 y la placa tiene ruta de día), ese mismo registro cierra el turno (fuera de horario) y la Pre-Ruta del siguiente empieza desde esa entrada. Igual si el turno día vuelve después de las 20:00 y la placa tiene turno noche.</li>
+        <li><b>Entre turnos</b> (por ejemplo, a las 17:00) una salida no es la ruta nocturna: pide motivo, como cualquier salida después de la Post-Ruta. El turno noche cuenta desde una hora antes de su Pre-Ruta o de su primera ruta.</li>
+        <li><b>Ruta larga sin volver al CD</b>: se programa una sola vez (una salida); después solo se registra la Post-Ruta.</li>
+        <li><b>Avería en el turno noche</b>: cancela las rutas pendientes de ese turno y las de la placa de ese día.</li>
+        <li>Si el mismo conductor tiene ruta en el turno día y en el turno noche contiguo, al programar aparece un <b>aviso</b> para revisar su descanso (no bloquea).</li>
+    </ul>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a52-porteria-proximo-turno.jpg" alt="Portería: Post-Ruta del día con el próximo turno noche" loading="lazy"></div><figcaption>Post-Ruta del turno día: las rutas de la noche no se cierran; se informa el próximo turno de la placa y su conductor.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a53-agenda-turno-noche.jpg" alt="Bloque Flota propia con jornadas del turno noche" loading="lazy"></div><figcaption>Bloque «Flota propia»: la placa aparece una vez por turno; el turno noche lleva la marca <b>Noche</b> y su retorno con la fecha del día siguiente.</figcaption></figure>
+    </div>
     <h3>Casos especiales en portería</h3>
     <div class="duo">
         <figure><div class="marco"><img src="img/a37-porteria-inicio-jornada.jpg" alt="Portería: inicio de jornada" loading="lazy"></div><figcaption>Inicio de jornada: la unidad tiene jornada pero no figura dentro del CD. «Está saliendo» pide el kilometraje y muestra a qué ruta sale y cómo sale frente a su hora.</figcaption></figure>
@@ -666,7 +704,7 @@ tr:last-child td { border-bottom: 0; }
                 <li><b>No figura dentro del CD</b> (por ejemplo, durmió fuera o es el <b>primer día de uso</b> del sistema): el vigilante elige <b>«Está ingresando»</b> (pide kilometraje; su Pre-Ruta empieza en ese momento) o <b>«Está saliendo»</b> (durmió en el CD sin registro: se registra la salida a ruta con la Pre-Ruta desde las 06:30). <b>«Está saliendo» también pide el kilometraje</b> (propone el último registrado; confírmelo o corríjalo con el tablero) y permite elegir otro conductor. La pantalla muestra a qué ruta sale.</li>
                 <li><b>Vuelve sin haber atendido todas sus rutas</b>: puede registrar «Fin de jornada»; las rutas pendientes quedan <span class="chip noatendida">No atendida</span> por cierre de jornada.</li>
                 <li><b>Sale después de su Post-Ruta</b> (por ejemplo, a dormir fuera): se permite, pero exige <b>motivo</b> y queda marcado.</li>
-                <li><b>Domingos y feriados</b> no se programa ni hay jornada. Si aun así sale un vehículo, se registra con motivo y queda marcado como «día no laborable».</li>
+                <li><b>Domingos y feriados</b> no se programa ni hay jornada (salvo la madrugada del domingo del turno noche del sábado). Si aun así sale un vehículo, se registra con motivo y queda marcado como «día no laborable».</li>
                 <li>Si la última ruta del día quedó abierta porque la unidad se quedó a dormir, el Administrador usa <b>«Convertir en Post-Ruta»</b> en el detalle del tramo.</li>
             </ul>
         </div>
@@ -697,7 +735,7 @@ tr:last-child td { border-bottom: 0; }
     <h2><span class="num">17</span>Tablero «Hoy»</h2>
     <figure><div class="marco"><img src="img/a16-tablero-hoy.jpg" alt="Tablero Hoy" loading="lazy"></div><figcaption>Tablero «Hoy»: ocupación de cada CD frente a su capacidad, programadas, atendidas, pendientes y vehículos dentro. Se actualiza solo cada minuto.</figcaption></figure>
     <p>Pensado para supervisores. En rojo, los CD por encima de su capacidad y los vehículos con permanencia prolongada. Cada CD separa los vehículos <b>en atención</b> de los de la <b>flota propia</b> (en Pre-Ruta o durmiendo en el CD), que también ocupan la capacidad.</p>
-    <p>La sección <b>Flota propia hoy</b> resume las jornadas del día (por iniciar, en Pre-Ruta, en ruta, retornaron, no disponibles) y muestra cada unidad con su estado: Por iniciar, En Pre-Ruta, Pre-Ruta excedida, En ruta, En planta (visita), Sin retorno, En horario, Fuera de horario, Cierre por avería.</p>
+    <p>La sección <b>Flota propia hoy</b> cuenta las <b>placas</b> (una placa con turno día y noche cuenta una vez, con el detalle «N en turno día · M en turno noche»; el turno noche de ayer se sigue viendo mientras está en curso y hasta media mañana si volvió de madrugada), resume las jornadas (por iniciar, en Pre-Ruta, en ruta, retornaron, no disponibles) y muestra cada unidad con su estado: Por iniciar, En Pre-Ruta, Pre-Ruta excedida, En ruta, En planta (visita), Sin retorno, En horario, Fuera de horario, Cierre por avería.</p>
     <figure><div class="marco"><img src="img/a42-agenda-flota.jpg" alt="Bloque Flota propia" loading="lazy"></div><figcaption>Bloque «Flota propia» (también en la agenda de Despacho y en las programaciones de portería): Pre-Ruta con sus minutos (en ámbar si pasa la meta) y Post-Ruta.</figcaption></figure>
     <h3>Actualización automática</h3>
     <ul>
@@ -722,6 +760,8 @@ tr:last-child td { border-bottom: 0; }
     <figure><div class="marco"><img src="img/a44-dashboard-resumen.jpg" alt="Resumen ejecutivo del Dashboard" loading="lazy"></div><figcaption>Resumen ejecutivo (30 días de datos de demostración).</figcaption></figure>
     <h3>Flota propia</h3>
     <figure><div class="marco"><img src="img/a45-dashboard-flota-dia.jpg" alt="Flota propia: línea de tiempo del día" loading="lazy"></div><figcaption>Un día: la línea de tiempo muestra a cada unidad en Pre-Ruta (azul), en visita (naranja), en ruta (línea fina) y en Post-Ruta (aguamarina), con las marcas de 06:30, el cierre y la tolerancia.</figcaption></figure>
+    <p>Arriba de la pestaña, el selector <b>Turno: Todos · Turno día · Turno noche</b> muestra un solo turno. Con «Todos» y si hubo turno noche, la tabla <b>Turno día y turno noche</b> compara los dos (cada jornada se mide con los horarios de su turno) y, en un día, aparece una segunda línea de tiempo para el turno noche (de las 20:00 a la madrugada siguiente). En la matriz de varios días, el turno noche de una placa va en su propia fila («placa · noche»).</p>
+    <figure><div class="marco"><img src="img/a50-dashboard-turnos.jpg" alt="Flota propia: comparativo de turnos y línea de tiempo del turno noche" loading="lazy"></div><figcaption>Turno día y turno noche: el comparativo, los indicadores de ambos y las dos líneas de tiempo del día.</figcaption></figure>
     <figure><div class="marco"><img src="img/a46-dashboard-flota-periodo.jpg" alt="Flota propia: matriz placa por día" loading="lazy"></div><figcaption>Varios días: la matriz muestra cómo cerró cada jornada (en horario, fuera de horario, avería, sin Post-Ruta); los domingos y feriados aparecen como «Sin actividad».</figcaption></figure>
     <div class="nota cuidado"><div>Por conductor solo se muestran conteos y porcentajes. Los minutos fuera de horario (sobre las 16:15) son un indicador operativo del vehículo, no de horas del personal. En la línea de tiempo, al pasar sobre la Pre-Ruta o una visita se ve a qué ruta salió y cómo («10 min antes», «15 min tarde (retraso)»).</div></div>
     <h3>Operación en planta y disponibilidad</h3>
@@ -747,6 +787,7 @@ tr:last-child td { border-bottom: 0; }
         <li>Se abre desde <b>Inicio → Modo TV</b> o desde el botón <b>Modo TV</b> del Dashboard, eligiendo el CD. Use pantalla completa (F11).</li>
         <li>Para dejar un televisor encendido, TI crea un <b>usuario propio de la pantalla</b> (grupo «Accesos - Pantalla») con su <b>CD autorizado</b>. Su sesión dura 30 días y entra directo a su pantalla; no ve nada más.</li>
         <li>Si hay más unidades o vehículos de los que caben, la pantalla <b>pasa de página cada 20 segundos</b>.</li>
+        <li><b>Turno noche</b>: desde una hora antes de las 20:00 y hasta las 07:30 del día siguiente, la línea de tiempo muestra el turno noche («Flota propia · turno noche del dd/mm»); el resto del día, el turno día. «Flota propia» cuenta placas, con el detalle por turno.</li>
         <li>Si se corta la red, la pantalla <b>conserva los últimos datos</b> y muestra «Sin conexión desde…»; se recupera sola. Si la sesión vence, lo indica para volver a ingresar.</li>
         <li>Se ajusta a cualquier televisor (720p, Full HD o 4K). Recomendado: un mini PC o un stick con Chrome en modo kiosco.</li>
     </ul>
@@ -768,11 +809,13 @@ tr:last-child td { border-bottom: 0; }
     <p>En la lista y el detalle, la columna <b>Puntualidad</b> califica la <b>llegada</b> de clientes y proveedores y la <b>salida</b> de las rutas propias (incluida la primera, que atiende la Pre-Ruta). La exportación a Excel trae las dos desviaciones (llegada y salida) y qué se calificó.</p>
     <h3>Trazabilidad de una placa en un día</h3>
     <figure><div class="marco"><img src="img/a49-trazabilidad.jpg" alt="Trazabilidad de una placa en un día" loading="lazy"></div><figcaption>Trazabilidad: resumen del día (programaciones atendidas, salidas a tiempo, Pre-Ruta, retorno y kilómetros recorridos) y la línea de tiempo con la lectura de cada movimiento.</figcaption></figure>
+    <figure class="media"><div class="marco"><img src="img/a51-trazabilidad-turno-noche.jpg" alt="Trazabilidad con el turno noche" loading="lazy"></div><figcaption>Trazabilidad de una placa con turno día y turno noche: el resumen del turno noche y sus movimientos hasta la madrugada siguiente.</figcaption></figure>
     <ul>
         <li>Menú <b>Trazabilidad</b>: escriba la placa (con o sin guion) y elija el día. Las flechas pasan al día anterior o siguiente. También se abre desde el detalle de un tramo o de una programación, desde el bloque «Flota propia» y desde la lista de Transportes.</li>
         <li>La <b>línea de tiempo</b> muestra en orden la Pre-Ruta, cada <b>salida a ruta</b> con su hora programada y la lectura («10 min antes · a tiempo», «15 min tarde · retraso»), las entradas al CD, la Post-Ruta con su horario de referencia y los minutos fuera de horario, el kilometraje de cada lectura, quién registró y las observaciones.</li>
         <li>Lo que quedó <b>sin atender</b> (pendiente, «No atendida» o cancelada) aparece a su hora. La pernocta que venía del día anterior o que sigue al día siguiente se muestra atenuada, como contexto.</li>
         <li><b>Kilómetros recorridos</b> = última lectura del día menos la primera (normalmente, la Post-Ruta menos la salida de la mañana).</li>
+        <li>Si la placa tuvo <b>turno noche</b>, el día incluye su turno completo (también la madrugada siguiente): un recuadro negro resume su Pre-Ruta y su retorno, y sus movimientos llevan la marca «Turno noche». La exportación suma la columna «Turno».</li>
         <li><b>Exportar a Excel</b> descarga la misma línea de tiempo. Vigilancia ve solo lo de su CD.</li>
     </ul>
     <figure class="media"><div class="marco"><img src="img/a31-tramos-vigilancia.jpg" alt="Consulta de tramos vista por Vigilancia en la tablet" loading="lazy"></div><figcaption>Vigilancia también consulta y exporta los tramos, pero solo los de su CD y sin las acciones de corrección.</figcaption></figure>
@@ -797,6 +840,8 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Hora de inicio de la Pre-Ruta</td><td>06:30</td><td>Inicio automático de la jornada de la flota propia.</td></tr>
             <tr><td>Meta de la Pre-Ruta</td><td>60 min</td><td>Tiempo para salir a ruta; después, «Pre-Ruta excedida».</td></tr>
             <tr><td>Cierre operativo y tolerancia</td><td>16:00 · 15 min</td><td>Retorno en horario hasta las 16:15. Cada jornada guarda los horarios vigentes al crearse.</td></tr>
+            <tr><td>Inicio del turno noche (Pre-Ruta noche) y su meta</td><td>20:00 · 60 min</td><td>Desde esta hora una ruta INTERNO es del turno noche; meta de salida.</td></tr>
+            <tr><td>Cierre del turno noche y tolerancia</td><td>06:15 · 15 min</td><td>Retorno esperado del turno noche (día siguiente); hasta esta hora las salidas son del turno noche anterior. Debe ser antes de la Pre-Ruta del día y el inicio del turno noche, después del cierre operativo.</td></tr>
             <tr><td>Feriados</td><td>Feriados nacionales 2026–2027</td><td>Días no laborables (además de los domingos): no se programa. Deben ser validados por RRHH.</td></tr>
             <tr><td>Tipos de incidencia</td><td>Avería mecánica, eléctrica, neumáticos, siniestro, mantenimiento correctivo, otro</td><td>Tipos de avería.</td></tr>
             <tr><td>Aviso después del vencimiento</td><td>7 días</td><td>Hasta cuándo se avisa una licencia vencida; después se desactivan solas las notificaciones.</td></tr>
@@ -844,9 +889,12 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>Licencia por vencer</td><td>Aviso en la campanita desde 30 días antes hasta 7 días después; no bloquea programaciones ni ingresos.</td></tr>
             <tr><td>Domingos y feriados</td><td>No se programa ni hay jornada; un movimiento queda marcado.</td></tr>
             <tr><td>Programación INTERNO</td><td>Solo con un transporte propio (antes era un aviso; ahora bloquea).</td></tr>
-            <tr><td>Pre-Ruta</td><td>Automática con la primera ruta INTERNO del día, desde las 06:30; meta de salida 60 min.</td></tr>
+            <tr><td>Pre-Ruta</td><td>Automática con la primera ruta INTERNO del turno: desde las 06:30 (día) o las 20:00 (noche); meta de salida 60 min.</td></tr>
+            <tr><td>Turno noche</td><td>Salidas de 20:00 a 06:15 del día siguiente. Lunes a viernes; sábado con aviso; nunca la noche de un feriado ni la anterior. Cierre 06:15 + 15 min.</td></tr>
+            <tr><td>Rutas de otro turno en portería</td><td>No se ofrecen ni se cierran: cada Post-Ruta cierra solo las rutas de su turno.</td></tr>
+            <tr><td>Mismo conductor en día y noche</td><td>Aviso al programar; no bloquea.</td></tr>
             <tr><td>Post-Ruta</td><td>El ingreso sin rutas pendientes cierra la jornada; las pendientes quedan «No atendida». Después de las 16:15 es fuera de horario y los minutos se cuentan sobre las 16:15.</td></tr>
-            <tr><td>Avería</td><td>Vehículo no disponible hasta habilitarlo; cancela las rutas de hoy; las de días siguientes se reasignan.</td></tr>
+            <tr><td>Avería</td><td>Vehículo no disponible hasta habilitarlo; cancela las rutas pendientes del turno en curso y las de hoy; las de días siguientes se reasignan.</td></tr>
             <tr><td>Salida después de la Post-Ruta o de un vehículo en avería</td><td>Permitida con motivo; queda marcada.</td></tr>
             <tr><td>Registros históricos</td><td>Nunca se borran: se anulan o desactivan, siempre con auditoría.</td></tr>
         </tbody>
@@ -865,6 +913,8 @@ tr:last-child td { border-bottom: 0; }
     <details><summary>Subí un Excel y algunas filas salen con error.</summary><p>Grabe las válidas, corrija en el Excel solo las filas con error (el detalle dice qué falta) y vuelva a subirlas. Las que ya se grabaron aparecerán como «Omitidas» (maestros) o con error de duplicado (programaciones), así que no se duplican.</p></details>
     <details><summary>No veo el menú «Accesos» en Planificación.</summary><p>El enlace aparece a los usuarios de Planeamiento y a quienes tienen un grupo de Control de Accesos. Si es su caso y no lo ve, pida a TI que revise sus grupos. Comercial no tiene acceso a este módulo.</p></details>
     <details><summary>¿Tengo que programar la Pre-Ruta o la Post-Ruta?</summary><p>No. La Pre-Ruta se crea sola con la primera ruta INTERNO del día y la Post-Ruta la registra Vigilancia cuando el camión vuelve sin rutas pendientes.</p></details>
+    <details><summary>¿Cómo programo un turno noche?</summary><p>Como cualquier ruta INTERNO: una programación por cada salida del CD, con la fecha y la hora en que sale y el conductor de la noche. Una salida a las 22:00 se programa ese día a las 22:00; una a las 02:00 se programa el día siguiente a las 02:00 (el sistema la agrega al turno noche que empezó la víspera). Se pueden programar antes de que vuelva el turno día: su Post-Ruta no las toca.</p></details>
+    <details><summary>Programé una ruta a las 21:00 de un sábado y salió un aviso.</summary><p>El turno noche es de lunes a viernes: el sábado se permite como excepción y por eso avisa. La noche de un feriado y la anterior no se pueden programar.</p></details>
     <details><summary>Un camión propio está en el taller. ¿Cómo lo saco de la programación?</summary><p>Regístrelo en <b>Disponibilidad → Registrar avería</b>. Deja de aparecer para programar; sus programaciones de los días siguientes aparecen allí para cambiarles la placa o cancelarlas. Cuando vuelva a operar, pulse <b>Habilitar</b>.</p></details>
     <details><summary>Es el primer día con el sistema y la portería me ofrece «Está ingresando» o «Está saliendo».</summary><p>Si la unidad durmió en el CD, elija <b>«Está saliendo»</b> y digite el kilometraje del tablero. Se registra su salida a ruta con la Pre-Ruta desde las 06:30 y queda atendida su primera ruta. Desde el día siguiente ya no aparece esta pantalla.</p></details>
     <details><summary>¿Con qué hora se compara la salida de un camión propio?</summary><p>Con la hora programada de su ruta: en las rutas INTERNO es la hora de <b>salida</b> del CD. La primera ruta se compara con la salida de la Pre-Ruta; las siguientes, con la salida de cada visita. Desde 15 min tarde es retraso.</p></details>
@@ -893,7 +943,8 @@ tr:last-child td { border-bottom: 0; }
         <dt>Cierre administrativo</dt><dd>Salida registrada por el Administrador cuando Vigilancia la olvidó.</dd>
         <dt>Licencia especial A-IV</dt><dd>Categoría para transportar materiales y residuos peligrosos (camiones MAPTEL). Va en la misma licencia, con su propio vencimiento.</dd>
         <dt>Campanita</dt><dd>Aviso de licencias por vencer o recién vencidas, en la barra superior (Administrador y Despacho).</dd>
-        <dt>Jornada</dt><dd>El día de un camión propio con rutas INTERNO: de la Pre-Ruta a la Post-Ruta.</dd>
+        <dt>Jornada</dt><dd>Un turno de un camión propio con rutas INTERNO: de la Pre-Ruta a la Post-Ruta. Puede haber una de día y una de noche por placa y fecha.</dd>
+        <dt>Turno noche</dt><dd>Jornada de un camión propio con salidas desde las 20:00 hasta las 06:15 del día siguiente, con otro conductor si corresponde. Cierra a las 06:15 (tolerancia hasta las 06:30).</dd>
         <dt>Pre-Ruta</dt><dd>Tiempo en el CD desde las 06:30 hasta la salida a ruta. Automática; meta 60 minutos.</dd>
         <dt>Post-Ruta</dt><dd>Último ingreso del día de un camión propio (sin rutas pendientes): cierra la jornada y la unidad duerme en el CD.</dd>
         <dt>Cierre operativo</dt><dd>Hora de retorno esperada de la flota propia (16:00, con tolerancia hasta 16:15).</dd>

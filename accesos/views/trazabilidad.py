@@ -50,7 +50,8 @@ def trazabilidad_placa(request):
 def trazabilidad_exportar(request):
     transporte, fecha, texto, _ = _consulta(request)
     encabezados = ['Fecha', 'Hora', 'Evento', 'Hora programada', 'Referencia', 'Desviación (min)', 'Lectura',
-                   'Calificación', 'Kilometraje', 'CD', 'Conductor', 'Vigilante', 'Detalle', 'Observación', 'Marcas']
+                   'Calificación', 'Kilometraje', 'CD', 'Conductor', 'Vigilante', 'Detalle', 'Observación', 'Marcas',
+                   'Turno']
     filas = []
     if transporte is not None:
         datos = trazabilidad.del_dia(transporte, fecha, tiempo.ahora(), ConfiguracionAccesos.obtener(),
@@ -59,7 +60,7 @@ def trazabilidad_exportar(request):
             momento = tiempo.a_lima(e.momento)
             filas.append([momento.date(), momento.time().replace(second=0, microsecond=0), e.titulo, e.programada,
                           e.referencia, e.desviacion, e.lectura, e.etiqueta, e.km, str(e.cd or ''), e.conductor,
-                          e.vigilante, e.detalle, e.obs, ', '.join(e.marcas)])
+                          e.vigilante, e.detalle, e.obs, ', '.join(e.marcas), 'Noche' if e.turno_noche else ''])
     placa = transporte.placa_normalizada if transporte else normalizar_placa(texto) or 'placa'
     nombre = f"Trazabilidad_{placa}_{fecha:%Y%m%d}.xlsx"
     formatos = {0: 'DD/MM/YYYY', 1: 'HH:MM', 3: 'HH:MM', 8: '#,##0'}

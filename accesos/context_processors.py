@@ -27,6 +27,11 @@ def _avisos_flota():
     return jornadas.avisos_flota(tiempo.ahora())
 
 
+def _configuracion():
+    from .models import ConfiguracionAccesos
+    return ConfiguracionAccesos.obtener()
+
+
 def accesos(request):
     user = getattr(request, 'user', None)
     roles = roles_de(user) if user is not None else set()
@@ -49,4 +54,6 @@ def accesos(request):
         'accesos_alertas_licencias': SimpleLazyObject(_alertas_licencias) if ve_licencias else [],
         # Avisos de la flota propia en la misma campanita: averías abiertas y jornadas sin Post-Ruta.
         'accesos_alertas_flota': SimpleLazyObject(_avisos_flota) if ve_licencias else [],
+        # Horarios de los turnos (día y noche) para los textos de ayuda. Perezosa, como las alertas.
+        'accesos_config': SimpleLazyObject(_configuracion),
     }

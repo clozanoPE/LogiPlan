@@ -136,7 +136,8 @@ class SincronizacionTests(JornadaBase):
         self.assertEqual(self.jornada(date(2026, 10, 9)).hora_inicio, time(6, 0))
 
     def test_aviso_si_la_ruta_sale_antes_de_la_pre_ruta(self):
-        temprana = self.interna(6, 0, fecha=MANANA)
+        # 06:20: turno día (hasta las 06:15 sería del turno noche del día anterior), antes de la Pre-Ruta de las 06:30.
+        temprana = self.interna(6, 20, fecha=MANANA)
         self.assertTrue(any('antes del inicio de la Pre-Ruta' in a for a in servicios.avisos(temprana, self.config)))
         # La hora de una ruta INTERNO es la de salida: a las 07:00 la atiende la salida de la Pre-Ruta.
         normal = self.interna(7, 0, fecha=MANANA)

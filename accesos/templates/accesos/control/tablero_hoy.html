@@ -33,7 +33,7 @@
 {% if jornadas_dia %}
 <section class="mb-4 bg-white rounded-3xl border border-emerald-100 shadow-sm p-5 sm:p-6">
     <div class="action-row justify-between mb-4">
-        <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-700"><i class="fas fa-truck mr-1"></i> Flota propia hoy · {{ resumen_flota.total }} jornada{{ resumen_flota.total|pluralize }}</h2>
+        <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-700"><i class="fas fa-truck mr-1"></i> Flota propia hoy · {{ resumen_flota.placas }} placa{{ resumen_flota.placas|pluralize }}{% if resumen_flota.noche %} · {{ resumen_flota.dia }} en turno día · {{ resumen_flota.noche }} en turno noche{% endif %}</h2>
         {% if resumen_flota.alertas %}<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-black uppercase"><i class="fas fa-triangle-exclamation mr-1"></i>{{ resumen_flota.alertas }} con alerta</span>{% endif %}
     </div>
     <dl class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center mb-4">
@@ -41,9 +41,9 @@
         <div class="rounded-2xl {% if g.clave == 'no_disponibles' and g.total %}bg-rose-50{% else %}bg-slate-50{% endif %} p-3"><dt class="text-[10px] font-black uppercase text-slate-400">{{ g.etiqueta }}</dt><dd class="text-2xl font-black">{{ g.total }}</dd></div>
         {% endfor %}
     </dl>
-    <p class="text-xs text-slate-500">Pre-Ruta automática desde las {{ jornadas_dia.0.hora_inicio|time:"H:i" }} (meta {{ jornadas_dia.0.meta_pre_ruta_min }} min) · cierre operativo {{ jornadas_dia.0.hora_cierre|time:"H:i" }}, tolerancia {{ jornadas_dia.0.tolerancia_cierre_min }} min.{% if resumen_flota.pre_ruta_excedida %} <span class="font-black text-amber-700">{{ resumen_flota.pre_ruta_excedida }} siguen en Pre-Ruta pasada la meta.</span>{% endif %}{% if resumen_flota.sin_retorno %} <span class="font-black text-rose-600">{{ resumen_flota.sin_retorno }} sin retorno pasada la tolerancia.</span>{% endif %}</p>
+    <p class="text-xs text-slate-500">Turno día: Pre-Ruta desde las {{ accesos_config.hora_pre_ruta|time:"H:i" }} (meta {{ accesos_config.meta_pre_ruta_min }} min) · cierre operativo {{ accesos_config.hora_cierre_operativo|time:"H:i" }}, tolerancia {{ accesos_config.tolerancia_cierre_min }} min. <i class="fas fa-moon"></i> Turno noche: Pre-Ruta desde las {{ accesos_config.hora_pre_ruta_noche|time:"H:i" }} (meta {{ accesos_config.meta_pre_ruta_noche_min }} min) · cierre {{ accesos_config.hora_cierre_noche|time:"H:i" }} del día siguiente, tolerancia {{ accesos_config.tolerancia_cierre_noche_min }} min.{% if resumen_flota.pre_ruta_excedida %} <span class="font-black text-amber-700">{{ resumen_flota.pre_ruta_excedida }} siguen en Pre-Ruta pasada la meta.</span>{% endif %}{% if resumen_flota.sin_retorno %} <span class="font-black text-rose-600">{{ resumen_flota.sin_retorno }} sin retorno pasada la tolerancia.</span>{% endif %}</p>
 </section>
-{% include 'accesos/programacion/_jornadas.html' with no_laborable=None sin_encabezado=True %}
+{% include 'accesos/programacion/_jornadas.html' with no_laborable=None sin_encabezado=True fecha_agenda=hora.date %}
 {% endif %}
 
 <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">

@@ -103,7 +103,9 @@ def porteria(request, cd):
                 'incidencia': jornadas.incidencia_abierta(resultado.transporte.pk),
             })
             if resultado.tipo_salida == servicios.SALIDA_PRE_RUTA_AUTOMATICA:
+                # Desde la Pre-Ruta (06:30 o 20:00) o desde su entrada si volvió cuando el turno ya había empezado.
                 desde = min(ahora, max(jornadas.inicio(resultado.jornada), tramo.entrada_en))
+                contexto['desde_pre_ruta'] = tiempo.a_lima(desde)
                 contexto['minutos_pre_ruta'] = servicios.formato_duracion(int((ahora - desde).total_seconds() // 60))
             # Ruta INTERNO que atiende esta salida (su hora programada es la de salida) y cómo sale frente a ella.
             ruta = resultado.ruta_salida or (tramo.programacion if tramo.programacion_id and tramo.califica_salida else None)

@@ -10,6 +10,9 @@ de lo programado frente a lo real.
 
 Todo se arma en Python con los tramos válidos de la placa que tocan ese día (también la pernocta que venía
 del día anterior y la que sigue al día siguiente, como contexto) y sus programaciones.
+
+Turno noche (15/10/2026): el día de una placa incluye su turno noche completo (de las 20:00 a la madrugada
+siguiente), con sus eventos marcados «Turno noche»; el resumen trae los datos de cada turno.
 """
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -45,6 +48,7 @@ class Evento:
     tramo: Tramo = None
     programacion: Programacion = None
     otro_dia: bool = False
+    turno_noche: bool = False   # evento del turno noche de la placa
     marcas: list = field(default_factory=list)
 
     @property
@@ -187,14 +191,20 @@ def del_dia(transporte, fecha, ahora, config, cd_ids=None):
     """Eventos de la placa en la fecha (en orden) y su resumen. `cd_ids`: limita a esos CD (Vigilancia)."""
     tolerancia = config.tolerancia_puntualidad_min
     jornada = jornadas.jornada_vigente(transporte.pk, fecha)
+    noche = jornadas.jornada_vigente(transporte.pk, fecha, jornadas.NOCHE)
     toca_el_dia = Q(fecha_local_entrada=fecha) | Q(fecha_local_salida=fecha)
     if fecha <= ahora.date():
         toca_el_dia |= Q(abierto=True, fecha_local_entrada__lt=fecha)  # sigue dentro desde otro día
+    de_las_programaciones = Q(fecha=fecha)
+    if noche:
+        toca_el_dia |= Q(jornada=noche)            # el turno noche completo, también su madrugada
+        de_las_programaciones |= Q(jornada=noche)
     tramos = (Tramo.objects.filter(transporte=transporte, vigente=True).filter(toca_el_dia)
-              .select_related('programacion', 'cd', 'conductor', 'vigilante_entrada', 'vigilante_salida', 'jornada')
+              .select_related('programacion__jornada', 'cd', 'conductor', 'vigilante_entrada', 'vigilante_salida',
+                              'jornada')
               .order_by('entrada_en', 'id'))
-    programaciones = (Programacion.objects.filter(transporte=transporte, fecha=fecha)
-                      .select_related('cd', 'conductor').order_by('hora', 'pk'))
+    programaciones = (Programacion.objects.filter(de_las_programaciones, transporte=transporte)
+                      .select_related('cd', 'conductor', 'jornada').order_by('fecha', 'hora', 'pk'))
     if cd_ids is not None:
         tramos = tramos.filter(cd_id__in=cd_ids)
         programaciones = programaciones.filter(cd_id__in=cd_ids)
@@ -202,7 +212,10 @@ def del_dia(transporte, fecha, ahora, config, cd_ids=None):
 
     eventos = []
     for t in tramos:
-        eventos.extend(_eventos_de_tramo(t, jornada, tolerancia))
+        de_la_noche = bool(noche and t.jornada_id == noche.pk)
+        for evento in _eventos_de_tramo(t, noche if de_la_noche else jornada, tolerancia):
+            evento.turno_noche = bool(t.jornada_id and t.jornada.es_noche)
+            eventos.append(evento)
     atendidas = {t.programacion_id for t in tramos if t.programacion_id}
     hoy = ahora.date()
     for p in programaciones:
@@ -221,22 +234,29 @@ def del_dia(transporte, fecha, ahora, config, cd_ids=None):
                               detalle=detalle, programada=p.hora,
                               referencia='salida programada' if interno else 'llegada programada',
                               nivel=nivel, etiqueta=etiqueta, cd=p.cd, conductor=p.conductor.nombre_completo,
-                              programacion=p))
+                              programacion=p, turno_noche=bool(p.jornada_id and p.jornada.es_noche)))
     # Pre-Ruta en curso (todavía no se graba): la jornada está planificada y ya pasó su hora de inicio.
-    if jornada and jornada.estado == Jornada.Estado.PLANIFICADA and fecha == hoy and ahora >= jornadas.inicio(jornada):
-        dentro = any(t.esta_abierto for t in tramos)
-        estado = jornadas.estado_visible(jornada, ahora, dentro=dentro)
-        eventos.append(Evento(momento=jornadas.inicio(jornada), tipo='pre_en_curso', icono='fa-sun',
-                              titulo=f"Pre-Ruta: {estado.etiqueta.lower()}", nivel=AVISO if estado.alerta else INFO,
-                              detalle=f"Desde las {jornada.hora_inicio:%H:%M}; meta {jornada.meta_pre_ruta_min} min. "
-                                      "Se registra al salir a ruta.", cd=jornada.cd,
-                              conductor=jornada.conductor.nombre_completo))
+    abierto = any(t.esta_abierto for t in tramos)
+    for j in (jornada, noche):
+        if (j and j.estado == Jornada.Estado.PLANIFICADA and ahora >= jornadas.inicio(j)
+                and not jornadas.vencida_sin_salir(j, ahora)):
+            estado = jornadas.estado_visible(j, ahora, dentro=abierto)
+            eventos.append(Evento(momento=jornadas.inicio(j), tipo='pre_en_curso',
+                                  icono='fa-moon' if j.es_noche else 'fa-sun',
+                                  titulo=f"Pre-Ruta{' noche' if j.es_noche else ''}: {estado.etiqueta.lower()}",
+                                  nivel=AVISO if estado.alerta else INFO,
+                                  detalle=f"Desde las {j.hora_inicio:%H:%M}; meta {j.meta_pre_ruta_min} min. "
+                                          "Se registra al salir a ruta.", cd=j.cd,
+                                  conductor=j.conductor.nombre_completo, turno_noche=j.es_noche))
     orden_tipo = {'fin_pernocta': 0, 'pre_inicio': 1, 'pre_en_curso': 1}
     eventos.sort(key=lambda e: (e.momento, orden_tipo.get(e.tipo, 2)))
     for e in eventos:
-        e.otro_dia = e.fecha != fecha
-    return {'eventos': eventos, 'jornada': jornada, 'resumen': _resumen(eventos, programaciones, tramos, jornada, fecha,
-                                                                         ahora, tolerancia)}
+        # La madrugada del turno noche de este día es parte del día; lo demás de otro día es contexto.
+        e.otro_dia = e.fecha != fecha and not (e.turno_noche and noche and e.fecha == jornadas.fecha_cierre(noche))
+    resumen = _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia)
+    if noche:
+        resumen['noche'] = _resumen_turno(noche, tramos, ahora)
+    return {'eventos': eventos, 'jornada': jornada, 'noche': noche, 'resumen': resumen}
 
 
 def _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia):
@@ -261,13 +281,20 @@ def _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia)
         'tolerancia': tolerancia,
     }
     if jornada:
-        resumen.update({
-            'pre_ruta_min': jornadas.minutos_pre_ruta(jornada), 'meta_pre_ruta': jornada.meta_pre_ruta_min,
-            'calificacion_cierre': jornadas.ETIQUETAS_CIERRE.get(jornadas.calificacion_cierre(jornada)),
-            'minutos_fuera': jornadas.minutos_sobre_cierre(jornada),
-            'limite_cierre': jornadas.limite_cierre(jornada),
-            'estado': jornadas.estado_visible(jornada, ahora, dentro=any(t.esta_abierto for t in tramos),
-                                              en_visita=any(t.esta_abierto and t.es_programado for t in tramos),
-                                              no_disponible=jornadas.incidencia_abierta(jornada.transporte_id) is not None),
-        })
+        resumen.update(_resumen_turno(jornada, tramos, ahora))
     return resumen
+
+
+def _resumen_turno(jornada, tramos, ahora):
+    """Pre-Ruta, cierre y estado de un turno (día o noche) de la placa."""
+    return {
+        'pre_ruta_min': jornadas.minutos_pre_ruta(jornada), 'meta_pre_ruta': jornada.meta_pre_ruta_min,
+        'calificacion_cierre': jornadas.ETIQUETAS_CIERRE.get(jornadas.calificacion_cierre(jornada)),
+        'minutos_fuera': jornadas.minutos_sobre_cierre(jornada),
+        'limite_cierre': jornadas.limite_cierre(jornada),
+        'estado': jornadas.estado_visible(jornada, ahora, dentro=any(t.esta_abierto for t in tramos),
+                                          en_visita=any(t.esta_abierto and t.es_programado for t in tramos),
+                                          no_disponible=jornadas.incidencia_abierta(jornada.transporte_id) is not None),
+        'conductor': jornada.conductor.nombre_completo, 'hora_inicio': jornada.hora_inicio,
+        'post_ruta_en': jornada.post_ruta_en,
+    }

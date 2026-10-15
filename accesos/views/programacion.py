@@ -168,8 +168,9 @@ def detalle(request, pk):
     )
     ahora = tiempo.ahora()
     tramo = servicios.tramo_vigente(programacion)
-    jornada = (jornadas.jornada_vigente(programacion.transporte_id, programacion.fecha)
-               if programacion.tipo == Programacion.Tipo.INTERNO else None)
+    jornada = programacion.jornada if programacion.tipo == Programacion.Tipo.INTERNO else None
+    if jornada is not None and jornada.estado == jornada.Estado.ANULADA:
+        jornada = None
     return render(request, 'accesos/programacion/detalle.html', {
         'programacion': programacion,
         'jornada': jornada,

@@ -38,7 +38,7 @@
         <div>
             <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">{{ fecha_larga }}{% if fecha == hoy %} · hoy{% endif %}</p>
             <p class="text-4xl font-black tracking-widest">{{ transporte.placa }}</p>
-            <p class="text-slate-300 font-medium text-sm">{{ transporte.tamano }}{% if transporte.es_interno %} · flota propia{% endif %}{% if jornada %} · {{ jornada.codigo }} · CD {{ jornada.cd }} · {{ jornada.conductor.nombre_completo }}{% endif %}</p>
+            <p class="text-slate-300 font-medium text-sm">{{ transporte.tamano }}{% if transporte.es_interno %} · flota propia{% endif %}{% if jornada %} · {{ jornada.codigo }} · CD {{ jornada.cd }} · {{ jornada.conductor.nombre_completo }}{% elif noche %} · {{ noche.codigo }} · turno noche · CD {{ noche.cd }} · {{ noche.conductor.nombre_completo }}{% endif %}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             {% if r.estado %}<span class="px-3 py-1 rounded-full text-xs font-black uppercase {% if r.estado.alerta %}bg-rose-500{% else %}bg-white/15{% endif %}">{% if r.estado.alerta %}<i class="fas fa-triangle-exclamation mr-1"></i>{% endif %}{{ r.estado.etiqueta }}</span>{% endif %}
@@ -78,6 +78,23 @@
     </div>
 </div>
 
+{% if r.noche %}{% with n=r.noche %}
+<!-- Turno noche de la placa ese día (de las 20:00 a la madrugada siguiente) -->
+<section class="mb-6 bg-daryza-dark text-white rounded-3xl p-4 sm:p-5" id="resumen-turno-noche">
+    <div class="action-row justify-between gap-3">
+        <div>
+            <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca"><i class="fas fa-moon mr-1"></i>Turno noche · {{ noche.codigo }}</p>
+            <p class="font-bold text-sm text-slate-300">{{ n.conductor }} · CD {{ noche.cd }} · Pre-Ruta desde las {{ n.hora_inicio|time:"H:i" }}</p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-black uppercase {% if n.estado.alerta %}bg-rose-500{% else %}bg-white/15{% endif %}">{% if n.estado.alerta %}<i class="fas fa-triangle-exclamation mr-1"></i>{% endif %}{{ n.estado.etiqueta }}</span>
+    </div>
+    <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta</dt><dd class="font-black {% if n.pre_ruta_min is not None and n.pre_ruta_min > n.meta_pre_ruta %}text-rose-300{% endif %}">{% if n.pre_ruta_min is not None %}{{ n.pre_ruta_min }} min{% else %}—{% endif %} <span class="text-xs font-bold text-slate-400">meta {{ n.meta_pre_ruta }} min</span></dd></div>
+        <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Retorno</dt><dd class="font-black {% if n.minutos_fuera %}text-rose-300{% endif %}">{% if n.post_ruta_en %}{{ n.post_ruta_en|date:"H:i" }} <span class="text-xs font-bold text-slate-400">{{ n.post_ruta_en|date:"d/m" }}</span>{% else %}—{% endif %} <span class="text-xs font-bold text-slate-400">{% if n.calificacion_cierre %}{{ n.calificacion_cierre }}{% if n.minutos_fuera %} · {{ n.minutos_fuera }} min sobre las {{ n.limite_cierre|date:"H:i" }}{% endif %}{% else %}referencia hasta las {{ n.limite_cierre|date:"H:i" }}{% endif %}</span></dd></div>
+    </dl>
+</section>
+{% endwith %}{% endif %}
+
 <!-- Línea de tiempo -->
 <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
     <h2 class="text-lg font-black text-daryza-dark mb-1">Línea de tiempo</h2>
@@ -88,7 +105,7 @@
         <li class="flex gap-2 sm:gap-3 {% if e.otro_dia %}opacity-60{% endif %}">
             <div class="w-12 sm:w-14 shrink-0 text-right pt-1">
                 <span class="block text-base sm:text-lg font-black text-daryza-dark leading-none">{{ e.hora }}</span>
-                {% if e.otro_dia %}<span class="block mt-1 text-[10px] font-black uppercase text-slate-400">{{ e.momento|date:"d/m" }}</span>{% endif %}
+                {% if e.fecha != fecha %}<span class="block mt-1 text-[10px] font-black uppercase text-slate-400">{{ e.momento|date:"d/m" }}</span>{% endif %}
             </div>
             <div class="relative w-8 shrink-0 flex justify-center">
                 {% if not forloop.last %}<span class="absolute top-8 bottom-0 w-0.5 bg-slate-100" aria-hidden="true"></span>{% endif %}
@@ -98,6 +115,7 @@
             <div class="flex-1 min-w-0 pb-6">
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <p class="font-black text-daryza-dark">{{ e.titulo }}</p>
+                    {% if e.turno_noche %}<span class="px-2 py-0.5 rounded-full bg-daryza-dark text-white text-[10px] font-black uppercase"><i class="fas fa-moon mr-1"></i>Turno noche</span>{% endif %}
                     {% if e.etiqueta %}<span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase {% if e.nivel == 'critico' %}bg-rose-100 text-rose-700{% elif e.nivel == 'ok' %}bg-emerald-100 text-emerald-700{% elif e.nivel == 'aviso' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if e.nivel == 'critico' %}<i class="fas fa-clock mr-1"></i>{% elif e.nivel == 'ok' %}<i class="fas fa-check mr-1"></i>{% endif %}{{ e.etiqueta }}</span>{% endif %}
                 </div>
                 {% if e.referencia %}<p class="text-sm font-bold {% if e.nivel == 'critico' %}text-rose-700{% else %}text-slate-600{% endif %}">{{ e.referencia|capfirst }}{% if e.programada %}: {{ e.programada|time:"H:i" }}{% endif %}{% if e.lectura %} · {{ e.lectura }}{% endif %}</p>{% endif %}
@@ -118,7 +136,7 @@
     {% endif %}
 </section>
 
-{% if jornada %}
+{% if jornada or noche %}
 <p class="p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> El retorno y sus minutos fuera de horario son un indicador operativo del vehículo. No es un registro de asistencia ni sustenta horas extra del personal.</p>
 {% endif %}
 {% endwith %}

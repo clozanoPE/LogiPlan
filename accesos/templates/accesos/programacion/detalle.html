@@ -50,10 +50,11 @@
             {% endif %}
             {% if jornada %}
             <div class="sm:col-span-2 p-4 rounded-2xl bg-emerald-50">
-                <dt class="text-[10px] font-black uppercase tracking-widest text-emerald-800"><i class="fas fa-truck mr-1"></i> Jornada de la flota propia · {{ jornada.codigo }}</dt>
+                <dt class="text-[10px] font-black uppercase tracking-widest text-emerald-800"><i class="fas {% if jornada.es_noche %}fa-moon{% else %}fa-truck{% endif %} mr-1"></i> {% if jornada.es_noche %}Turno noche del {{ jornada.fecha|date:"d/m" }}{% else %}Jornada de la flota propia{% endif %} · {{ jornada.codigo }}</dt>
                 <dd class="mt-2 flex flex-wrap items-center gap-3 text-sm">{% include 'accesos/_estado_jornada.html' with estado=jornada_estado %}
                     <span class="font-bold">Pre-Ruta {% if jornada.primera_salida %}{{ jornada.inicio_real|date:"H:i" }}–{{ jornada.primera_salida|date:"H:i" }}{% else %}desde {{ jornada.hora_inicio|time:"H:i" }}{% endif %}</span>
-                    <span class="font-bold">· Post-Ruta {% if jornada.post_ruta_en %}{{ jornada.post_ruta_en|date:"H:i" }}{% else %}—{% endif %}</span></dd>
+                    <span class="font-bold">· Post-Ruta {% if jornada.post_ruta_en %}{{ jornada.post_ruta_en|date:"H:i" }}{% if jornada.es_noche %} ({{ jornada.post_ruta_en|date:"d/m" }}){% endif %}{% else %}—{% endif %}</span>
+                    <span class="text-slate-500">· {{ jornada.conductor.nombre_completo }}</span></dd>
                 <dd class="text-xs text-emerald-900/70 mt-1">Se creó sola con la primera ruta INTERNO de la placa en el día; no se programa.</dd>
             </div>
             {% endif %}

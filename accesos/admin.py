@@ -94,7 +94,7 @@ class TipoIncidenciaAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
 class ConfiguracionAccesosAdmin(AuditoriaAdminMixin, admin.ModelAdmin):
     list_display = ('__str__', 'ventana_sugerencia_min', 'tolerancia_puntualidad_min',
                     'umbral_prolongada_min', 'meta_permanencia_min', 'hora_pre_ruta', 'hora_cierre_operativo',
-                    'modificado_en')
+                    'hora_pre_ruta_noche', 'hora_cierre_noche', 'modificado_en')
     accion_modificacion = Accion.CONFIG
     readonly_fields = ('licencias_revisadas_el',)
 
@@ -199,10 +199,10 @@ class TramoAdmin(SoloLecturaAdmin):
 @admin.register(Jornada)
 class JornadaAdmin(SoloLecturaAdmin):
     """Solo consulta: la jornada se crea con la primera programación INTERNO y avanza con la portería."""
-    list_display = ('codigo', 'fecha', 'transporte', 'cd', 'conductor', 'estado', 'primera_salida', 'post_ruta_en',
-                    'motivo_cierre')
+    list_display = ('codigo', 'fecha', 'turno', 'transporte', 'cd', 'conductor', 'estado', 'primera_salida',
+                    'post_ruta_en', 'motivo_cierre')
     list_select_related = ('transporte', 'cd', 'conductor')
-    list_filter = ('estado', 'motivo_cierre', 'cd', 'fecha')
+    list_filter = ('turno', 'estado', 'motivo_cierre', 'cd', 'fecha')
     search_fields = ('transporte__placa_normalizada',)
     date_hierarchy = 'fecha'
 

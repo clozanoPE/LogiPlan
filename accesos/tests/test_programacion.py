@@ -229,9 +229,10 @@ class VistasYPermisosTests(ProgramacionBase):
 
     def test_alta_desde_la_vista_audita_y_avisa(self):
         self.entrar(self.despacho)
-        # Ruta INTERNO con salida a las 06:00, antes del inicio de la Pre-Ruta (06:30): aviso de salida anticipada.
+        # Ruta INTERNO con salida a las 06:20 (turno día), antes del inicio de la Pre-Ruta (06:30): aviso de salida
+        # anticipada. Hasta las 06:15 sería del turno noche del día anterior.
         respuesta = self.client.post(reverse('accesos:programacion_crear'),
-                                     self.datos(tipo='INTERNO', transporte=self.f7j.pk, hora='06:00', documento='',
+                                     self.datos(tipo='INTERNO', transporte=self.f7j.pk, hora='06:20', documento='',
                                                 razon_social=''), follow=True)
         programacion = Programacion.objects.get()
         self.assertEqual(respuesta.redirect_chain[-1][0], reverse('accesos:programacion_detalle', args=[programacion.pk]))

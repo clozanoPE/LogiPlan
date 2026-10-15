@@ -180,10 +180,13 @@ class ProgramacionForm(forms.ModelForm):
                 servicios.validar_horario_futuro(fecha, hora, self.ahora)
             except ValidationError as error:
                 self.add_error('hora', error)
-        if fecha and (not self.instance.pk or 'fecha' in self.changed_data):
-            no_laborable = jornadas.motivo_no_laborable(fecha)
-            if no_laborable:
-                self.add_error('fecha', f"{no_laborable} No se programa en domingos ni feriados.")
+        # Domingos, feriados y noches sin turno noche: solo si la fecha, la hora o el tipo son nuevos o cambian
+        # (una programación existente en un día que luego pasó a feriado se puede seguir editando).
+        cambio = not self.instance.pk or {'fecha', 'hora', 'tipo'} & set(self.changed_data)
+        if fecha and hora and cambio:
+            no_programable = jornadas.motivo_no_programable(fecha, hora, tipo, self.config)
+            if no_programable:
+                self.add_error('fecha', no_programable)
 
         transporte = datos.get('transporte')
         if transporte:

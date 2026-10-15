@@ -36,9 +36,17 @@ def _persona(usuario):
 
 # --- PROGRAMACIONES ---
 
+def _turno(programacion):
+    """Turno de una ruta INTERNO: «Día» o «Noche (del dd/mm)» (las de madrugada son del turno noche anterior)."""
+    if not programacion.jornada_id:
+        return ''
+    jornada = programacion.jornada
+    return f"Noche (del {jornada.fecha:%d/%m})" if jornada.es_noche else 'Día'
+
+
 def programaciones(filas, ahora):
     """`filas`: las de `consultas.programaciones_filtradas` (con `estado_codigo`, `tramo` y `puntualidad`)."""
-    encabezados = ['Código', 'Fecha', 'Hora programada', 'La hora es de', 'CD', 'Tipo', 'Placa', 'Tamaño',
+    encabezados = ['Código', 'Fecha', 'Hora programada', 'La hora es de', 'Turno', 'CD', 'Tipo', 'Placa', 'Tamaño',
                    'Conductor programado', 'Documento conductor', 'RUC / DNI', 'Razón social', 'Motivo',
                    'Observación de Despacho', 'Estado', 'Detalle del estado', 'Conductor que ingresó',
                    'Fecha entrada', 'Hora entrada', 'Fecha salida', 'Hora salida', 'Permanencia (min)',
@@ -55,7 +63,7 @@ def programaciones(filas, ahora):
         entrada = _lima(tramo.entrada_en) if tramo else (None, None)
         salida = _lima(tramo.salida_en) if tramo else (None, None)
         datos.append([
-            p.codigo, p.fecha, p.hora, 'Salida' if p.tipo == Programacion.Tipo.INTERNO else 'Llegada', str(p.cd),
+            p.codigo, p.fecha, p.hora, 'Salida' if p.tipo == Programacion.Tipo.INTERNO else 'Llegada', _turno(p), str(p.cd),
             p.get_tipo_display(), p.transporte.placa, str(p.transporte.tamano), p.conductor.nombre_completo,
             p.conductor.numero_documento, p.documento, p.razon_social, p.motivo, p.observacion_despacho,
             servicios.ETIQUETAS_ESTADO.get(p.estado_codigo, p.estado_codigo), detalle,
@@ -76,6 +84,8 @@ def programaciones(filas, ahora):
              "tolerancia configurada cuenta como retraso.",
              "Permanencia: la registrada si ya salió, o la transcurrida hasta el momento de la descarga si sigue "
              "dentro. Clase del tramo «Pre-Ruta»: la primera ruta del día la atiende la salida de la Pre-Ruta.",
+             "Turno (rutas INTERNO): salidas desde las 20:00 hasta las 06:15 del día siguiente son del turno noche; "
+             "el turno noche se identifica por el día en que empieza.",
              f"Descargado el {tiempo.a_lima(ahora):%d/%m/%Y %H:%M} (hora de Lima)."]
     return encabezados, datos, formatos, notas
 

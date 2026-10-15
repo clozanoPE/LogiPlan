@@ -165,6 +165,25 @@ class ConfiguracionAccesos(models.Model):
         default=15, verbose_name="Tolerancia del cierre operativo (min)",
         help_text="Un retorno después de la hora de cierre más esta tolerancia es «fuera de horario».",
     )
+    # Turno noche (15/10/2026): rutas INTERNO con salida desde la hora de la Pre-Ruta noche (20:00) hasta la
+    # hora de cierre noche (06:15) del día siguiente. Lunes a viernes; el sábado es excepcional (aviso).
+    hora_pre_ruta_noche = models.TimeField(
+        default=time(20, 0), verbose_name="Hora de inicio del turno noche (Pre-Ruta noche)",
+        help_text="Desde esta hora una ruta INTERNO es del turno noche y empieza su Pre-Ruta.",
+    )
+    meta_pre_ruta_noche_min = models.PositiveSmallIntegerField(
+        default=60, verbose_name="Meta de la Pre-Ruta noche (min)",
+        help_text="Minutos para salir a ruta desde el inicio del turno noche; después, alerta.",
+    )
+    hora_cierre_noche = models.TimeField(
+        default=time(6, 15), verbose_name="Hora de cierre del turno noche",
+        help_text="Retorno esperado del turno noche (día siguiente). Las salidas hasta esta hora son del turno "
+                  "noche del día anterior.",
+    )
+    tolerancia_cierre_noche_min = models.PositiveSmallIntegerField(
+        default=15, verbose_name="Tolerancia del cierre del turno noche (min)",
+        help_text="Un retorno del turno noche después del cierre más esta tolerancia es «fuera de horario».",
+    )
     modificado_en = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -176,6 +195,8 @@ class ConfiguracionAccesos(models.Model):
             models.CheckConstraint(condition=Q(sesion_vigilancia_horas__gt=0), name='accesos_config_sesion_positiva'),
             models.CheckConstraint(condition=Q(aviso_licencia_dias__gt=0), name='accesos_config_aviso_licencia_positivo'),
             models.CheckConstraint(condition=Q(meta_pre_ruta_min__gt=0), name='accesos_config_meta_pre_ruta_positiva'),
+            models.CheckConstraint(condition=Q(meta_pre_ruta_noche_min__gt=0),
+                                   name='accesos_config_meta_pre_ruta_noche_positiva'),
         ]
 
     def __str__(self):
@@ -190,6 +211,15 @@ class ConfiguracionAccesos(models.Model):
         super().clean()
         if self.ruc_empresa and not (self.ruc_empresa.isdigit() and len(self.ruc_empresa) == 11):
             raise ValidationError({'ruc_empresa': "El RUC debe tener 11 dígitos."})
+        # Las franjas de los turnos no se pisan: el cierre noche (madrugada) antes de la Pre-Ruta del día, y el
+        # turno noche después del cierre operativo del día.
+        errores = {}
+        if self.hora_cierre_noche and self.hora_pre_ruta and self.hora_cierre_noche >= self.hora_pre_ruta:
+            errores['hora_cierre_noche'] = "Debe ser anterior a la hora de inicio de la Pre-Ruta del día."
+        if self.hora_pre_ruta_noche and self.hora_cierre_operativo and self.hora_pre_ruta_noche <= self.hora_cierre_operativo:
+            errores['hora_pre_ruta_noche'] = "Debe ser posterior a la hora de cierre operativo del día."
+        if errores:
+            raise ValidationError(errores)
 
 
 class Feriado(models.Model):
@@ -459,6 +489,10 @@ class Programacion(models.Model):
                                    null=True, blank=True)
     # La unidad cerró su jornada (Post-Ruta) sin atenderla: se muestra «No atendida» desde ese momento.
     no_atendida_por_cierre = models.BooleanField(default=False, verbose_name="No atendida por cierre de jornada")
+    # Rutas INTERNO: la jornada (turno día o noche) a la que pertenece. La asigna jornadas.sincronizar() al
+    # guardar, por la franja horaria de la salida; portería, la Post-Ruta y las averías trabajan por jornada.
+    jornada = models.ForeignKey('Jornada', on_delete=models.PROTECT, related_name='programaciones',
+                                null=True, blank=True, editable=False)
 
     creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -507,22 +541,21 @@ class Programacion(models.Model):
             raise ValidationError(errores)
 
     # Campos que no cambian la jornada: el estado que sigue al tramo (En planta, Cerrada) no la afecta.
-    CAMPOS_SIN_EFECTO_EN_JORNADA = {'estado', 'modificado_en', 'no_atendida_por_cierre'}
+    CAMPOS_SIN_EFECTO_EN_JORNADA = {'estado', 'modificado_en', 'no_atendida_por_cierre', 'jornada'}
 
     def save(self, *args, **kwargs):
-        """Al guardar se sincroniza la jornada de la placa en ese día (y en el anterior si cambió de placa
-        o de fecha): la primera programación INTERNO crea la Pre-Ruta; sin ninguna activa, se anula."""
+        """Al guardar, la ruta INTERNO queda ligada a su jornada (turno día o noche según la hora de salida) y se
+        sincronizan esa jornada y la anterior si cambió: la primera ruta crea la Pre-Ruta; sin ninguna activa, se
+        anula."""
         campos = kwargs.get('update_fields')
         if campos is not None and set(campos) <= self.CAMPOS_SIN_EFECTO_EN_JORNADA and not self.esta_cancelada:
             return super().save(*args, **kwargs)
         anterior = None
         if self.pk:
-            anterior = Programacion.objects.filter(pk=self.pk).values_list('transporte_id', 'fecha').first()
+            anterior = Programacion.objects.filter(pk=self.pk).values_list('jornada_id', flat=True).first()
         super().save(*args, **kwargs)
         from . import jornadas  # import diferido: jornadas usa estos modelos
-        jornadas.sincronizar(self.transporte_id, self.fecha)
-        if anterior and anterior != (self.transporte_id, self.fecha):
-            jornadas.sincronizar(*anterior)
+        jornadas.sincronizar(self, anterior)
 
 
 # --- INCIDENCIAS (NO DISPONIBILIDAD) ---
@@ -577,12 +610,18 @@ class Incidencia(models.Model):
 # --- JORNADA DE LA FLOTA PROPIA ---
 
 class Jornada(models.Model):
-    """El día de una unidad propia: empieza con la Pre-Ruta (automática, a la hora configurada) y termina
-    con la Post-Ruta (la entrada que registra Vigilancia cuando ya no le quedan programaciones).
+    """Un turno de una unidad propia: empieza con la Pre-Ruta (automática, a la hora configurada) y termina
+    con la Post-Ruta (la entrada que registra Vigilancia cuando ya no le quedan rutas de ese turno).
 
-    Se crea sola con la primera programación INTERNO de la placa en el día (una por placa y fecha) y
-    se anula si se cancelan todas. Guarda una copia de los horarios vigentes al crearse. Los tramos
-    PRE_RUTA y POST_RUTA solo se graban cuando ocurren (salida y entrada reales)."""
+    Turnos (15/10/2026): DÍA (Pre-Ruta 06:30, cierre 16:00 + 15) y NOCHE (Pre-Ruta 20:00, cierre 06:15 + 15 del
+    día siguiente), cada uno con su conductor, sus rutas y su Post-Ruta. `fecha` es el día en que empieza el
+    turno. Se crea sola con la primera ruta INTERNO del turno (una por placa, fecha y turno) y se anula si se
+    cancelan todas. Guarda una copia de los horarios vigentes al crearse. Los tramos PRE_RUTA y POST_RUTA solo
+    se graban cuando ocurren (salida y entrada reales)."""
+
+    class Turno(models.TextChoices):
+        DIA = 'DIA', 'Día'
+        NOCHE = 'NOCHE', 'Noche'
 
     class Estado(models.TextChoices):
         PLANIFICADA = 'PLANIFICADA', 'Planificada'   # todavía no sale a ruta
@@ -595,10 +634,11 @@ class Jornada(models.Model):
         AVERIA = 'AVERIA', 'Avería'
 
     transporte = models.ForeignKey(Transporte, on_delete=models.PROTECT, related_name='jornadas')
-    fecha = models.DateField(db_index=True)
+    fecha = models.DateField(db_index=True, help_text="Día en que empieza el turno.")
+    turno = models.CharField(max_length=5, choices=Turno.choices, default=Turno.DIA, db_index=True)
     cd = models.ForeignKey(CentroDistribucion, on_delete=models.PROTECT, verbose_name="CD")
     conductor = models.ForeignKey(Conductor, on_delete=models.PROTECT, related_name='jornadas',
-                                  help_text="Conductor previsto: el de la primera programación del día.")
+                                  help_text="Conductor previsto: el de la primera programación del turno.")
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PLANIFICADA, db_index=True)
 
     # Copia de la configuración al crearse.
@@ -628,17 +668,21 @@ class Jornada(models.Model):
     class Meta:
         verbose_name = "Jornada de flota propia"
         verbose_name_plural = "Jornadas de flota propia"
-        ordering = ['-fecha', 'transporte__placa_normalizada']
+        ordering = ['-fecha', 'transporte__placa_normalizada', 'turno']
         constraints = [
-            models.UniqueConstraint(fields=['transporte', 'fecha'], name='accesos_jornada_una_por_dia'),
+            models.UniqueConstraint(fields=['transporte', 'fecha', 'turno'], name='accesos_jornada_una_por_turno'),
         ]
 
     def __str__(self):
-        return f"Jornada {self.transporte} {self.fecha:%d/%m/%Y}"
+        return f"Jornada {self.transporte} {self.fecha:%d/%m/%Y}{' (noche)' if self.es_noche else ''}"
 
     @property
     def codigo(self):
         return f"JOR-{self.pk:06d}" if self.pk else "JOR-nueva"
+
+    @property
+    def es_noche(self):
+        return self.turno == self.Turno.NOCHE
 
 
 # --- TRAMO ---

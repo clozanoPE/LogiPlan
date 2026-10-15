@@ -125,9 +125,9 @@
         <input type="hidden" name="placa" value="{{ texto }}">
         <div id="cabecera-post-ruta" class="{% if modo == 'averia' %}bg-rose-600{% else %}bg-emerald-600{% endif %} text-white p-6 action-row justify-between">
             <div>
-                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80" id="titulo-post-ruta">{% if modo == 'averia' %}Ingreso por avería{% elif resultado.reingreso %}Reingreso · jornada ya cerrada{% else %}Fin de jornada · Post-Ruta{% endif %}</p>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80" id="titulo-post-ruta" data-normal="{% if resultado.jornada.es_noche %}Fin del turno noche · Post-Ruta{% else %}Fin de jornada · Post-Ruta{% endif %}">{% if modo == 'averia' %}Ingreso por avería{% elif resultado.reingreso %}Reingreso · jornada ya cerrada{% elif resultado.jornada.es_noche %}Fin del turno noche · Post-Ruta{% else %}Fin de jornada · Post-Ruta{% endif %}</p>
                 <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
-                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia</p>
+                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia{% if resultado.jornada.es_noche %} · <i class="fas fa-moon"></i> turno noche del {{ resultado.jornada.fecha|date:"d/m" }}{% endif %}</p>
             </div>
             <i class="fas fa-flag-checkered text-6xl opacity-30"></i>
         </div>
@@ -135,17 +135,20 @@
             {% if not resultado.reingreso %}
             <p class="p-4 rounded-2xl font-bold text-sm {% if fuera_de_horario %}bg-amber-50 text-amber-900{% else %}bg-emerald-50 text-emerald-900{% endif %}">
                 <i class="fas fa-clock mr-1"></i>
-                Cierre operativo: {{ resultado.jornada.hora_cierre|time:"H:i" }} (tolerancia hasta {{ jornada_limite_cierre|time:"H:i" }}).
+                {% if resultado.jornada.es_noche %}Cierre del turno noche{% else %}Cierre operativo{% endif %}: {{ resultado.jornada.hora_cierre|time:"H:i" }} (tolerancia hasta {{ jornada_limite_cierre|time:"H:i" }}).
                 {% if fuera_de_horario %}Este retorno quedará como <span class="font-black">fuera de horario</span>.{% endif %}
             </p>
             {% endif %}
             {% if resultado.pendientes %}
             <div class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold">
-                <p><i class="fas fa-triangle-exclamation mr-1"></i> Tiene {{ resultado.pendientes|length }} {% if resultado.pendientes|length == 1 %}programación pendiente{% else %}programaciones pendientes{% endif %} hoy. Al registrar <span id="efecto-pendientes">{% if modo == 'averia' %}la avería se cancelarán{% else %}el fin de jornada quedarán como «No atendida»{% endif %}</span>:</p>
+                <p><i class="fas fa-triangle-exclamation mr-1"></i> Tiene {{ resultado.pendientes|length }} {% if resultado.pendientes|length == 1 %}programación pendiente{% else %}programaciones pendientes{% endif %} en este turno. Al registrar <span id="efecto-pendientes">{% if modo == 'averia' %}la avería se cancelarán{% else %}el fin de jornada quedarán como «No atendida»{% endif %}</span>:</p>
                 <ul class="mt-2 list-disc list-inside font-medium">
                     {% for p in resultado.pendientes %}<li>{{ p.hora|time:"H:i" }} · {{ p.codigo }} · CD {{ p.cd }} · {{ p.motivo }}</li>{% endfor %}
                 </ul>
             </div>
+            {% endif %}
+            {% if resultado.siguiente and not resultado.reingreso %}
+            <p class="p-4 rounded-2xl bg-slate-50 text-slate-700 text-sm font-bold" id="proximo-turno"><i class="fas {% if resultado.siguiente.es_noche %}fa-moon{% else %}fa-sun{% endif %} mr-1"></i> Próximo turno de la placa: {% if resultado.siguiente.es_noche %}noche{% else %}día{% endif %} del {{ resultado.siguiente.fecha|date:"d/m" }} desde las {{ resultado.siguiente.hora_inicio|time:"H:i" }} · {{ resultado.siguiente.conductor.nombre_completo }}. Sus rutas siguen pendientes: este registro no las cierra.</p>
             {% endif %}
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -168,6 +171,7 @@
                     <input type="checkbox" name="averia" value="on" id="casilla-averia" class="w-6 h-6 accent-[#e11d48]" {% if modo == 'averia' %}checked{% endif %}>
                     <i class="fas fa-screwdriver-wrench"></i> Ingresa por avería o falla (el vehículo queda NO DISPONIBLE)
                 </label>
+                <p class="mt-1 ml-9 text-xs font-bold text-slate-500">Se cancelan las rutas pendientes de este turno y las de hoy de la placa.</p>
                 <div id="campos-averia" class="{% if modo != 'averia' %}hidden{% endif %} mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="campo-averia-tipo" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">Tipo *</label>
@@ -204,7 +208,7 @@
     <div class="bg-white rounded-3xl border-4 border-marca overflow-hidden">
         <div class="bg-marca text-white p-6 action-row justify-between">
             <div>
-                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">Inicio de jornada · Pre-Ruta {{ resultado.jornada.hora_inicio|time:"H:i" }}</p>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">{% if resultado.jornada.es_noche %}<i class="fas fa-moon mr-1"></i>Inicio del turno noche{% else %}Inicio de jornada{% endif %} · Pre-Ruta {{ resultado.jornada.hora_inicio|time:"H:i" }}</p>
                 <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
                 <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia · {{ resultado.jornada.conductor.nombre_completo }}</p>
             </div>
@@ -219,7 +223,7 @@
                     <input type="hidden" name="placa" value="{{ texto }}">
                     <input type="hidden" name="sentido" value="ingresa">
                     <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-to-bracket text-marca mr-2"></i>Está ingresando</p>
-                    <p class="text-sm text-slate-500">Durmió fuera del CD: su Pre-Ruta empieza ahora.</p>
+                    <p class="text-sm text-slate-500">Viene de afuera del CD: su Pre-Ruta empieza ahora.</p>
                     <div>
                         <label for="campo-km-inicio" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
                         <input id="campo-km-inicio" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
@@ -239,7 +243,7 @@
                     <input type="hidden" name="placa" value="{{ texto }}">
                     <input type="hidden" name="sentido" value="sale">
                     <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-from-bracket text-sky-600 mr-2"></i>Está saliendo</p>
-                    <p class="text-sm text-slate-500">Durmió en el CD pero su ingreso no quedó registrado: se registra su salida a ruta con la Pre-Ruta desde las {{ resultado.jornada.hora_inicio|time:"H:i" }}.</p>
+                    <p class="text-sm text-slate-500">Estaba en el CD pero su ingreso no quedó registrado: se registra su salida a ruta con la Pre-Ruta desde las {{ resultado.jornada.hora_inicio|time:"H:i" }}.</p>
                     {% include 'accesos/porteria/_ruta_salida.html' %}
                     <div>
                         <label for="campo-km-sale" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
@@ -271,7 +275,7 @@
         <div class="bg-sky-600 text-white p-6 action-row justify-between">
             <div>
                 <p class="text-sm font-black uppercase tracking-[0.3em] opacity-80">
-                    {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' or resultado.tipo_salida == 'PRE_RUTA' %}Salida a ruta · fin de la Pre-Ruta
+                    {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' or resultado.tipo_salida == 'PRE_RUTA' %}Salida a ruta · fin de la Pre-Ruta{% if resultado.jornada.es_noche %} · turno noche{% endif %}
                     {% elif resultado.tipo_salida == 'TRAS_CIERRE' %}Salida después del fin de jornada
                     {% elif resultado.tipo_salida == 'NO_DISPONIBLE' %}Salida de vehículo no disponible (avería)
                     {% else %}Salida · {{ numero_tramo }}.º tramo del día{% endif %}</p>
@@ -291,7 +295,7 @@
             {% include 'accesos/porteria/_ruta_salida.html' %}
             <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {% if resultado.tipo_salida == 'PRE_RUTA_AUTO' %}
-                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta desde</dt><dd class="text-2xl font-black">{{ resultado.jornada.hora_inicio|time:"H:i" }}</dd><dd class="text-xs text-slate-400">durmió en el CD</dd></div>
+                <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta desde</dt><dd class="text-2xl font-black">{{ desde_pre_ruta|time:"H:i" }}</dd><dd class="text-xs text-slate-400">{% if resultado.jornada.es_noche %}esperó en el CD{% else %}durmió en el CD{% endif %}</dd></div>
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta</dt><dd class="text-2xl font-black">{{ minutos_pre_ruta }}</dd><dd class="text-xs text-slate-400">meta {{ resultado.jornada.meta_pre_ruta_min }} min</dd></div>
                 {% else %}
                 <div><dt class="text-[11px] font-black uppercase tracking-widest text-slate-400">Entró</dt><dd class="text-2xl font-black">{{ t.entrada_en|date:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.entrada_en|date:"d/m/Y" }}</dd></div>
@@ -374,7 +378,7 @@
                 boton.classList.toggle('hover:bg-rose-700', averia); boton.classList.toggle('hover:bg-emerald-700', !averia);
                 formulario.classList.toggle('border-rose-600', averia); formulario.classList.toggle('border-emerald-600', !averia);
                 boton.textContent = averia ? 'Registrar ingreso por avería' : 'Registrar fin de jornada';
-                titulo.textContent = averia ? 'Ingreso por avería' : 'Fin de jornada · Post-Ruta';
+                titulo.textContent = averia ? 'Ingreso por avería' : (titulo.dataset.normal || 'Fin de jornada · Post-Ruta');
                 if (efecto) efecto.textContent = averia ? 'la avería se cancelarán' : 'el fin de jornada quedarán como «No atendida»';
             };
             casillaAveria.addEventListener('change', actualizarAveria);

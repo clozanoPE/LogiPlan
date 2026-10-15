@@ -4,6 +4,7 @@ zona) como parámetro para poder probarlas sin depender del reloj; las vistas le
 `tiempo.ahora()`. Referencias R1..R9: documento de diseño aprobado.
 """
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -141,20 +142,38 @@ def cancelar(programacion, usuario, motivo, ahora):
 
 # --- R4: estado visible ---
 
+def ultimo_dia(programacion):
+    """Último día en que la programación todavía puede atenderse: su fecha, o el día en que cierra su turno noche
+    (una ruta de las 22:00 sigue pendiente durante la madrugada siguiente)."""
+    if programacion.jornada_id and programacion.jornada.es_noche:
+        return jornadas.fecha_cierre(programacion.jornada)
+    return programacion.fecha
+
+
 def estado_visible(programacion, hoy):
-    """R4: el estado guardado; una programada se muestra Pendiente o, si su día ya terminó (o la unidad
-    cerró su jornada sin atenderla), No atendida."""
+    """R4: el estado guardado; una programada se muestra Pendiente o, si su día (o su turno noche) ya terminó (o
+    la unidad cerró su jornada sin atenderla), No atendida."""
     if programacion.estado != Estado.PROGRAMADA:
         return programacion.estado
-    return NO_ATENDIDA if programacion.fecha < hoy or programacion.no_atendida_por_cierre else PENDIENTE
+    if programacion.no_atendida_por_cierre:
+        return NO_ATENDIDA
+    return NO_ATENDIDA if ultimo_dia(programacion) < hoy else PENDIENTE
+
+
+def _q_vigente(hoy):
+    """Programaciones cuyo plazo para atenderse no terminó (ver ultimo_dia), como condición de la base de datos."""
+    de_noche = Q(jornada__turno=Jornada.Turno.NOCHE)
+    sin_noche = Q(jornada__isnull=True) | Q(jornada__turno=Jornada.Turno.DIA)
+    return (sin_noche & Q(fecha__gte=hoy)) | (de_noche & Q(jornada__fecha__gte=hoy - timedelta(days=1)))
 
 
 def filtrar_por_estado_visible(queryset, codigo, hoy):
     """Filtra en la base de datos por un estado visible (para las consultas con filtro de estado)."""
     if codigo == PENDIENTE:
-        return queryset.filter(estado=Estado.PROGRAMADA, fecha__gte=hoy, no_atendida_por_cierre=False)
+        return queryset.filter(_q_vigente(hoy), estado=Estado.PROGRAMADA, no_atendida_por_cierre=False)
     if codigo == NO_ATENDIDA:
-        return queryset.filter(Q(fecha__lt=hoy) | Q(no_atendida_por_cierre=True), estado=Estado.PROGRAMADA)
+        pendientes = Programacion.objects.filter(_q_vigente(hoy), no_atendida_por_cierre=False).values('pk')
+        return queryset.filter(estado=Estado.PROGRAMADA).exclude(pk__in=pendientes)
     if codigo in (EN_PLANTA, CERRADA, CANCELADA):
         return queryset.filter(estado=codigo)
     return queryset
@@ -174,13 +193,21 @@ def avisos(programacion, config):
     minuto = _minutos(programacion.hora)
 
     # R5: capacidad del CD con una duración estimada de atención. También ocupan el CD las unidades propias
-    # que a esa hora siguen en su Pre-Ruta o ya volvieron a pernoctar (después del cierre operativo).
+    # que a esa hora siguen en su Pre-Ruta o ya volvieron a pernoctar (después del cierre operativo); las del
+    # turno noche, mientras dura su Pre-Ruta (20:00 a 21:00).
     duracion = config.duracion_estimada_atencion_min
     cercanas = [p for p in activas_del_dia
                 if p.cd_id == programacion.cd_id and abs(_minutos(p.hora) - minuto) < duracion]
+    instante = momento(programacion)
+
+    def en_el_cd(j):
+        if j.es_noche:
+            return jornadas.inicio(j) <= instante < jornadas.limite_pre_ruta(j)
+        return programacion.hora < jornadas.limite_pre_ruta(j).time() or programacion.hora >= j.hora_cierre
+
     flota = [j for j in (Jornada.objects.filter(fecha=programacion.fecha, cd_id=programacion.cd_id)
                          .exclude(estado=Jornada.Estado.ANULADA).exclude(transporte_id=programacion.transporte_id))
-             if programacion.hora < jornadas.limite_pre_ruta(j).time() or programacion.hora >= j.hora_cierre]
+             if en_el_cd(j)]
     capacidad = programacion.cd.capacidad_simultanea
     total = len(cercanas) + 1 + len(flota)
     if total > capacidad:
@@ -200,14 +227,43 @@ def avisos(programacion, config):
             )
 
     # R7 (bloqueante desde F6) se valida en el formulario. En una ruta INTERNO la hora programada es la de
-    # SALIDA del CD: la primera ruta del día la atiende la salida de la Pre-Ruta. Aviso si sale antes de que
-    # empiece la Pre-Ruta (quedará como salida anticipada).
+    # SALIDA del CD: la primera ruta del turno la atiende la salida de la Pre-Ruta. Aviso si sale antes de que
+    # empiece la Pre-Ruta de su turno (quedará como salida anticipada).
     if programacion.tipo == Programacion.Tipo.INTERNO:
-        jornada = jornadas.jornada_vigente(programacion.transporte_id, programacion.fecha)
-        if jornada and programacion.hora < jornada.hora_inicio:
-            mensajes.append(
-                f"La ruta sale a las {programacion.hora:%H:%M}, antes del inicio de la Pre-Ruta "
-                f"({jornada.hora_inicio:%H:%M}): la salida quedará marcada como anticipada.")
+        mensajes.extend(_avisos_de_turno(programacion, config))
+    return mensajes
+
+
+def _avisos_de_turno(programacion, config):
+    """Avisos de una ruta INTERNO según su turno (sirven también antes de grabar, en la vista previa de la carga
+    masiva): salida antes de la Pre-Ruta, turno noche en sábado y el mismo conductor en el otro turno."""
+    mensajes = []
+    fecha, turno = jornadas.turno_de(programacion.fecha, programacion.hora, config)
+    noche = turno == Jornada.Turno.NOCHE
+    hora_inicio = config.hora_pre_ruta_noche if noche else config.hora_pre_ruta
+    if programacion.jornada_id and (programacion.jornada.fecha, programacion.jornada.turno) == (fecha, turno):
+        hora_inicio = programacion.jornada.hora_inicio
+    if momento(programacion) < tiempo.combinar(fecha, hora_inicio):
+        mensajes.append(
+            f"La ruta sale a las {programacion.hora:%H:%M}, antes del inicio de la Pre-Ruta "
+            f"({hora_inicio:%H:%M}): la salida quedará marcada como anticipada.")
+    if noche and fecha.weekday() == 5:
+        mensajes.append("Turno noche en sábado: es excepcional (el turno noche es de lunes a viernes).")
+    # El mismo conductor en el turno contiguo (la noche anterior o la siguiente, o el día anterior o siguiente).
+    if noche:
+        contiguos = [(fecha, Jornada.Turno.DIA), (fecha + timedelta(days=1), Jornada.Turno.DIA)]
+    else:
+        contiguos = [(fecha - timedelta(days=1), Jornada.Turno.NOCHE), (fecha, Jornada.Turno.NOCHE)]
+    condicion = Q()
+    for dia, otro in contiguos:
+        condicion |= Q(jornada__fecha=dia, jornada__turno=otro)
+    otra = (activas().filter(condicion, conductor_id=programacion.conductor_id, tipo=Programacion.Tipo.INTERNO)
+            .exclude(pk=programacion.pk).select_related('jornada', 'transporte').order_by('fecha', 'hora').first())
+    if otra is not None:
+        mensajes.append(
+            f"El conductor {programacion.conductor.nombre_completo} también tiene ruta en el turno "
+            f"{otra.jornada.get_turno_display().lower()} del {otra.jornada.fecha:%d/%m} ({otra.codigo}, "
+            f"{otra.transporte}, {otra.hora:%H:%M}): revise su descanso.")
     return mensajes
 
 
@@ -251,6 +307,7 @@ class ResultadoPorteria:
     permite_averia: bool = False                    # ENTRADA / POST_RUTA: ingreso por avería
     reingreso: bool = False                         # POST_RUTA con la jornada ya cerrada
     ruta_salida: Programacion = None                # primera ruta INTERNO que atenderá la salida a ruta
+    siguiente: Jornada = None                       # POST_RUTA: el otro turno de la placa que sigue (informativo)
 
     @property
     def sugerida(self):
@@ -266,10 +323,15 @@ def _minutos_entre(desde, hasta):
     return round((hasta - desde).total_seconds() / 60)
 
 
-def candidatas_entrada(transporte, cd, ahora, ventana_min):
-    """R13: programaciones de hoy de esa placa en ese CD, activas y sin tramo válido, por cercanía."""
+def candidatas_entrada(transporte, cd, ahora, ventana_min, jornada=None):
+    """R13: programaciones de esa placa en ese CD, activas y sin tramo válido, por cercanía: las de hoy que no son
+    de un turno de la flota propia (clientes y proveedores) y las rutas de la jornada EN CURSO (`jornada`). Las
+    rutas del otro turno nunca se ofrecen: las atiende la salida de su propio turno (T10, 15/10/2026)."""
+    condicion = Q(fecha=ahora.date(), jornada__isnull=True)
+    if jornada is not None:
+        condicion |= Q(jornada=jornada)
     programaciones = (Programacion.objects
-                      .filter(transporte=transporte, cd=cd, fecha=ahora.date(), estado=Programacion.Estado.PROGRAMADA,
+                      .filter(condicion, transporte=transporte, cd=cd, estado=Programacion.Estado.PROGRAMADA,
                               no_atendida_por_cierre=False)
                       .exclude(tramos__vigente=True)
                       .select_related('conductor__tipo_documento', 'cd'))
@@ -280,15 +342,17 @@ def candidatas_entrada(transporte, cd, ahora, ventana_min):
     return sorted(candidatas, key=lambda c: abs(c.minutos))
 
 
-def primera_ruta_pendiente(transporte_id, fecha, cd):
-    """Primera ruta INTERNO pendiente del día en el CD. La atiende la salida a ruta que cierra la Pre-Ruta: en
+def primera_ruta_pendiente(jornada, cd):
+    """Primera ruta INTERNO pendiente del turno en el CD. La atiende la salida a ruta que cierra la Pre-Ruta: en
     las rutas INTERNO la hora programada es la de SALIDA del CD (decisión del usuario del 14/10/2026)."""
-    return (jornadas.pendientes(transporte_id, fecha).filter(cd=cd, tipo=Programacion.Tipo.INTERNO)
+    if jornada is None:
+        return None
+    return (jornadas.pendientes(jornada).filter(cd=cd, tipo=Programacion.Tipo.INTERNO)
             .exclude(tramos__vigente=True).select_related('conductor').first())
 
 
 def tipo_salida(tramo, jornada, no_disponible):
-    """Qué significa la salida del tramo abierto según la jornada de hoy de la placa."""
+    """Qué significa la salida del tramo abierto según la jornada en curso de la placa."""
     if no_disponible:
         return SALIDA_NO_DISPONIBLE
     if jornada is not None and jornada.estado == Jornada.Estado.PLANIFICADA:
@@ -296,7 +360,8 @@ def tipo_salida(tramo, jornada, no_disponible):
             return SALIDA_PRE_RUTA
         if tramo.clase == Tramo.Clase.POST_RUTA:
             return SALIDA_PRE_RUTA_AUTOMATICA
-        if tramo.clase == Tramo.Clase.PROGRAMADO and tramo.fecha_local_entrada < jornada.fecha:
+        if tramo.clase == Tramo.Clase.PROGRAMADO and (tramo.fecha_local_entrada < jornada.fecha or (
+                tramo.jornada_id is not None and tramo.jornada_id != jornada.pk)):
             return SALIDA_SIN_PRE_RUTA
     if tramo.clase == Tramo.Clase.POST_RUTA:
         return SALIDA_TRAS_CIERRE
@@ -305,7 +370,8 @@ def tipo_salida(tramo, jornada, no_disponible):
 
 def evaluar_porteria(texto, cd, ahora, config):
     """R10–R16: con la placa (digitada o leída del QR) decide ENTRADA, SALIDA, el inicio o el fin de la
-    jornada de una unidad propia, o el bloqueo."""
+    jornada de una unidad propia, o el bloqueo. Trabaja con la jornada EN CURSO de la placa (turno día o noche,
+    jornadas.en_curso)."""
     placa = normalizar_placa(texto)
     transporte = Transporte.objects.select_related('tamano').filter(placa_normalizada=placa).first() if placa else None
     if transporte is None:
@@ -313,7 +379,7 @@ def evaluar_porteria(texto, cd, ahora, config):
             NO_PROGRAMADO, f"Vehículo no programado. No puede ingresar. (La placa {texto.strip().upper()} no está registrada.)")
 
     hoy = ahora.date()
-    jornada = jornadas.jornada_vigente(transporte.pk, hoy)
+    jornada = jornadas.en_curso(transporte.pk, ahora, config)
     incidencia = jornadas.incidencia_abierta(transporte.pk)
     abierto = (Tramo.objects.filter(transporte=transporte, abierto=True)
                .select_related('cd', 'programacion', 'conductor').first())
@@ -327,32 +393,35 @@ def evaluar_porteria(texto, cd, ahora, config):
         tipo = tipo_salida(abierto, jornada, incidencia is not None)
         ruta = None
         if tipo in (SALIDA_PRE_RUTA, SALIDA_PRE_RUTA_AUTOMATICA) and not abierto.programacion_id:
-            ruta = primera_ruta_pendiente(transporte.pk, hoy, cd)
+            ruta = primera_ruta_pendiente(jornada, cd)
         return ResultadoPorteria(SALIDA, transporte=transporte, tramo_abierto=abierto, jornada=jornada,
                                  tipo_salida=tipo, ruta_salida=ruta)
 
     if not transporte.activo:
         return ResultadoPorteria(
             NO_PROGRAMADO, f"Vehículo no programado. No puede ingresar. ({transporte} está inactivo.)", transporte=transporte)
-    if jornada is not None and jornada.estado == Jornada.Estado.CERRADA:
-        # Ya cerró su jornada y vuelve (p. ej. salió después de la Post-Ruta): ingresa a pernoctar.
-        return ResultadoPorteria(POST_RUTA, transporte=transporte, jornada=jornada, reingreso=True)
+    if jornada is None:
+        cerrada = jornadas.para_reingreso(transporte.pk, ahora)
+        if cerrada is not None:
+            # Ya cerró su jornada y vuelve (p. ej. salió después de la Post-Ruta): ingresa a pernoctar.
+            return ResultadoPorteria(POST_RUTA, transporte=transporte, jornada=cerrada, reingreso=True)
     if incidencia is not None:
         return ResultadoPorteria(
             NO_PROGRAMADO, f"Vehículo no disponible por avería: {jornadas.texto_no_disponible(incidencia)} "
                            "Despacho debe habilitarlo antes de registrar su ingreso.", transporte=transporte)
     if jornada is not None and jornada.estado == Jornada.Estado.PLANIFICADA:
         return ResultadoPorteria(INICIO_JORNADA, transporte=transporte, jornada=jornada,
-                                 ruta_salida=primera_ruta_pendiente(transporte.pk, hoy, cd))
+                                 ruta_salida=primera_ruta_pendiente(jornada, cd))
 
-    candidatas = candidatas_entrada(transporte, cd, ahora, config.ventana_sugerencia_min)
+    candidatas = candidatas_entrada(transporte, cd, ahora, config.ventana_sugerencia_min, jornada)
     if jornada is not None:  # en ruta
-        pendientes_dia = list(jornadas.pendientes(transporte.pk, hoy))
+        pendientes_dia = list(jornadas.pendientes(jornada))
         if candidatas:
             return ResultadoPorteria(ENTRADA, transporte=transporte, candidatas=candidatas, jornada=jornada,
-                                     pendientes=pendientes_dia, permite_post_ruta=True, permite_averia=True)
+                                     pendientes=pendientes_dia, permite_post_ruta=True, permite_averia=True,
+                                     siguiente=jornadas.siguiente(jornada))
         return ResultadoPorteria(POST_RUTA, transporte=transporte, jornada=jornada, pendientes=pendientes_dia,
-                                 permite_averia=True)
+                                 permite_averia=True, siguiente=jornadas.siguiente(jornada))
     if not candidatas:
         return ResultadoPorteria(
             NO_PROGRAMADO, f"Vehículo no programado. No puede ingresar. ({transporte} no tiene programaciones "
@@ -432,12 +501,12 @@ def registrar_entrada(*, transporte_id, programacion_id, cd, km, obs, conductor_
         transporte = _bloquear_transporte(transporte_id)
         # Todo se vuelve a evaluar dentro del bloqueo: otra tablet pudo registrar mientras tanto.
         _sin_tramo_abierto(transporte)
-        jornada = jornadas.jornada_vigente(transporte.pk, ahora.date())
+        jornada = jornadas.en_curso(transporte.pk, ahora, config)
         if jornada is not None and jornada.estado == Jornada.Estado.PLANIFICADA:
             raise ValidationError(MENSAJE_ESTADO_CAMBIO)  # primero debe iniciar su jornada
         if jornadas.incidencia_abierta(transporte.pk):
             raise ValidationError("El vehículo no está disponible (avería). Despacho debe habilitarlo.")
-        candidatas = candidatas_entrada(transporte, cd, ahora, config.ventana_sugerencia_min)
+        candidatas = candidatas_entrada(transporte, cd, ahora, config.ventana_sugerencia_min, jornada)
         candidata = next((c for c in candidatas if c.programacion.pk == programacion_id), None)
         if candidata is None:
             raise ValidationError("La programación elegida ya no está disponible. Vuelva a escanear la placa.")
@@ -460,7 +529,11 @@ def registrar_entrada(*, transporte_id, programacion_id, cd, km, obs, conductor_
 
 
 def _jornada_para_registrar(transporte, ahora, *estados):
-    jornada = jornadas.jornada_vigente(transporte.pk, ahora.date())
+    """La jornada en curso de la placa (o, sin ninguna, la última cerrada para un reingreso) si está en uno de
+    los estados esperados; si no, el estado cambió mientras se registraba."""
+    jornada = jornadas.en_curso(transporte.pk, ahora)
+    if jornada is None and Jornada.Estado.CERRADA in estados:
+        jornada = jornadas.para_reingreso(transporte.pk, ahora)
     if jornada is None or jornada.estado not in estados:
         raise ValidationError(MENSAJE_ESTADO_CAMBIO)
     return jornada
@@ -496,12 +569,12 @@ def registrar_inicio_jornada(*, transporte_id, cd, km, obs, conductor_id, usuari
     return tramo, avisos
 
 
-def _atender_primera_ruta(tramo, fecha):
-    """La salida a ruta (fin de la Pre-Ruta) atiende la primera ruta INTERNO pendiente del día en ese CD.
+def _atender_primera_ruta(tramo, jornada):
+    """La salida a ruta (fin de la Pre-Ruta) atiende la primera ruta INTERNO pendiente del turno en ese CD.
     Devuelve la programación vinculada, o None si no queda ninguna en el CD."""
     if tramo.programacion_id:
         return tramo.programacion
-    programacion = primera_ruta_pendiente(tramo.transporte_id, fecha, tramo.cd)
+    programacion = primera_ruta_pendiente(jornada, tramo.cd)
     tramo.programacion = programacion
     return programacion
 
@@ -517,7 +590,7 @@ def _pre_ruta_cerrada(*, jornada, transporte, cd, desde, ahora, km, usuario, obs
     tramo = _nuevo_tramo(clase=Tramo.Clase.PRE_RUTA, jornada=jornada, transporte=transporte, cd=cd,
                          conductor=conductor or jornada.conductor, entrada=desde, km=km, obs=obs_entrada, usuario=None,
                          tipo=Programacion.Tipo.INTERNO, km_inconsistente=km_inconsistente)
-    programacion = _atender_primera_ruta(tramo, jornada.fecha)
+    programacion = _atender_primera_ruta(tramo, jornada)
     _cerrar(tramo, salida=ahora, obs=obs_salida, usuario=usuario)
     _guardar_tramo_nuevo(tramo)
     sincronizar_estado(programacion)  # -> Cerrada
@@ -540,7 +613,7 @@ def registrar_salida(*, transporte_id, tramo_id, cd, obs, usuario, ahora):
             raise ValidationError(MENSAJE_ESTADO_CAMBIO)
         if tramo.cd_id != cd.pk:
             raise ValidationError(f"El vehículo figura dentro de CD {tramo.cd}; no se puede registrar su salida aquí.")
-        jornada = jornadas.jornada_vigente(transporte.pk, ahora.date())
+        jornada = jornadas.en_curso(transporte.pk, ahora)
         tipo = tipo_salida(tramo, jornada, jornadas.incidencia_abierta(transporte.pk) is not None)
         if tipo in SALIDAS_CON_MOTIVO and not (obs or '').strip():
             raise ValidationError("Indique el motivo de la salida (la unidad ya cerró su jornada o no está disponible).",
@@ -561,7 +634,7 @@ def registrar_salida(*, transporte_id, tramo_id, cd, obs, usuario, ahora):
 
         foto_antes = auditoria.foto(tramo)
         if tipo == SALIDA_PRE_RUTA:
-            _atender_primera_ruta(tramo, jornada.fecha)
+            _atender_primera_ruta(tramo, jornada)
         _cerrar(tramo, salida=ahora, obs=obs, usuario=usuario)
         tramo.dia_no_laborable = tramo.dia_no_laborable or not jornadas.es_laborable(ahora.date())
         tramo.salida_tras_cierre = tipo == SALIDA_TRAS_CIERRE
@@ -637,7 +710,8 @@ def registrar_post_ruta(*, transporte_id, cd, km, obs, conductor_id, usuario, ah
                                 incidencia=incidencia,
                                 motivo_cierre=Jornada.MotivoCierre.AVERIA if incidencia else Jornada.MotivoCierre.NORMAL)
         if incidencia:
-            canceladas = jornadas.cancelar_por_averia(transporte.pk, ahora.date(), incidencia, usuario, ahora)
+            canceladas = jornadas.cancelar_por_averia(transporte.pk, ahora, incidencia, usuario,
+                                                      None if reingreso else jornada)
             if canceladas:
                 avisos.append(f"{len(canceladas)} programación(es) pendiente(s) de hoy se cancelaron por la avería.")
             futuras = jornadas.programaciones_afectadas(ahora.date(), [transporte.pk]).count()
@@ -645,7 +719,7 @@ def registrar_post_ruta(*, transporte_id, cd, km, obs, conductor_id, usuario, ah
                 avisos.append(f"Hay {futuras} programación(es) de días siguientes con esta placa: Despacho debe "
                               "cambiarles la placa o cancelarlas.")
         elif not reingreso:
-            marcadas = jornadas.marcar_no_atendidas(transporte.pk, ahora.date(), usuario,
+            marcadas = jornadas.marcar_no_atendidas(jornada, usuario,
                                                     "No atendida: la unidad cerró su jornada (Post-Ruta).")
             if marcadas:
                 avisos.append(f"{len(marcadas)} programación(es) pendiente(s) quedaron como No atendidas por cierre "
@@ -860,8 +934,7 @@ def anular_tramo(tramo, usuario, *, motivo):
                 else:
                     _actualizar_jornada(jornada, usuario, texto, estado=Jornada.Estado.EN_RUTA, post_ruta_en=None,
                                         motivo_cierre='')
-                    jornadas.desmarcar_no_atendidas(jornada.transporte_id, jornada.fecha, usuario,
-                                                    "Vuelve a estar pendiente: se anuló la Post-Ruta.")
+                    jornadas.desmarcar_no_atendidas(jornada, usuario, "Vuelve a estar pendiente: se anuló la Post-Ruta.")
             elif tramo.clase == Tramo.Clase.PRE_RUTA and not otros.exists():
                 _actualizar_jornada(jornada, usuario, texto, estado=Jornada.Estado.PLANIFICADA, inicio_real=None,
                                     primera_salida=None, ingreso_desde_afuera=False, salida_anticipada=False)
@@ -882,7 +955,7 @@ def cierre_administrativo(tramo, usuario, *, salida_en, motivo, ahora):
         foto_antes = auditoria.foto(tramo)
         jornada = tramo.jornada
         if tramo.clase == Tramo.Clase.PRE_RUTA and jornada and jornada.estado == Jornada.Estado.PLANIFICADA:
-            _atender_primera_ruta(tramo, jornada.fecha)
+            _atender_primera_ruta(tramo, jornada)
         _cerrar(tramo, salida=salida_en, obs=f"Cierre administrativo: {motivo}", usuario=usuario)
         tramo.cierre_administrativo = True
         tramo.save()
@@ -902,7 +975,7 @@ def convertir_en_post_ruta(tramo, usuario, *, fin_atencion, motivo, ahora):
     motivo = _exigir_motivo(motivo)
     if not (tramo.vigente and tramo.esta_abierto and tramo.es_programado):
         raise ValidationError("Solo se convierte una visita programada que sigue abierta.")
-    jornada = jornadas.jornada_vigente(tramo.transporte_id, tramo.fecha_local_entrada)
+    jornada = jornada_de_visita(tramo)
     if jornada is None or jornada.estado != Jornada.Estado.EN_RUTA:
         raise ValidationError("La placa no tiene una jornada en ruta ese día.")
     if fin_atencion < tramo.entrada_en:
@@ -928,6 +1001,15 @@ def convertir_en_post_ruta(tramo, usuario, *, fin_atencion, motivo, ahora):
         _actualizar_jornada(jornada, usuario, f"Post-Ruta registrada por corrección: {motivo}",
                             estado=Jornada.Estado.CERRADA, post_ruta_en=fin_atencion,
                             motivo_cierre=Jornada.MotivoCierre.NORMAL)
-        jornadas.marcar_no_atendidas(jornada.transporte_id, jornada.fecha, usuario,
-                                     "No atendida: la unidad cerró su jornada (Post-Ruta).")
+        jornadas.marcar_no_atendidas(jornada, usuario, "No atendida: la unidad cerró su jornada (Post-Ruta).")
     return post
+
+
+def jornada_de_visita(tramo):
+    """La jornada (turno) de una visita de la flota propia: la del tramo, o la de su ruta, o la del turno día de esa
+    fecha (visitas registradas antes de los turnos)."""
+    if tramo.jornada_id:
+        return tramo.jornada
+    if tramo.programacion_id and tramo.programacion.jornada_id:
+        return tramo.programacion.jornada
+    return jornadas.jornada_vigente(tramo.transporte_id, tramo.fecha_local_entrada)

@@ -66,7 +66,8 @@ def tablero_hoy(request):
         tramo.prolongada = tramo.es_programado and tramo.minutos > config.umbral_prolongada_min
         tramo.sobre_meta = bool(tramo.es_programado and config.meta_permanencia_min
                                 and tramo.minutos > config.meta_permanencia_min)
-    jornadas_hoy = jornadas.jornadas_del_dia(hoy, ahora)
+    # Turnos de hoy (día y noche) más el turno noche de ayer si sigue en curso o volvió de madrugada.
+    jornadas_hoy = jornadas.jornadas_en_vivo(ahora)
 
     programaciones = list(Programacion.objects.filter(fecha=hoy))
     centros = []
@@ -109,6 +110,10 @@ def resumen_flota(jornadas_dia, no_disponibles=None):
         grupos[-1]['total'] = no_disponibles
     return {
         'total': len(jornadas_dia), 'grupos': grupos,
+        # Placas distintas y jornadas por turno: una placa con turno día y noche cuenta una vez en «placas».
+        'placas': len({j.transporte_id for j in jornadas_dia}),
+        'dia': sum(1 for j in jornadas_dia if not j.es_noche),
+        'noche': sum(1 for j in jornadas_dia if j.es_noche),
         'alertas': sum(1 for j in jornadas_dia if j.estado_v.alerta),
         'fuera_de_horario': codigos.count('FUERA_DE_HORARIO'),
         'sin_retorno': codigos.count('SIN_RETORNO'),
@@ -243,8 +248,8 @@ def tramo_detalle(request, pk):
         contexto['form_anular'] = MotivoForm(prefix='anular')
         if tramo.esta_abierto:
             contexto['form_cierre'] = CierreAdministrativoForm(prefix='cierre', initial={'salida_en': ahora})
-            jornada = jornadas.jornada_vigente(tramo.transporte_id, tramo.fecha_local_entrada)
-            if tramo.es_programado and jornada and jornada.estado == jornada.Estado.EN_RUTA:
+            jornada = servicios.jornada_de_visita(tramo) if tramo.es_programado else None
+            if jornada and jornada.estado == jornada.Estado.EN_RUTA:
                 contexto['form_convertir'] = ConvertirPostRutaForm(prefix='convertir',
                                                                    initial={'fin_atencion': tramo.entrada_en})
     return render(request, 'accesos/control/tramo_detalle.html', contexto)

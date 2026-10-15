@@ -29,7 +29,7 @@ ETIQUETAS_LLEGADA = {servicios.ADELANTADO: 'Adelantado', servicios.PUNTUAL: 'Pun
                      servicios.RETRASADO: 'Retrasado'}
 # Filtros que se pueden quitar con un chip (las fechas se cambian con los rangos).
 CLAVES_FILTRO = ['cd', 'tipo', 'tamano', 'placa', 'conductor', 'razon_social', 'motivo', 'dia', 'hora', 'llegada',
-                 'rango']
+                 'rango', 'turno']
 VISTAS = [
     ('resumen', 'Resumen ejecutivo', 'fa-gauge-high'),
     ('planta', 'Operación en planta', 'fa-warehouse'),
@@ -38,6 +38,8 @@ VISTAS = [
 ]
 # Filtros que no aplican a la flota propia (jornadas e incidencias no tienen cliente, motivo ni puntualidad).
 FILTROS_SOLO_PLANTA = ('razon_social', 'motivo', 'dia', 'hora', 'llegada', 'rango')
+# Turno de la flota propia (día o noche): solo aplica a la pestaña «Flota propia» y al resumen de la flota.
+TURNOS = {'DIA': 'Turno día', 'NOCHE': 'Turno noche'}
 
 
 def _fecha(valor, por_defecto):
@@ -75,6 +77,7 @@ def leer_filtros(params):
         'hora': _entero(params.get('hora'), 0, 23),
         'llegada': params.get('llegada') if params.get('llegada') in ETIQUETAS_LLEGADA else None,
         'rango': _entero(params.get('rango'), 0, len(indicadores.TRAMOS_DE_PERMANENCIA) - 1),
+        'turno': params.get('turno') if params.get('turno') in TURNOS else None,
     }
 
 
@@ -103,6 +106,7 @@ def _chips(filtros, params):
         'hora': lambda v: f"{v:02d}:00–{v + 1:02d}:00",
         'llegada': lambda v: f"Puntualidad: {ETIQUETAS_LLEGADA[v]}",
         'rango': _etiqueta_rango,
+        'turno': lambda v: TURNOS[v],
     }
     return [{'clave': clave, 'texto': nombres[clave](filtros[clave]), 'quitar': _url(params, **{clave: None})}
             for clave in CLAVES_FILTRO if filtros.get(clave) is not None]
@@ -183,7 +187,7 @@ def dashboard(request):
         fila['url'] = _url(params, cd=fila['valor'])
 
     un_dia = desde == hasta
-    flota = _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora)
+    flota = _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora, params)
     conclusiones_planta = indicadores.conclusiones(actuales, variacion, mapa, rankings, comparativo, segun_llegada, config)
     tarjetas = _tarjetas(actuales, variacion, config, len(dentro), sum(c.capacidad_simultanea for c in centros), un_dia)
     return render(request, 'accesos/dashboard/dashboard.html', {
@@ -221,11 +225,23 @@ def dashboard(request):
     })
 
 
-def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora):
+def _por_turno(lista, ahora, internas):
+    """Indicadores clave del turno día frente al turno noche (cada jornada se mide con sus propios horarios)."""
+    filas = []
+    for turno, etiqueta in TURNOS.items():
+        del_turno = [j for j in lista if j.turno == turno]
+        k = indicadores_flota.kpis(del_turno, ahora, [p for p in internas if p.jornada_id and p.jornada.turno == turno])
+        filas.append({'turno': turno, 'etiqueta': etiqueta, 'k': k})
+    return filas
+
+
+def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora, params):
     """Indicadores de la flota propia y de la disponibilidad (pestañas «Flota propia» y «Disponibilidad»)."""
     un_dia = desde == hasta
     lista = indicadores_flota.jornadas_del_periodo(desde, hasta, filtros)
-    actuales = indicadores_flota.kpis(lista, ahora, indicadores_flota.programaciones_internas(desde, hasta, filtros))
+    internas = indicadores_flota.programaciones_internas(desde, hasta, filtros)
+    hay_noche = any(j.es_noche for j in lista)
+    actuales = indicadores_flota.kpis(lista, ahora, internas)
     anterior = indicadores_flota.jornadas_del_periodo(desde_anterior, hasta_anterior, filtros)
     anteriores = indicadores_flota.kpis(anterior, ahora,
                                         indicadores_flota.programaciones_internas(desde_anterior, hasta_anterior, filtros))
@@ -251,8 +267,17 @@ def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora
             {'pct_disponibilidad': (' pts', False), 'averias': ('', True), 'dias_unidad_fuera': ('', True)}),
         'referencia': 'el día anterior' if desde == hasta else 'el periodo anterior',
         'gantt_disponible': un_dia,
+        # Selector de turno (Todos / Día / Noche) y comparativo de los dos turnos si en el periodo hubo turno noche.
+        'turnos': [{'etiqueta': 'Todos', 'url': _url(params, turno=None), 'activo': not filtros.get('turno')}]
+                  + [{'etiqueta': etiqueta, 'url': _url(params, turno=turno), 'activo': filtros.get('turno') == turno}
+                     for turno, etiqueta in TURNOS.items()],
+        'por_turno': _por_turno(lista, ahora, internas) if hay_noche and not filtros.get('turno') else None,
+        'gantt_noche_disponible': un_dia and filtros.get('turno') != jornadas.DIA,
         'datos': {
-            'gantt': indicadores_flota.gantt(hasta, ahora, filtros) if un_dia else None,
+            'gantt': (indicadores_flota.gantt(hasta, ahora, filtros)
+                      if un_dia and filtros.get('turno') != jornadas.NOCHE else None),
+            'gantt_noche': (indicadores_flota.gantt(hasta, ahora, filtros, jornadas.NOCHE)
+                            if un_dia and filtros.get('turno') != jornadas.DIA else None),
             'matriz': None if un_dia else indicadores_flota.matriz(lista, desde, hasta, ahora),
             'retorno': indicadores_flota.distribucion_retorno(lista),
             'pre_ruta': indicadores_flota.distribucion_pre_ruta(lista),
@@ -297,7 +322,7 @@ def _resumen(desde, hasta, hoy, ahora, filtros, config, params, k_planta, v_plan
     por_dia_tramos = {d: [t for t in tramos if t.fecha_local_entrada == d] for d in dias}
     por_dia_jornadas = {d: [j for j in lista if j.fecha == d] for d in dias}
     k_dia = {d: indicadores.kpis(por_dia_tramos[d], [], config, hoy) for d in dias}
-    f_dia = {d: indicadores_flota.kpis(por_dia_jornadas[d], ahora, [p for p in internas if p.fecha == d]) for d in dias}
+    f_dia = {d: indicadores_flota.kpis(por_dia_jornadas[d], ahora, [p for p in internas if p.fecha_turno == d]) for d in dias}
     tendencia_disp = indicadores_flota.disponibilidad(inicio_serie, hasta, filtros, ahora)['tendencia']
     disp_dia = dict(zip(tendencia_disp['fechas'], tendencia_disp['valores']))
     kf, vf = flota['kpis'], flota['variacion']
@@ -350,11 +375,12 @@ def _resumen(desde, hasta, hoy, ahora, filtros, config, params, k_planta, v_plan
 
     alertas = []
     if desde <= hoy <= hasta:
-        for j in jornadas.jornadas_del_dia(hoy, ahora, cd_ids={filtros['cd']} if filtros.get('cd') else None):
+        for j in jornadas.jornadas_en_vivo(ahora, cd_ids={filtros['cd']} if filtros.get('cd') else None):
             if j.estado_v.codigo in ('PRE_RUTA_EXCEDIDA', 'SIN_RETORNO'):
                 alertas.append({'icono': 'fa-sun' if j.estado_v.codigo == 'PRE_RUTA_EXCEDIDA' else 'fa-clock',
                                 'nivel': 'aviso' if j.estado_v.codigo == 'PRE_RUTA_EXCEDIDA' else 'critico',
-                                'texto': f"{j.transporte.placa} · {j.estado_v.etiqueta} · {j.conductor.nombre_completo}"})
+                                'texto': f"{j.transporte.placa}{' (turno noche)' if j.es_noche else ''} · "
+                                         f"{j.estado_v.etiqueta} · {j.conductor.nombre_completo}"})
         for aviso in jornadas.avisos_flota(ahora):
             alertas.append({'icono': aviso.icono, 'nivel': 'serio', 'texto': f"{aviso.titulo} · {aviso.texto}"})
         for cd in centros:

@@ -6,7 +6,8 @@
     const color = (nombre) => css.getPropertyValue(nombre).trim();
     // Los nombres los escriben usuarios: se escapan antes de insertarlos como HTML.
     const escapar = (s) => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    // Minutos desde la medianoche; el turno noche pasa de 1440 (madrugada siguiente): la hora se muestra módulo 24.
+    const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
     const filtrar = (cambios) => {
         const url = new URL(window.location.href);
         Object.entries(cambios).forEach(([clave, valor]) => {
@@ -24,10 +25,8 @@
     };
     const ocultar = () => tooltip && tooltip.classList.add('hidden');
 
-    // ---------- Línea de tiempo del día (Gantt en HTML) ----------
-    const gantt = flota.gantt;
-    const contenedorGantt = document.getElementById('gantt');
-    if (gantt && contenedorGantt) {
+    // ---------- Línea de tiempo del día y del turno noche (Gantt en HTML) ----------
+    const dibujarGantt = (gantt, contenedorGantt) => {
         if (!gantt.filas.length) {
             contenedorGantt.innerHTML = '<p class="p-6 text-center text-sm font-bold text-slate-400">No hay jornadas de la flota propia este día con estos filtros.</p>';
         } else {
@@ -80,6 +79,10 @@
                 if (fila) filtrar({ placa: fila.dataset.placa });
             });
         }
+    };
+    if (flota.gantt && document.getElementById('gantt')) dibujarGantt(flota.gantt, document.getElementById('gantt'));
+    if (flota.gantt_noche && flota.gantt_noche.filas.length && document.getElementById('gantt-noche')) {
+        dibujarGantt(flota.gantt_noche, document.getElementById('gantt-noche'));
     }
 
     // ---------- Matriz placa × día ----------

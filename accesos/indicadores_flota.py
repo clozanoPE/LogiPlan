@@ -17,6 +17,8 @@ from collections import Counter, defaultdict
 from datetime import time, timedelta
 from statistics import mean
 
+from django.db.models import Q
+
 from . import jornadas, servicios, tiempo
 from .indicadores import _p90, _porcentaje, _promedio
 from .models import ConfiguracionAccesos, Incidencia, Jornada, Programacion, Tramo, Transporte
@@ -29,12 +31,14 @@ AVISO_OPERATIVO = ("Indicador operativo del retorno del vehículo al CD. No es u
 # --- DATOS DEL PERIODO ---
 
 def jornadas_del_periodo(desde, hasta, filtros):
-    """Jornadas no anuladas del rango con los filtros que aplican a la flota (CD, placa, conductor, tamaño).
-    Un filtro de tipo distinto de INTERNO deja la flota vacía."""
+    """Jornadas no anuladas que empiezan en el rango, con los filtros que aplican a la flota (CD, placa, conductor,
+    tamaño y turno). Un filtro de tipo distinto de INTERNO deja la flota vacía."""
     if filtros.get('tipo') and filtros['tipo'] != Programacion.Tipo.INTERNO:
         return []
     qs = (Jornada.objects.filter(fecha__range=(desde, hasta)).exclude(estado=Estado.ANULADA)
           .select_related('transporte__tamano', 'conductor', 'cd', 'incidencia__tipo'))
+    if filtros.get('turno'):
+        qs = qs.filter(turno=filtros['turno'])
     if filtros.get('cd'):
         qs = qs.filter(cd_id=filtros['cd'])
     if filtros.get('placa'):
@@ -43,7 +47,7 @@ def jornadas_del_periodo(desde, hasta, filtros):
         qs = qs.filter(conductor_id=filtros['conductor'])
     if filtros.get('tamano'):
         qs = qs.filter(transporte__tamano_id=filtros['tamano'])
-    lista = list(qs.order_by('fecha', 'transporte__placa_normalizada'))
+    lista = list(qs.order_by('fecha', 'transporte__placa_normalizada', 'turno'))
     salidas = _salidas_por_jornada(desde, hasta, {j.pk for j in lista})
     for j in lista:
         j.calificacion = jornadas.calificacion_cierre(j)
@@ -71,9 +75,9 @@ def _salidas_por_jornada(desde, hasta, ids):
     return resultado
 
 
-def _terminadas(lista, hoy):
-    """Jornadas cuyo día ya pasó o que ya cerraron (las de hoy en curso aún no se califican)."""
-    return [j for j in lista if j.fecha < hoy or j.estado == Estado.CERRADA]
+def _terminadas(lista, ahora):
+    """Jornadas cuyo turno ya terminó o que ya cerraron (las que siguen en curso aún no se califican)."""
+    return [j for j in lista if jornadas.turno_terminado(j, ahora) or j.estado == Estado.CERRADA]
 
 
 def kpis(lista, ahora, programaciones_internas=None):
@@ -101,8 +105,8 @@ def kpis(lista, ahora, programaciones_internas=None):
         'minutos_sobre_cierre': sum(j.minutos_sobre_cierre for j in fuera),
         'anticipados': sum(1 for j in cierres if j.calificacion == jornadas.ANTICIPADO),
         'por_averia': sum(1 for j in lista if j.calificacion == jornadas.POR_AVERIA),
-        'sin_post_ruta': sum(1 for j in lista if j.estado == Estado.EN_RUTA and j.fecha < hoy),
-        'no_salio': sum(1 for j in lista if j.estado == Estado.PLANIFICADA and j.fecha < hoy),
+        'sin_post_ruta': sum(1 for j in lista if j.estado == Estado.EN_RUTA and jornadas.turno_terminado(j, ahora)),
+        'no_salio': sum(1 for j in lista if j.estado == Estado.PLANIFICADA and jornadas.vencida_sin_salir(j, ahora)),
         'jornada_efectiva': _promedio(efectiva),
         'salidas': len(salidas),
         'salidas_retrasadas': len(retrasos),
@@ -115,22 +119,29 @@ def kpis(lista, ahora, programaciones_internas=None):
 
 
 def programaciones_internas(desde, hasta, filtros):
-    """Rutas INTERNO del rango (incluidas las canceladas por avería, que cuentan como no cumplidas)."""
+    """Rutas INTERNO del rango (incluidas las canceladas por avería, que cuentan como no cumplidas). Las de un turno
+    noche cuentan en la fecha en que empieza su turno (la de las 02:00 es de la noche anterior)."""
     if filtros.get('tipo') and filtros['tipo'] != Programacion.Tipo.INTERNO:
         return []
-    qs = Programacion.objects.filter(fecha__range=(desde, hasta), tipo=Programacion.Tipo.INTERNO)
+    qs = (Programacion.objects.filter(Q(jornada__isnull=True, fecha__range=(desde, hasta))
+                                      | Q(jornada__fecha__range=(desde, hasta)), tipo=Programacion.Tipo.INTERNO)
+          .select_related('jornada'))
     for clave, campo in (('cd', 'cd_id'), ('placa', 'transporte__placa_normalizada'), ('conductor', 'conductor_id'),
-                         ('tamano', 'transporte__tamano_id')):
+                         ('tamano', 'transporte__tamano_id'), ('turno', 'jornada__turno')):
         if filtros.get(clave):
             qs = qs.filter(**{campo: filtros[clave]})
-    return list(qs.only('fecha', 'estado', 'incidencia_id', 'no_atendida_por_cierre'))
+    lista = list(qs)
+    for p in lista:
+        p.fecha_turno = p.jornada.fecha if p.jornada_id else p.fecha
+    return lista
 
 
 def rutas_cumplidas(programaciones, hoy):
     """Rutas INTERNO atendidas ÷ (programadas no canceladas + canceladas por avería), en días ya terminados
-    o de hoy (una ruta de hoy pendiente todavía puede cumplirse: solo cuentan las de días terminados)."""
+    o de hoy (una ruta de hoy pendiente todavía puede cumplirse: solo cuentan las de días terminados; las de un turno
+    noche, cuando termina su madrugada)."""
     cuentan = [p for p in programaciones
-               if p.fecha < hoy and (p.estado != Programacion.Estado.CANCELADA or p.incidencia_id)]
+               if servicios.ultimo_dia(p) < hoy and (p.estado != Programacion.Estado.CANCELADA or p.incidencia_id)]
     atendidas = sum(1 for p in cuentan if p.estado in (Programacion.Estado.EN_PLANTA, Programacion.Estado.CERRADA))
     return {'rutas': len(cuentan), 'rutas_atendidas': atendidas, 'pct_rutas_cumplidas': _porcentaje(atendidas, len(cuentan)),
             'rutas_no_atendidas_cierre': sum(1 for p in cuentan if p.no_atendida_por_cierre),
@@ -139,11 +150,14 @@ def rutas_cumplidas(programaciones, hoy):
 
 # --- LÍNEA DE TIEMPO DEL DÍA (GANTT) ---
 
-def gantt(fecha, ahora, filtros):
-    """Una fila por jornada del día con sus tramos (Pre-Ruta, visitas, Post-Ruta) en minutos desde la
-    medianoche, las marcas de 06:30 / meta / cierre / tolerancia y la hora actual si es hoy."""
+def gantt(fecha, ahora, filtros, turno=jornadas.DIA):
+    """Una fila por jornada del turno (día o noche) que empieza en la fecha, con sus tramos (Pre-Ruta, visitas,
+    Post-Ruta) en minutos desde la medianoche de esa fecha (el turno noche llega hasta la madrugada siguiente: más
+    de 1440), las marcas de Pre-Ruta / meta / cierre / tolerancia y la hora actual si el turno está en curso."""
+    noche = turno == jornadas.NOCHE
     filas = [j for j in jornadas.jornadas_del_dia(fecha, ahora, cd_ids={filtros['cd']} if filtros.get('cd') else None)
-             if (not filtros.get('placa') or j.transporte.placa_normalizada == filtros['placa'])
+             if j.turno == turno
+             and (not filtros.get('placa') or j.transporte.placa_normalizada == filtros['placa'])
              and (not filtros.get('conductor') or j.conductor_id == filtros['conductor'])
              and (not filtros.get('tamano') or j.transporte.tamano_id == filtros['tamano'])]
     if filtros.get('tipo') and filtros['tipo'] != Programacion.Tipo.INTERNO:
@@ -153,15 +167,24 @@ def gantt(fecha, ahora, filtros):
               .select_related('programacion').order_by('entrada_en')):
         tramos[t.jornada_id].append(t)
     medianoche = tiempo.combinar(fecha, time(0, 0))
-    es_hoy = fecha == ahora.date()
-    tolerancia = ConfiguracionAccesos.obtener().tolerancia_puntualidad_min
-    fin_dia = medianoche + timedelta(days=1)
+    limite_eje = (48 if noche else 24) * 60
+    fin_dia = medianoche + timedelta(minutes=limite_eje)
+    config_actual = ConfiguracionAccesos.obtener()
+    tolerancia = config_actual.tolerancia_puntualidad_min
+    if noche:
+        # El turno noche se dibuja «en vivo» desde una hora antes de su Pre-Ruta hasta una hora después de la
+        # Pre-Ruta del día siguiente (después ya está cerrado: sin la marca «Ahora» ni el eje estirado).
+        desde_vivo = tiempo.combinar(fecha, config_actual.hora_pre_ruta_noche) - timedelta(hours=1)
+        hasta_vivo = tiempo.combinar(fecha + timedelta(days=1), config_actual.hora_pre_ruta) + timedelta(hours=1)
+        es_hoy = desde_vivo <= ahora < hasta_vivo
+    else:
+        es_hoy = medianoche <= ahora < fin_dia  # el turno se dibuja «en vivo» (hasta ahora)
 
     def minuto(momento):
-        return max(0, min(24 * 60, round((momento - medianoche).total_seconds() / 60)))
+        return max(0, min(limite_eje, round((momento - medianoche).total_seconds() / 60)))
 
     datos = []
-    extremos = [5 * 60 + 30, 19 * 60]
+    extremos = [19 * 60, 24 * 60 + 7 * 60] if noche else [5 * 60 + 30, 19 * 60]
     for j in filas:
         segmentos = []
         for t in tramos[j.pk]:
@@ -205,27 +228,36 @@ def gantt(fecha, ahora, filtros):
         })
     referencia = filas[0] if filas else None
     config = None if referencia else ConfiguracionAccesos.obtener()
-    hora_inicio = referencia.hora_inicio if referencia else config.hora_pre_ruta
-    meta = referencia.meta_pre_ruta_min if referencia else config.meta_pre_ruta_min
-    cierre = referencia.hora_cierre if referencia else config.hora_cierre_operativo
-    tolerancia = referencia.tolerancia_cierre_min if referencia else config.tolerancia_cierre_min
+    if referencia:
+        hora_inicio, meta = referencia.hora_inicio, referencia.meta_pre_ruta_min
+        cierre, tolerancia = referencia.hora_cierre, referencia.tolerancia_cierre_min
+    elif noche:
+        hora_inicio, meta = config.hora_pre_ruta_noche, config.meta_pre_ruta_noche_min
+        cierre, tolerancia = config.hora_cierre_noche, config.tolerancia_cierre_noche_min
+    else:
+        hora_inicio, meta = config.hora_pre_ruta, config.meta_pre_ruta_min
+        cierre, tolerancia = config.hora_cierre_operativo, config.tolerancia_cierre_min
     inicio_min = hora_inicio.hour * 60 + hora_inicio.minute
-    cierre_min = cierre.hour * 60 + cierre.minute
+    # El cierre del turno noche es de madrugada del día siguiente.
+    cierre_min = cierre.hour * 60 + cierre.minute + (24 * 60 if noche else 0)
+
+    def hhmm(m):
+        return f"{(m // 60) % 24:02d}:{m % 60:02d}"
+
     # La tolerancia queda a pocos minutos del cierre: comparten una sola etiqueta para no encimarse.
     marcas = [
-        {'minuto': inicio_min, 'etiqueta': f"Pre-Ruta {hora_inicio:%H:%M} · meta {(inicio_min + meta) // 60:02d}:"
-                                           f"{(inicio_min + meta) % 60:02d}"},
+        {'minuto': inicio_min, 'etiqueta': f"Pre-Ruta {hora_inicio:%H:%M} · meta {hhmm(inicio_min + meta)}"},
         {'minuto': inicio_min + meta, 'etiqueta': ''},
-        {'minuto': cierre_min, 'etiqueta': f"Cierre {cierre:%H:%M} · tol. {(cierre_min + tolerancia) // 60:02d}:"
-                                           f"{(cierre_min + tolerancia) % 60:02d}"},
+        {'minuto': cierre_min, 'etiqueta': f"Cierre {cierre:%H:%M} · tol. {hhmm(cierre_min + tolerancia)}"},
         {'minuto': cierre_min + tolerancia, 'etiqueta': '', 'critica': True},
     ]
     if es_hoy:
         extremos.append(minuto(ahora))
     desde_eje = max(0, (min(extremos) // 60) * 60)
-    hasta_eje = min(24 * 60, -(-(max(extremos) + 30) // 60) * 60)
+    hasta_eje = min(limite_eje, -(-(max(extremos) + 30) // 60) * 60)
     return {'filas': datos, 'marcas': marcas, 'desde': desde_eje, 'hasta': hasta_eje,
-            'ahora': minuto(ahora) if es_hoy else None}
+            'ahora': minuto(ahora) if es_hoy else None, 'turno': turno,
+            'titulo': f"Turno noche del {fecha:%d/%m}" if noche else f"Turno día del {fecha:%d/%m}"}
 
 
 # --- MATRIZ PLACA × DÍA ---
@@ -249,12 +281,14 @@ def matriz(lista, desde, hasta, ahora, maximo_dias=45):
     for j in lista:
         if j.fecha < inicio:
             continue
-        nombres[j.transporte.placa_normalizada] = j.transporte.placa
+        # Una fila por placa y turno: el turno noche de la placa va en su propia fila.
+        clave = (j.transporte.placa_normalizada, j.turno)
+        nombres[clave] = j.transporte.placa + (' · noche' if j.es_noche else '')
         if j.calificacion in CELDAS:
             clase, texto = CELDAS[j.calificacion]
-        elif j.estado == Estado.EN_RUTA and j.fecha < ahora.date():
+        elif j.estado == Estado.EN_RUTA and jornadas.turno_terminado(j, ahora):
             clase, texto = 'aviso', 'Sin Post-Ruta'
-        elif j.estado == Estado.PLANIFICADA and j.fecha < ahora.date():
+        elif j.estado == Estado.PLANIFICADA and jornadas.vencida_sin_salir(j, ahora):
             clase, texto = 'aviso', 'No salió'
         else:
             clase, texto = 'curso', 'En curso'
@@ -263,9 +297,9 @@ def matriz(lista, desde, hasta, ahora, maximo_dias=45):
             detalle += f" (+{j.minutos_sobre_cierre} min sobre las {jornadas.limite_cierre(j):%H:%M})"
         if j.post_ruta_en:
             detalle += f" · retorno {tiempo.a_lima(j.post_ruta_en):%H:%M}"
-        por_placa[j.transporte.placa_normalizada][j.fecha.isoformat()] = {'clase': clase, 'texto': detalle}
-    filas = [{'placa': nombres[p], 'valor': p, 'celdas': [por_placa[p].get(d.isoformat()) for d in dias]}
-             for p in sorted(por_placa)]
+        por_placa[clave][j.fecha.isoformat()] = {'clase': clase, 'texto': detalle}
+    filas = [{'placa': nombres[c], 'valor': c[0], 'celdas': [por_placa[c].get(d.isoformat()) for d in dias]}
+             for c in sorted(por_placa)]
     return {'dias': [{'fecha': d.isoformat(), 'etiqueta': f"{d:%d}", 'dia': tiempo.DIAS_SEMANA[d.weekday()][:2],
                       'no_laborable': no_laborables.get(d)} for d in dias], 'filas': filas}
 
@@ -273,23 +307,31 @@ def matriz(lista, desde, hasta, ahora, maximo_dias=45):
 # --- DISTRIBUCIONES ---
 
 def distribucion_retorno(lista):
-    """Retornos (Post-Ruta) por bloques de 15 min alrededor del cierre: cada barra lleva su banda."""
+    """Retornos (Post-Ruta) por bloques de 15 min alrededor del cierre: cada barra lleva su banda. Con los dos
+    turnos mezclados se muestra el turno día (sus retornos son de tarde; los del turno noche, de madrugada); con
+    solo el turno noche, sus retornos (minutos desde la medianoche del día en que cierra, negativos antes de ella)."""
     cierres = [j for j in lista if j.calificacion in (jornadas.ANTICIPADO, jornadas.EN_HORARIO, jornadas.FUERA_DE_HORARIO)]
+    de_dia = [j for j in cierres if not j.es_noche]
+    cierres = de_dia or cierres
     if not cierres:
-        return {'etiquetas': [], 'conteos': [], 'bandas': []}
+        return {'etiquetas': [], 'conteos': [], 'bandas': [], 'turno': None}
     referencia = cierres[0]
     cierre = referencia.hora_cierre.hour * 60 + referencia.hora_cierre.minute
     limite = cierre + referencia.tolerancia_cierre_min
-    minutos = [tiempo.a_lima(j.post_ruta_en).hour * 60 + tiempo.a_lima(j.post_ruta_en).minute for j in cierres]
+    minutos = [round((j.post_ruta_en - tiempo.combinar(jornadas.fecha_cierre(j), time(0, 0))).total_seconds() // 60)
+               for j in cierres]
     inicio = min(cierre - 120, (min(minutos) // 15) * 15)
     fin = max(limite + 60, (max(minutos) // 15 + 1) * 15)
     etiquetas, conteos, bandas = [], [], []
     for desde in range(inicio, fin, 15):
         hasta = desde + 15
-        etiquetas.append(f"{desde // 60:02d}:{desde % 60:02d}")
+        etiquetas.append(f"{(desde // 60) % 24:02d}:{desde % 60:02d}")
         conteos.append(sum(1 for m in minutos if desde <= m < hasta))
-        bandas.append('anticipado' if hasta <= cierre else ('en_horario' if desde < limite else 'fuera'))
-    return {'etiquetas': etiquetas, 'conteos': conteos, 'bandas': bandas}
+        if referencia.es_noche:
+            bandas.append('en_horario' if desde < limite else 'fuera')
+        else:
+            bandas.append('anticipado' if hasta <= cierre else ('en_horario' if desde < limite else 'fuera'))
+    return {'etiquetas': etiquetas, 'conteos': conteos, 'bandas': bandas, 'turno': referencia.turno}
 
 
 RANGOS_PRE_RUTA = [(0, 30), (30, 45), (45, 60), (60, 75), (75, 90), (90, None)]

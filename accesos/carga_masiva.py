@@ -584,13 +584,18 @@ class CargaProgramaciones(TipoCarga):
     nota = ("La placa y el conductor deben existir y estar activos en los maestros (cárguelos primero). "
             "Se aplican las mismas reglas que en la pantalla: fecha y hora futuras (hora de Lima), sin domingos ni "
             "feriados, RUC válido, la placa no se repite en la misma fecha y hora, INTERNO solo con transportes "
-            "propios y disponibles. La primera ruta INTERNO de una placa en el día crea su Pre-Ruta automática. "
-            "Los avisos de capacidad no impiden grabar.")
+            "propios y disponibles. En INTERNO la hora es la de SALIDA del CD y decide el turno: desde las 20:00 "
+            "hasta las 06:15 del día siguiente es turno noche (de lunes a viernes; el sábado es excepcional; no la "
+            "noche de un feriado ni la anterior); las demás, turno día. Una salida de madrugada (00:00 a 06:15) se "
+            "carga con la fecha en que sale. La primera ruta INTERNO de una placa en cada turno crea su Pre-Ruta "
+            "automática (06:30 el día, 20:00 la noche). Los avisos (capacidad, sábado, mismo conductor en los dos "
+            "turnos) no impiden grabar.")
     columnas = [
         Columna('cd', 'cd', True, "Código o nombre del CD: uno de la lista.", 'LURIN', lista='cds'),
-        Columna('fecha', 'fecha', True, "Fecha de la cita: DD/MM/AAAA (también acepta AAAAMMDD).",
-                None, tipo='fecha'),
-        Columna('hora', 'hora', True, "Hora de la cita en 24 horas: HH:MM (ej. 08:30, 14:05).", '08:30',
+        Columna('fecha', 'fecha', True, "Fecha de la cita o de la salida: DD/MM/AAAA (también acepta AAAAMMDD). "
+                "Una salida de madrugada del turno noche va con la fecha del día en que sale.", None, tipo='fecha'),
+        Columna('hora', 'hora', True, "24 horas: HH:MM (ej. 08:30, 22:00). Clientes y proveedores: hora de llegada. "
+                "INTERNO: hora de salida del CD; desde las 20:00 hasta las 06:15 es turno noche.", '08:30',
                 tipo='hora'),
         Columna('tipo', 'tipo', True, "CLIENTE, PROVEEDOR o INTERNO.", 'CLIENTE', lista='tipos'),
         Columna('placa', 'placa', True, "Placa registrada en el maestro de transportes.", 'F7J-011'),
@@ -665,12 +670,19 @@ class CargaProgramaciones(TipoCarga):
             fila.estado = AVISO
             fila.mensajes.extend(avisos)
         if tipo == Programacion.Tipo.INTERNO:
-            # Informativo: la primera ruta INTERNO de la placa en el día crea su Pre-Ruta automática.
-            dia = (transporte.pk, fila.form.cleaned_data['fecha'])
-            existe = dia in contexto.setdefault('jornadas_vistas', set()) or jornadas.jornada_vigente(*dia)
-            contexto['jornadas_vistas'].add(dia)
-            fila.mensajes.append("Pre-Ruta del día: ya existe." if existe else
-                                 f"Se creará la Pre-Ruta automática ({contexto['config'].hora_pre_ruta:%H:%M}).")
+            # Informativo: la primera ruta INTERNO de la placa en el turno (día o noche) crea su Pre-Ruta automática.
+            config = contexto['config']
+            fecha, turno = jornadas.turno_de(fila.form.cleaned_data['fecha'], fila.form.cleaned_data['hora'], config)
+            llave_turno = (transporte.pk, fecha, turno)
+            existe = llave_turno in contexto.setdefault('jornadas_vistas', set()) or jornadas.jornada_vigente(*llave_turno)
+            contexto['jornadas_vistas'].add(llave_turno)
+            if turno == jornadas.NOCHE:
+                fila.mensajes.append("Pre-Ruta del turno noche: ya existe." if existe else
+                                     f"Se creará el turno noche del {fecha:%d/%m} (Pre-Ruta "
+                                     f"{config.hora_pre_ruta_noche:%H:%M}).")
+            else:
+                fila.mensajes.append("Pre-Ruta del día: ya existe." if existe else
+                                     f"Se creará la Pre-Ruta automática ({config.hora_pre_ruta:%H:%M}).")
         return fila
 
     def _conductor(self, fila, contexto):
@@ -695,7 +707,8 @@ class CargaProgramaciones(TipoCarga):
         # Avisos recalculados ya con las filas anteriores del archivo grabadas (capacidad, misma placa).
         avisos = servicios.avisos(objeto, ConfiguracionAccesos.obtener())
         pre_ruta = [m.replace('Se creará', 'Se creó') for m in fila.mensajes
-                    if m.startswith(('Pre-Ruta del día', 'Se creará la Pre-Ruta'))]
+                    if m.startswith(('Pre-Ruta del día', 'Pre-Ruta del turno noche', 'Se creará la Pre-Ruta',
+                                     'Se creará el turno noche'))]
         fila.mensajes = [f"{objeto.codigo} registrada."] + avisos + pre_ruta
         fila.estado = AVISO if avisos else OK
 

@@ -2,7 +2,43 @@
 {% with k=flota.kpis v=flota.variacion %}
 <p class="mb-4 p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> {{ aviso_operativo }}</p>
 
+<!-- Turno de la flota propia: todos, día o noche -->
+<nav class="mb-4 flex flex-wrap items-center gap-2" aria-label="Turno">
+    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-1">Turno</span>
+    {% for t in flota.turnos %}<a href="{{ t.url }}" class="px-3 py-1.5 rounded-full text-xs font-black {% if t.activo %}bg-daryza-dark text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:border-marca{% endif %}">{% if t.etiqueta == 'Turno noche' %}<i class="fas fa-moon mr-1"></i>{% elif t.etiqueta == 'Turno día' %}<i class="fas fa-sun mr-1"></i>{% endif %}{{ t.etiqueta }}</a>{% endfor %}
+</nav>
+
 {% if flota.conclusiones %}{% include 'accesos/dashboard/_conclusiones.html' with frases=flota.conclusiones %}{% endif %}
+
+{% if flota.por_turno %}
+<!-- Turno día frente a turno noche: cada jornada se mide con los horarios de su turno -->
+<section class="mb-6 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" id="comparativo-turnos">
+    <div class="px-5 pt-5 pb-2">
+        <h2 class="text-lg font-black text-daryza-dark">Turno día y turno noche</h2>
+        <p class="text-xs text-slate-500">Cada turno con sus horarios: día (Pre-Ruta {{ config.hora_pre_ruta|time:"H:i" }}, cierre {{ config.hora_cierre_operativo|time:"H:i" }} + {{ config.tolerancia_cierre_min }}) y noche (Pre-Ruta {{ config.hora_pre_ruta_noche|time:"H:i" }}, cierre {{ config.hora_cierre_noche|time:"H:i" }} + {{ config.tolerancia_cierre_noche_min }} del día siguiente). Elija un turno arriba para ver solo ese.</p>
+    </div>
+    <div class="overflow-x-auto desliza">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-4 py-3">Turno</th><th class="text-right px-4 py-3">Jornadas</th><th class="text-right px-4 py-3">Pre-Ruta a tiempo</th><th class="text-right px-4 py-3">Salidas a tiempo</th><th class="text-right px-4 py-3">Cierre en horario</th><th class="text-right px-4 py-3">Fuera de horario</th><th class="text-right px-4 py-3">Rutas cumplidas</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for fila in flota.por_turno %}{% with t=fila.k %}
+                <tr>
+                    <td class="px-4 py-3 font-black whitespace-nowrap"><i class="fas {% if fila.turno == 'NOCHE' %}fa-moon{% else %}fa-sun{% endif %} text-marca mr-1"></i>{{ fila.etiqueta }}</td>
+                    <td class="px-4 py-3 text-right font-bold">{{ t.jornadas }}</td>
+                    <td class="px-4 py-3 text-right font-bold">{% if t.pct_pre_ruta_a_tiempo is not None %}{{ t.pct_pre_ruta_a_tiempo|floatformat:1 }} %{% else %}—{% endif %}</td>
+                    <td class="px-4 py-3 text-right font-bold">{% if t.pct_salidas_a_tiempo is not None %}{{ t.pct_salidas_a_tiempo|floatformat:1 }} %{% else %}—{% endif %}</td>
+                    <td class="px-4 py-3 text-right font-bold">{% if t.pct_cierre_en_horario is not None %}{{ t.pct_cierre_en_horario|floatformat:1 }} %{% else %}—{% endif %}</td>
+                    <td class="px-4 py-3 text-right font-bold {% if t.fuera_de_horario %}text-rose-700{% endif %}">{{ t.fuera_de_horario }}</td>
+                    <td class="px-4 py-3 text-right font-bold">{% if t.pct_rutas_cumplidas is not None %}{{ t.pct_rutas_cumplidas|floatformat:1 }} %{% else %}—{% endif %}</td>
+                </tr>
+                {% endwith %}{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
 
 {% if not k.jornadas %}
 <section class="mb-6 bg-white rounded-3xl border border-dashed border-slate-200 p-8 text-center">
@@ -34,7 +70,7 @@
     <div class="bg-white rounded-3xl border {% if k.fuera_de_horario %}border-rose-200{% else %}border-slate-100{% endif %} p-4 sm:p-5">
         <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-clock mr-1 text-marca"></i>Fuera de horario</p>
         <p class="mt-2 text-2xl xl:text-3xl font-black {% if k.fuera_de_horario %}text-rose-700{% else %}text-daryza-dark{% endif %}">{{ k.fuera_de_horario }}</p>
-        <p class="text-[11px] font-bold text-slate-400 leading-snug">retornos después de las {{ config.hora_cierre_operativo|time:"H:i" }} + {{ config.tolerancia_cierre_min }} min · {{ k.minutos_sobre_cierre }} min fuera de horario en total</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">retornos después del cierre + tolerancia de su turno ({{ config.hora_cierre_operativo|time:"H:i" }} + {{ config.tolerancia_cierre_min }} min{% if flota.por_turno or filtros.turno == 'NOCHE' %}; noche {{ config.hora_cierre_noche|time:"H:i" }} + {{ config.tolerancia_cierre_noche_min }}{% endif %}) · {{ k.minutos_sobre_cierre }} min fuera de horario en total</p>
         {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.fuera_de_horario %}
     </div>
     <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
@@ -51,12 +87,14 @@
     </div>
 </div>
 
+<div id="tooltip-flota" class="hidden fixed z-50 bg-daryza-dark text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs"></div>
 {% if flota.gantt_disponible %}
+{% if datos.flota.gantt %}
 <!-- Línea de tiempo del día -->
 <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
     <div class="action-row justify-between mb-3">
         <div>
-            <h2 class="text-lg font-black text-daryza-dark">Línea de tiempo del día</h2>
+            <h2 class="text-lg font-black text-daryza-dark">Línea de tiempo del día{% if datos.flota.gantt_noche.filas %} · <i class="fas fa-sun text-marca"></i> turno día{% endif %}</h2>
             <p class="text-xs text-slate-500">Cada fila es una unidad: dentro del CD en Pre-Ruta, en visita o en pernocta; la línea fina es el tiempo en ruta. Toque una fila para filtrar esa placa.</p>
         </div>
         <ul class="flex flex-wrap gap-3 text-[11px] font-bold text-slate-600" aria-label="Leyenda">
@@ -67,8 +105,18 @@
         </ul>
     </div>
     <div id="gantt" class="overflow-x-auto desliza"></div>
-    <div id="tooltip-flota" class="hidden fixed z-50 bg-daryza-dark text-white text-xs rounded-xl px-3 py-2 shadow-xl max-w-xs"></div>
 </section>
+{% endif %}
+{% if flota.gantt_noche_disponible and datos.flota.gantt_noche.filas %}
+<!-- Línea de tiempo del turno noche (de las 20:00 a la madrugada siguiente) -->
+<section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
+    <div class="mb-3">
+        <h2 class="text-lg font-black text-daryza-dark"><i class="fas fa-moon text-marca mr-1"></i> Línea de tiempo · turno noche</h2>
+        <p class="text-xs text-slate-500">Desde la Pre-Ruta noche ({{ config.hora_pre_ruta_noche|time:"H:i" }}) hasta el retorno de madrugada del día siguiente (cierre {{ config.hora_cierre_noche|time:"H:i" }} + {{ config.tolerancia_cierre_noche_min }} min). Mismos colores que la línea del día.</p>
+    </div>
+    <div id="gantt-noche" class="overflow-x-auto desliza"></div>
+</section>
+{% endif %}
 {% else %}
 <!-- Matriz placa × día -->
 <section class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 sm:p-6 mb-6">
@@ -93,7 +141,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">
         <h2 class="text-lg font-black text-daryza-dark">¿A qué hora vuelven?</h2>
-        <p class="text-xs text-slate-500 mb-4">Retornos (Post-Ruta) por bloques de 15 min. <span class="font-black" style="color: var(--critico)"><i class="fas fa-clock"></i> Rojo</span>: después de la tolerancia; azul: en horario; gris: fin anticipado.</p>
+        <p class="text-xs text-slate-500 mb-4">Retornos (Post-Ruta) por bloques de 15 min{% if datos.flota.retorno.turno == 'NOCHE' %} del turno noche (de madrugada){% elif flota.por_turno %} del turno día (elija «Turno noche» arriba para ver los de madrugada){% endif %}. <span class="font-black" style="color: var(--critico)"><i class="fas fa-clock"></i> Rojo</span>: después de la tolerancia; azul: en horario; gris: fin anticipado.</p>
         <div class="h-64 sm:h-72"><canvas id="grafico-retorno" role="img" aria-label="Distribución de la hora de retorno"></canvas></div>
     </section>
     <section class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-6">

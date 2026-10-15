@@ -56,7 +56,7 @@
                     {% include 'accesos/maestros/_campo.html' with campo=form.documento %}
                     {% include 'accesos/maestros/_campo.html' with campo=form.razon_social %}
                 </div>
-                <p id="nota-interno" class="hidden text-xs font-bold text-marca">Tipo INTERNO: se usan los datos de la empresa ({{ razon_social_empresa }}, RUC {{ ruc_empresa|default:"no configurado" }}).</p>
+                <p id="nota-interno" class="hidden text-xs font-bold text-marca">Tipo INTERNO: se usan los datos de la empresa ({{ razon_social_empresa }}, RUC {{ ruc_empresa|default:"no configurado" }}). La hora es la de salida del CD: desde las {{ accesos_config.hora_pre_ruta_noche|time:"H:i" }} hasta las {{ accesos_config.hora_cierre_noche|time:"H:i" }} del día siguiente la ruta es del <i class="fas fa-moon"></i> turno noche (de lunes a viernes; el sábado es excepcional).</p>
                 {% include 'accesos/maestros/_campo.html' with campo=form.motivo %}
                 <datalist id="motivos-frecuentes">{% for m in motivos_frecuentes %}<option value="{{ m }}">{% endfor %}</datalist>
                 {% include 'accesos/maestros/_campo.html' with campo=form.observacion_despacho %}
