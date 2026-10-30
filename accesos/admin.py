@@ -192,7 +192,7 @@ class TramoAdmin(SoloLecturaAdmin):
     list_display = ('transporte', 'clase', 'cd', 'fecha_local_entrada', 'hora_local_entrada', 'salida_en',
                     'minutos_permanencia', 'vigente', 'corregido', 'cierre_administrativo')
     list_select_related = ('transporte', 'cd')
-    list_filter = ('clase', 'cd', 'vigente', 'corregido', 'cierre_administrativo', 'fecha_local_entrada')
+    list_filter = ('clase', 'cd', 'vigente', 'km_estado', 'corregido', 'cierre_administrativo', 'fecha_local_entrada')
     search_fields = ('transporte__placa_normalizada',)
 
 
@@ -202,7 +202,7 @@ class JornadaAdmin(SoloLecturaAdmin):
     list_display = ('codigo', 'fecha', 'turno', 'transporte', 'cd', 'conductor', 'estado', 'primera_salida',
                     'post_ruta_en', 'motivo_cierre')
     list_select_related = ('transporte', 'cd', 'conductor')
-    list_filter = ('turno', 'estado', 'motivo_cierre', 'cd', 'fecha')
+    list_filter = ('turno', 'estado', 'motivo_cierre', 'cierre_sin_retorno', 'cd', 'fecha')
     search_fields = ('transporte__placa_normalizada',)
     date_hierarchy = 'fecha'
 

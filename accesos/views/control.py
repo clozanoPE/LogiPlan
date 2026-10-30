@@ -7,14 +7,19 @@ y auditoría (R24–R27).
 from datetime import date, timedelta
 
 from django.contrib import messages
+from django.db import transaction
+from django.urls import reverse
+from django.utils.http import urlencode
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .. import excel, exportaciones, indicadores, jornadas, servicios, tiempo
-from ..forms import CierreAdministrativoForm, ConvertirPostRutaForm, CorreccionTramoForm, MotivoForm
-from ..models import CentroDistribucion, ConfiguracionAccesos, Programacion, RegistroAuditoria, Tramo, normalizar_placa
+from .. import excel, exportaciones, indicadores, jornadas, kilometraje, servicios, tiempo
+from ..forms import (CerrarJornadaForm, CierreAdministrativoForm, ConvertirPostRutaForm, CorreccionTramoForm,
+                     KmExcluirForm, MotivoForm)
+from ..models import (CentroDistribucion, ConfiguracionAccesos, Jornada, Programacion, RegistroAuditoria, Tramo,
+                      normalizar_placa)
 from ..paginacion import paginar
 from ..permisos import ADMINISTRADOR, CONSULTA, DESPACHO, VIGILANCIA, rol_requerido, tiene_rol
 from .porteria import cds_autorizados
@@ -246,9 +251,12 @@ def tramo_detalle(request, pk):
     }
     if tiene_rol(request.user, ADMINISTRADOR) and tramo.vigente:
         contexto['form_anular'] = MotivoForm(prefix='anular')
+        if tramo.km_entrada is not None and tramo.km_estado in (Tramo.KmEstado.REGISTRADO, Tramo.KmEstado.EXCLUIDO,
+                                                                Tramo.KmEstado.OBSERVADO):
+            contexto['form_km'] = KmExcluirForm(prefix='km')
         if tramo.esta_abierto:
             contexto['form_cierre'] = CierreAdministrativoForm(prefix='cierre', initial={'salida_en': ahora})
-            jornada = servicios.jornada_de_visita(tramo) if tramo.es_programado else None
+            jornada = servicios.jornada_de_visita(tramo) if tramo.es_visita else None
             if jornada and jornada.estado == jornada.Estado.EN_RUTA:
                 contexto['form_convertir'] = ConvertirPostRutaForm(prefix='convertir',
                                                                    initial={'fin_atencion': tramo.entrada_en})
@@ -263,7 +271,7 @@ def tramo_corregir(request, pk):
         messages.error(request, "El tramo está anulado; no se puede corregir.")
         return redirect('accesos:tramo_detalle', pk=pk)
     inicial = {'entrada_en': tramo.entrada_en, 'salida_en': tramo.salida_en, 'km_entrada': tramo.km_entrada,
-               'obs_entrada': tramo.obs_entrada, 'obs_salida': tramo.obs_salida,
+               'km_reinicio': tramo.km_reinicio, 'obs_entrada': tramo.obs_entrada, 'obs_salida': tramo.obs_salida,
                'programacion': tramo.programacion_id, 'conductor': tramo.conductor_id}
     form = CorreccionTramoForm(request.POST or None, tramo=tramo, initial=inicial)
     if request.method == 'POST' and form.is_valid():
@@ -273,13 +281,65 @@ def tramo_corregir(request, pk):
                 tramo, request.user, motivo=datos['motivo'], ahora=tiempo.ahora(), entrada_en=datos['entrada_en'],
                 salida_en=datos.get('salida_en'), km_entrada=datos['km_entrada'], obs_entrada=datos['obs_entrada'],
                 obs_salida=datos.get('obs_salida', ''), programacion=datos.get('programacion'),
-                conductor=datos['conductor'])
+                conductor=datos['conductor'], km_reinicio=datos['km_reinicio'])
         except ValidationError as error:
             form.add_error(None, error)
         else:
             messages.success(request, "Tramo corregido. El cambio quedó en la auditoría.")
             return redirect('accesos:tramo_detalle', pk=pk)
     return render(request, 'accesos/control/tramo_corregir.html', {'tramo': tramo, 'form': form})
+
+
+@require_POST
+@rol_requerido(ADMINISTRADOR)
+def tramo_km(request, pk):
+    """Excluir una lectura de km errada sin valor real conocido (no suma ni sirve de referencia), restituirla o
+    validar una lectura «observada» de portería."""
+    tramo = get_object_or_404(Tramo, pk=pk)
+    form = KmExcluirForm(request.POST, prefix='km')
+    try:
+        if not form.is_valid():
+            raise ValidationError("Indique el motivo.")
+        with transaction.atomic():
+            servicios._bloquear_transporte(tramo.transporte_id)
+            tramo.refresh_from_db()
+            if request.POST.get('accion') == 'restituir':
+                kilometraje.restituir(tramo, request.user, motivo=form.cleaned_data['motivo'])
+                texto = "Lectura restituida: vuelve a contar en el kilometraje."
+            elif request.POST.get('accion') == 'validar':
+                kilometraje.validar_observada(tramo, request.user, motivo=form.cleaned_data['motivo'])
+                texto = "Lectura observada validada: ahora cuenta en el kilometraje."
+            else:
+                kilometraje.excluir(tramo, request.user, motivo=form.cleaned_data['motivo'])
+                texto = "Lectura excluida: ya no suma en el reporte ni sirve de referencia en portería."
+    except ValidationError as error:
+        messages.error(request, ' '.join(error.messages))
+    else:
+        messages.success(request, texto)
+    return redirect('accesos:tramo_detalle', pk=pk)
+
+
+@rol_requerido(ADMINISTRADOR)
+def jornada_cerrar(request, pk):
+    """Cerrar sin Post-Ruta una jornada que salió a ruta y cuyo retorno nunca se registró."""
+    jornada = get_object_or_404(Jornada.objects.select_related('transporte', 'conductor', 'cd'), pk=pk)
+    volver = f"{reverse('accesos:trazabilidad')}?{urlencode({'placa': jornada.transporte.placa_normalizada, 'fecha': jornada.fecha.isoformat()})}"
+    form = CerrarJornadaForm(request.POST or None, prefix='cerrar')
+    if request.method == 'POST' and form.is_valid():
+        try:
+            servicios.cerrar_jornada_sin_retorno(jornada, request.user, motivo=form.cleaned_data['motivo'],
+                                                 ahora=tiempo.ahora())
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            messages.success(request, f"Jornada {jornada.codigo} cerrada sin retorno. Queda en la auditoría.")
+            return redirect(volver)
+    elegible = jornada.estado == Jornada.Estado.EN_RUTA and jornadas.turno_terminado(jornada, tiempo.ahora())
+    return render(request, 'accesos/control/jornada_cerrar.html', {
+        'jornada': jornada, 'form': form, 'volver': volver, 'elegible': elegible,
+        'pendientes': jornadas.pendientes(jornada),
+        'tramos': Tramo.objects.filter(jornada=jornada, vigente=True).order_by('entrada_en'),
+    })
 
 
 @require_POST

@@ -1,0 +1,25 @@
+{% comment %}
+Kilometraje en portería (30/10/2026). Parámetros: id_campo, foco (autofocus), variacion ('1' si el km debe ser MAYOR
+al último: entradas después de salir; '' en «Está saliendo», donde puede ser igual), propuesto ('1' para proponer el
+último km), borde (clase de foco). La validación en pantalla la hace el script de porteria.html (bloque .bloque-km) y
+el servidor la repite (kilometraje.validar_nueva): no se acepta un km menor ni igual al último válido, uno de relleno
+ni uno que no quepa en el tiempo fuera del CD (km_tope, a km_velocidad km/h). El vigilante no puede forzarlo: corrige
+el número o lo registra como «km observado» (no cuenta hasta que el Administrador lo valide).
+{% endcomment %}
+<div class="bloque-km space-y-2" data-ultimo="{{ ultimo_km|default_if_none:'' }}" data-tope="{{ km_tope|default_if_none:'' }}" data-variacion="{{ variacion }}" data-velocidad="{{ km_velocidad|default_if_none:'' }}">
+    <label for="{{ id_campo }}" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400">Kilometraje *</label>
+    <input id="{{ id_campo }}" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required {% if foco %}autofocus{% endif %}
+           {% if propuesto and ultimo_km is not None %}value="{{ ultimo_km }}"{% endif %}
+           class="campo-km w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 {{ borde|default:'focus:border-marca' }} focus:outline-none">
+    <p class="text-xs font-bold text-slate-400">{% if ultimo_km is not None %}Último registrado: {{ ultimo_km }} km{% if km_desde %} · fuera del CD desde el {{ km_desde|date:"d/m H:i" }} ({{ km_fuera }}): como máximo {{ km_tope }} km más{% endif %}{% if propuesto %}. Confírmelo o corríjalo con el tablero.{% endif %}{% else %}Lea el kilometraje del tablero (no hay uno registrado).{% endif %}</p>
+    <p class="km-recorrido hidden text-sm font-black text-emerald-700"></p>
+    <p class="km-error hidden p-3 rounded-xl bg-rose-50 text-rose-700 text-sm font-black" role="alert"></p>
+    <label class="km-observado hidden flex items-start gap-3 p-3 rounded-xl bg-amber-50 text-amber-900 text-sm font-bold">
+        <input type="checkbox" name="km_observado" value="on" class="w-6 h-6 shrink-0">
+        <span>El tablero marca este valor: registrarlo como <span class="font-black">km observado</span> (no cuenta hasta que el Administrador lo revise; explíquelo en la observación).</span>
+    </label>
+    <label class="flex items-center gap-3 text-sm font-bold text-slate-500">
+        <input type="checkbox" name="km_no_leido" value="on" class="km-no-leido w-5 h-5">
+        No se pudo leer el odómetro (explíquelo en la observación)
+    </label>
+</div>

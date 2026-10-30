@@ -73,6 +73,13 @@
         <p class="text-sm text-slate-500 mt-1">Historial de ingresos y salidas con filtros y exportación a Excel.</p>
     </a>
     {% endif %}
+    {% if accesos_lectura %}
+    <a href="{% url 'accesos:reporte_jornadas' %}" class="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-marca p-6 transition-all">
+        <i class="fas fa-table-list text-3xl text-marca"></i>
+        <h2 class="mt-4 text-lg font-black text-daryza-dark">Reporte de jornadas</h2>
+        <p class="text-sm text-slate-500 mt-1">Pre-Ruta, Post-Ruta y kilometraje por placa y turno, con calidad del km y exportación a Excel.</p>
+    </a>
+    {% endif %}
 </div>
 
 {% if 'administrador' in accesos_roles %}

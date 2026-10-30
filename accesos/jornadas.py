@@ -206,6 +206,27 @@ def minutos_sobre_cierre(jornada):
     return int((jornada.post_ruta_en - limite_cierre(jornada)).total_seconds() // 60)
 
 
+def minutos_post_ruta(jornada):
+    """Tiempo de Post-Ruta (definición de las áreas, 30/10/2026): fin del turno (cierre operativo: 16:00; 06:15 del
+    día siguiente en el turno noche) menos la hora real de retorno al CD. Positivo = volvió antes del fin del turno;
+    negativo = después. Solo retornos normales (no por avería ni jornadas cerradas sin retorno). Indicador
+    OPERATIVO del vehículo: no es asistencia ni sustenta horas extra."""
+    if not jornada.post_ruta_en or jornada.cierre_sin_retorno or jornada.motivo_cierre == Jornada.MotivoCierre.AVERIA:
+        return None
+    return round((cierre(jornada) - jornada.post_ruta_en).total_seconds() / 60)
+
+
+def texto_post_ruta(minutos):
+    """«30 min antes» / «1 h 5 min después» / «a la hora» (para pantallas; el Excel lleva el número)."""
+    if minutos is None:
+        return ''
+    if minutos == 0:
+        return 'a la hora'
+    horas, resto = divmod(abs(minutos), 60)
+    duracion = f"{horas} h {resto} min" if horas else f"{resto} min"
+    return f"{duracion} {'antes' if minutos > 0 else 'después'}"
+
+
 def minutos_pre_ruta(jornada):
     """Alistamiento: desde el inicio real de la Pre-Ruta hasta la primera salida."""
     if not (jornada.inicio_real and jornada.primera_salida):
@@ -233,6 +254,8 @@ def estado_visible(jornada, ahora, *, dentro=False, en_visita=False, no_disponib
     if jornada.estado == Estado.ANULADA:
         return EstadoJornada('ANULADA', 'Anulada')
     if jornada.estado == Estado.CERRADA:
+        if jornada.cierre_sin_retorno:
+            return EstadoJornada('CERRADA_SIN_RETORNO', 'Cerrada sin retorno')
         calificacion = calificacion_cierre(jornada)
         if calificacion is None:
             return EstadoJornada('CERRADA', 'Cerrada')
@@ -268,9 +291,10 @@ def _anotar(jornadas, ahora):
         tramo = abiertos.get(jornada.transporte_id)
         jornada.tramo_abierto = tramo
         jornada.estado_v = estado_visible(jornada, ahora, dentro=tramo is not None,
-                                          en_visita=bool(tramo and tramo.es_programado),
+                                          en_visita=bool(tramo and tramo.es_visita),
                                           no_disponible=jornada.transporte_id in no_disponibles)
         jornada.minutos_pre_ruta = minutos_pre_ruta(jornada)
+        jornada.minutos_post_ruta = minutos_post_ruta(jornada)
         jornada.minutos_sobre_cierre = minutos_sobre_cierre(jornada)
         jornada.calificacion = calificacion_cierre(jornada)
     return jornadas
@@ -636,9 +660,10 @@ class AvisoFlota:
     url_query: str = ''
 
 
-def avisos_flota(ahora, dias_atras=7):
-    """Lo que requiere acción: vehículos no disponibles (con sus programaciones afectadas) y jornadas de días
-    anteriores que quedaron sin Post-Ruta (las corrige el Administrador)."""
+def avisos_flota(ahora, dias_atras=30):
+    """Lo que requiere acción: vehículos no disponibles (con sus programaciones afectadas), jornadas de días
+    anteriores que quedaron sin Post-Ruta y lecturas de km sin leer (las resuelve el Administrador desde el
+    Reporte de jornadas). Hasta el 29/10/2026 solo se miraban 7 días y quedaban jornadas antiguas sin aviso."""
     avisos = []
     afectadas = {}
     for programacion in programaciones_afectadas(ahora.date()):
@@ -658,7 +683,31 @@ def avisos_flota(ahora, dias_atras=7):
         turno = " (turno noche)" if jornada.es_noche else ""
         avisos.append(AvisoFlota('fa-flag', f"{jornada.transporte} sin Post-Ruta",
                                  f"Jornada del {jornada.fecha:%d/%m}{turno}: no registró su retorno al CD",
-                                 'accesos:tramos_lista',
-                                 f"desde={jornada.fecha.isoformat()}&hasta={ahora.date().isoformat()}"
-                                 f"&q={jornada.transporte.placa_normalizada}"))
+                                 'accesos:trazabilidad',
+                                 f"placa={jornada.transporte.placa_normalizada}&fecha={jornada.fecha.isoformat()}"))
+    no_leidos = Tramo.objects.filter(vigente=True, km_estado=Tramo.KmEstado.NO_LEIDO,
+                                     fecha_local_entrada__gte=ahora.date() - timedelta(days=dias_atras)).count()
+    if no_leidos:
+        avisos.append(AvisoFlota('fa-gauge-high', f"{no_leidos} lectura{'s' if no_leidos > 1 else ''} de km sin leer",
+                                 "El odómetro no se pudo leer en portería: corrija el km o exclúyalo",
+                                 'accesos:reporte_jornadas',
+                                 f"vista=calidad&km=no_leido&desde={ahora.date() - timedelta(days=dias_atras)}"
+                                 f"&hasta={ahora.date()}"))
+    observados = Tramo.objects.filter(vigente=True, km_estado=Tramo.KmEstado.OBSERVADO,
+                                      fecha_local_entrada__gte=ahora.date() - timedelta(days=dias_atras)).count()
+    if observados:
+        avisos.append(AvisoFlota('fa-gauge-high', f"{observados} lectura{'s' if observados > 1 else ''} de km observada"
+                                                  f"{'s' if observados > 1 else ''}",
+                                 "No pasó los controles de portería: valídela, corríjala o exclúyala",
+                                 'accesos:reporte_jornadas',
+                                 f"vista=calidad&km=observado&desde={ahora.date() - timedelta(days=dias_atras)}"
+                                 f"&hasta={ahora.date()}"))
+    # Retornos imprevistos de hoy (30/10/2026): Despacho debe enterarse en el momento; luego quedan en el reporte.
+    for tramo in (Tramo.objects.filter(vigente=True, clase=Tramo.Clase.IMPREVISTO, fecha_local_entrada=ahora.date())
+                  .select_related('transporte').order_by('-entrada_en')):
+        km = f" · km {tramo.km_entrada}" if tramo.km_valido else ''
+        avisos.append(AvisoFlota('fa-rotate-left', f"{tramo.transporte} · retorno imprevisto",
+                                 f"{tiempo.a_lima(tramo.entrada_en):%H:%M} · {tramo.get_motivo_imprevisto_display()}{km}",
+                                 'accesos:trazabilidad',
+                                 f"placa={tramo.transporte.placa_normalizada}&fecha={ahora.date().isoformat()}"))
     return avisos

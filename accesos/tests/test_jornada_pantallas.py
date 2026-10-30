@@ -101,7 +101,7 @@ class PorteriaPantallasTests(JornadaBase):
         respuesta = self.client.post(url, {'transporte': self.f7j.pk, 'km': 1000, 'averia': 'on'}, follow=True)
         self.assertContains(respuesta, 'Elija el tipo de avería')
         self.assertFalse(Incidencia.objects.exists())
-        respuesta = self.client.post(url, {'transporte': self.f7j.pk, 'km': 1000, 'averia': 'on',
+        respuesta = self.client.post(url, {'transporte': self.f7j.pk, 'km': 129600, 'averia': 'on',
                                            'averia_tipo': self.averia.pk, 'averia_descripcion': 'Llanta reventada',
                                            'placa': 'F7J-011'})
         self.assertIn('registrado=AVERIA', respuesta.url)

@@ -136,7 +136,7 @@
         document.querySelectorAll('#ranking-flota th[data-orden]').forEach(th => {
             th.textContent = th.textContent.replace(/ [▼▲]$/, '') + (th.dataset.orden === orden ? (descendente ? ' ▼' : ' ▲') : '');
         });
-        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">Sin jornadas con estos filtros.</td></tr>'; return; }
+        if (!filas.length) { cuerpo.innerHTML = '<tr><td colspan="11" class="px-6 py-10 text-center text-slate-400 font-bold">Sin jornadas con estos filtros.</td></tr>'; return; }
         const activo = String(datos.filtros[dimension] ?? '');
         cuerpo.innerHTML = filas.map(f => `<tr class="fila-filtrable ${activo === String(f.valor) ? 'bg-marca-claro' : 'hover:bg-marca-claro'}" data-valor="${escapar(f.valor)}" title="Filtrar todo el dashboard por ${escapar(f.nombre)}">
             <td class="px-3 py-3 font-black text-daryza-dark whitespace-nowrap">${escapar(f.nombre)}</td>
@@ -147,6 +147,8 @@
             <td class="px-3 py-3 text-right">${pct(f.pct_cierre_en_horario)}</td>
             <td class="px-3 py-3 text-right font-black whitespace-nowrap ${f.fuera_de_horario ? 'text-rose-700' : 'text-slate-400'}">${f.fuera_de_horario ? '<i class="fas fa-clock mr-1"></i>' : ''}${f.fuera_de_horario}</td>
             <td class="hidden md:table-cell px-3 py-3 text-right whitespace-nowrap col-placa ${dimension !== 'placa' ? '!hidden' : ''}">${f.minutos_sobre_cierre !== undefined ? f.minutos_sobre_cierre + ' min' : ''}</td>
+            <td class="hidden xl:table-cell px-3 py-3 text-right whitespace-nowrap col-placa ${dimension !== 'placa' ? '!hidden' : ''} ${f.post_ruta_promedio !== null && f.post_ruta_promedio < -{{ config.tolerancia_cierre_min|default:15 }} ? 'text-rose-700 font-bold' : ''}">${f.post_ruta_promedio === undefined || f.post_ruta_promedio === null ? '' : f.post_ruta_promedio + ' min'}</td>
+            <td class="hidden lg:table-cell px-3 py-3 text-right whitespace-nowrap col-placa ${dimension !== 'placa' ? '!hidden' : ''}">${f.km_total === undefined || f.km_total === null ? (f.km_por_revisar ? '<span class="text-amber-700 text-xs font-bold">por revisar</span>' : '') : f.km_total + ' km'}${f.imprevistos ? `<span class="block text-[10px] font-black text-amber-700">${f.imprevistos} imprevisto${f.imprevistos > 1 ? 's' : ''}</span>` : ''}</td>
             <td class="hidden md:table-cell px-3 py-3 text-right">${f.por_averia}</td></tr>`).join('');
     }
     cuerpo.addEventListener('click', (e) => {
@@ -156,7 +158,7 @@
     document.querySelectorAll('.pestana-flota').forEach(boton => boton.addEventListener('click', () => {
         document.querySelectorAll('.pestana-flota').forEach(b => b.setAttribute('aria-selected', b === boton));
         dimension = boton.dataset.dimension;
-        if (dimension !== 'placa' && orden === 'minutos_sobre_cierre') orden = 'fuera_de_horario';
+        if (dimension !== 'placa' && ['minutos_sobre_cierre', 'post_ruta_promedio', 'km_total'].includes(orden)) orden = 'fuera_de_horario';
         pintarRanking();
     }));
     document.querySelectorAll('#ranking-flota th[data-orden]').forEach(th => th.addEventListener('click', () => {

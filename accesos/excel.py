@@ -89,6 +89,43 @@ def libro_excel(hoja, encabezados, filas, formatos=None, notas=None):
     return buffer.getvalue()
 
 
+def libro_varias_hojas(hojas, notas=None):
+    """Bytes de un .xlsx con varias hojas de datos: `hojas` es una lista de (nombre, encabezados, filas, formatos),
+    con las mismas reglas que libro_excel (texto con «=» como texto, anchos según el contenido)."""
+    libro = Workbook()
+    libro.remove(libro.active)
+    for nombre, encabezados, filas, formatos in hojas:
+        ws = libro.create_sheet(nombre[:31])
+        indices = _indices(encabezados, formatos)
+        _cabecera(ws, encabezados)
+        anchos = [len(e) + 4 for e in encabezados]
+        for numero_fila, fila in enumerate(filas, start=2):
+            for indice, valor in enumerate(fila):
+                celda = ws.cell(row=numero_fila, column=indice + 1, value=_valor_seguro(valor))
+                if celda.data_type == 'f':
+                    celda.data_type = 's'
+                if indice in indices:
+                    celda.number_format = indices[indice]
+                anchos[indice] = max(anchos[indice], _largo(valor) + 2)
+        for columna, ancho in enumerate(anchos, start=1):
+            ws.column_dimensions[get_column_letter(columna)].width = min(max(ancho, 12), ANCHO_MAXIMO)
+    if notas:
+        hoja_notas = libro.create_sheet('Notas')
+        _cabecera(hoja_notas, ['Notas'])
+        for numero_fila, nota in enumerate(notas, start=2):
+            hoja_notas.cell(row=numero_fila, column=1, value=nota).alignment = Alignment(wrap_text=True)
+        hoja_notas.column_dimensions['A'].width = 120
+    buffer = BytesIO()
+    libro.save(buffer)
+    return buffer.getvalue()
+
+
+def respuesta_libro(nombre_archivo, contenido):
+    respuesta = HttpResponse(contenido, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+    return respuesta
+
+
 def respuesta_excel(nombre_archivo, hoja, encabezados, filas, formatos=None, notas=None):
     respuesta = HttpResponse(libro_excel(hoja, encabezados, filas, formatos, notas),
                              content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

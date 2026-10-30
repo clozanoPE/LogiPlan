@@ -1,6 +1,9 @@
 {# Pestaña «Flota propia»: jornada de las unidades propias (Pre-Ruta automática y Post-Ruta). #}
 {% with k=flota.kpis v=flota.variacion %}
-<p class="mb-4 p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> {{ aviso_operativo }}</p>
+<div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <p class="flex-1 p-3 rounded-xl bg-white border border-slate-100 text-slate-500 text-xs font-bold"><i class="fas fa-circle-info text-marca mr-1"></i> {{ aviso_operativo }}</p>
+    {% if accesos_lectura %}<a href="{{ flota.reporte_url }}" id="ver-reporte" class="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-daryza-dark hover:bg-marca text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-table-list"></i> Ver reporte detallado</a>{% endif %}
+</div>
 
 <!-- Turno de la flota propia: todos, día o noche -->
 <nav class="mb-4 flex flex-wrap items-center gap-2" aria-label="Turno">
@@ -49,7 +52,7 @@
 {% endif %}
 
 <!-- Indicadores de la jornada -->
-<div class="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
     <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5">
         <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-truck mr-1 text-marca"></i>Jornadas</p>
         <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{{ k.jornadas }}</p>
@@ -77,6 +80,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-route mr-1 text-marca"></i>Rutas cumplidas</p>
         <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.pct_rutas_cumplidas is not None %}{{ k.pct_rutas_cumplidas|floatformat:1 }} %{% else %}—{% endif %}</p>
         <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ k.rutas_atendidas }} de {{ k.rutas }} (días terminados){% if k.rutas_no_atendidas_cierre %} · {{ k.rutas_no_atendidas_cierre }} por cierre de jornada{% endif %}{% if k.rutas_canceladas_averia %} · {{ k.rutas_canceladas_averia }} por avería{% endif %}</p>
+        {% if k.imprevistos %}<p class="text-[11px] font-black text-amber-700 leading-snug" id="flota-imprevistos"><i class="fas fa-rotate-left mr-1"></i>{{ k.imprevistos }} retorno{{ k.imprevistos|pluralize }} imprevisto{{ k.imprevistos|pluralize }} ({{ k.placas_con_imprevistos }} placa{{ k.placas_con_imprevistos|pluralize }} · {{ k.minutos_imprevistos }} min en el CD)</p>{% endif %}
         {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.pct_rutas_cumplidas %}
     </div>
     <div class="bg-white rounded-3xl border {% if k.salidas_retrasadas %}border-rose-200{% else %}border-slate-100{% endif %} p-4 sm:p-5">
@@ -84,6 +88,18 @@
         <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.pct_salidas_a_tiempo is not None %}{{ k.pct_salidas_a_tiempo|floatformat:1 }} %{% else %}—{% endif %}</p>
         <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ k.salidas }} salidas a ruta frente a su hora programada{% if k.salidas_retrasadas %} · <span class="text-rose-700">{{ k.salidas_retrasadas }} con retraso ({{ k.retraso_salida_promedio }} min prom.)</span>{% endif %} · retraso desde {{ config.tolerancia_puntualidad_min }} min</p>
         {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.pct_salidas_a_tiempo %}
+    </div>
+    <div class="bg-white rounded-3xl border border-slate-100 p-4 sm:p-5" id="tarjeta-post-ruta">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-house-flag mr-1 text-marca"></i>Post-Ruta promedio</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black {% if k.post_ruta_promedio_dia is not None and k.post_ruta_promedio_dia|add:config.tolerancia_cierre_min < 0 %}text-rose-700{% else %}text-daryza-dark{% endif %}">{% if k.post_ruta_promedio_dia is not None %}{{ k.post_ruta_promedio_dia }} min{% elif k.post_ruta_promedio_noche is not None %}{{ k.post_ruta_promedio_noche }} min{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">fin del turno − retorno real (+ antes, − después){% if k.post_ruta_promedio_dia is not None %} · turno día ({{ k.post_ruta_dia }} retornos, fin {{ config.hora_cierre_operativo|time:"H:i" }}){% endif %}{% if k.post_ruta_promedio_noche is not None %} · noche {{ k.post_ruta_promedio_noche }} min ({{ k.post_ruta_noche }}, fin {{ config.hora_cierre_noche|time:"H:i" }}){% endif %}</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.post_ruta_promedio_dia %}
+    </div>
+    <div class="bg-white rounded-3xl border {% if k.km_por_revisar %}border-amber-200{% else %}border-slate-100{% endif %} p-4 sm:p-5" id="tarjeta-km">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas fa-road mr-1 text-marca"></i>Km recorridos</p>
+        <p class="mt-2 text-2xl xl:text-3xl font-black text-daryza-dark">{% if k.km_turnos %}{{ k.km_total }} km{% else %}—{% endif %}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{% if k.km_por_unidad_dia is not None %}{{ k.km_por_unidad_dia }} km por unidad y día · {% endif %}{{ k.km_turnos }} turno(s) con km válido{% if k.km_por_revisar %} · <a href="{{ flota.calidad_url }}" class="text-amber-700 hover:underline">{{ k.km_por_revisar }} por revisar</a>{% endif %}</p>
+        {% include 'accesos/dashboard/_variacion.html' with c=flota.cambios.km_total %}
     </div>
 </div>
 
@@ -183,6 +199,8 @@
                     <th class="text-right px-3 py-3" data-orden="pct_cierre_en_horario">Cierre en horario</th>
                     <th class="text-right px-3 py-3" data-orden="fuera_de_horario">Fuera de horario ▼</th>
                     <th class="hidden md:table-cell text-right px-3 py-3 col-placa" data-orden="minutos_sobre_cierre">Min. fuera de horario</th>
+                    <th class="hidden xl:table-cell text-right px-3 py-3 col-placa" data-orden="post_ruta_promedio">Post-Ruta prom.</th>
+                    <th class="hidden lg:table-cell text-right px-3 py-3 col-placa" data-orden="km_total">Km</th>
                     <th class="hidden md:table-cell text-right px-3 py-3" data-orden="por_averia">Averías</th>
                 </tr>
             </thead>

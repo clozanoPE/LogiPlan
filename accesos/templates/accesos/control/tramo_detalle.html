@@ -14,7 +14,7 @@
             <div>
                 <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">CD {{ t.cd }}{% if numero_tramo %} · {{ numero_tramo }}.º tramo del día{% endif %}</p>
                 <h1 class="text-3xl font-black tracking-tight">{{ t.transporte.placa }}</h1>
-                <p class="text-slate-400 font-medium">{% if t.es_programado %}{{ t.get_tipo_snapshot_display }} · {{ t.programacion.razon_social }}{% else %}<span class="inline-block px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase align-middle">{{ t.get_clase_display }}</span> Jornada de flota propia{% if t.jornada %} · {{ t.jornada.codigo }}{% endif %}{% endif %}</p>
+                <p class="text-slate-400 font-medium">{% if t.es_programado %}{{ t.get_tipo_snapshot_display }} · {{ t.programacion.razon_social }}{% else %}<span class="inline-block px-2 py-0.5 rounded-full {% if t.es_imprevisto %}bg-amber-500{% else %}bg-emerald-500{% endif %} text-white text-[10px] font-black uppercase align-middle">{{ t.get_clase_display }}</span> {% if t.es_imprevisto %}{{ t.get_motivo_imprevisto_display }} · {% endif %}Jornada de flota propia{% if t.jornada %} · {{ t.jornada.codigo }}{% endif %}{% endif %}</p>
                 <a href="{% url 'accesos:trazabilidad' %}?placa={{ t.transporte.placa_normalizada|urlencode }}&fecha={{ t.fecha_local_entrada|date:'Y-m-d' }}" class="inline-flex mt-2 items-center gap-1 text-xs font-black uppercase tracking-widest text-marca hover:underline"><i class="fas fa-route"></i> Trazabilidad</a>
             </div>
             <div class="text-right">
@@ -32,7 +32,7 @@
             <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Entrada</dt><dd class="text-xl font-black">{{ t.entrada_en|date:"H:i" }}</dd><dd class="text-xs text-slate-400">{{ t.entrada_en|date:"d/m/Y" }}{% if not t.vigilante_entrada %} · automática{% endif %}{% if t.programacion_id and not t.califica_salida and puntualidad %} · {{ puntualidad }} ({{ texto_desviacion }}){% endif %}</dd></div>
             <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Salida</dt><dd class="text-xl font-black">{% if t.salida_en %}{{ t.salida_en|date:"H:i" }}{% else %}—{% endif %}</dd><dd class="text-xs text-slate-400">{% if t.salida_en %}{{ t.salida_en|date:"d/m/Y" }}{% if t.entre_dias %} · entre días{% endif %}{% if t.califica_salida and puntualidad %} · <span class="font-black {% if puntualidad == 'Retrasado' %}text-rose-600{% else %}text-emerald-700{% endif %}">{{ puntualidad }}</span> ({{ texto_desviacion }}){% endif %}{% endif %}</dd></div>
             <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Permanencia</dt><dd class="text-xl font-black {% if prolongada %}text-rose-600{% endif %}">{{ tiempo_dentro }}</dd>{% if prolongada %}<dd class="text-xs font-black text-rose-600 uppercase">Prolongada</dd>{% endif %}</div>
-            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Kilometraje</dt><dd class="font-black">{{ t.km_entrada|default_if_none:"—" }}</dd></div>
+            <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Kilometraje</dt><dd class="font-black {% if t.km_estado == 'EXCLUIDO' %}line-through text-slate-400{% endif %}">{{ t.km_entrada|default_if_none:"—" }}</dd>{% if t.km_estado != 'REGISTRADO' %}<dd class="text-xs font-black text-amber-700">{{ t.get_km_estado_display }}{% if t.km_motivo %}: {{ t.km_motivo }}{% endif %}</dd>{% endif %}{% if t.km_reinicio %}<dd class="text-xs font-black text-sky-700">Cambio de odómetro</dd>{% endif %}</div>
             <div class="col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Conductor</dt><dd class="font-bold">{{ t.conductor.nombre_completo }}{% if t.programacion_id and t.conductor_id != t.programacion.conductor_id %} <span class="text-amber-700 text-xs">(distinto al programado)</span>{% endif %}</dd></div>
             <div><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tamaño</dt><dd class="font-bold">{{ t.tamano_snapshot }}</dd></div>
             <div class="col-span-2"><dt class="text-[10px] font-black uppercase tracking-widest text-slate-400">Obs. entrada · {{ t.vigilante_entrada|default:"Sistema" }}</dt><dd class="font-medium">{{ t.obs_entrada }}</dd></div>
@@ -55,6 +55,32 @@
             <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">Correcciones del Administrador</h2>
             <a href="{% url 'accesos:tramo_corregir' t.pk %}" class="flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest"><i class="fas fa-pen"></i> Corregir datos</a>
         </div>
+        {% if form_km %}
+        <form method="post" action="{% url 'accesos:tramo_km' t.pk %}" class="bg-white rounded-3xl border border-amber-100 p-6 space-y-3" id="form-km">
+            {% csrf_token %}
+            {% if t.km_estado == 'EXCLUIDO' %}
+            <input type="hidden" name="accion" value="restituir">
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-amber-700">Restituir lectura de km</h2>
+            <p class="text-xs text-slate-500">La lectura {{ t.km_entrada }} vuelve a contar, si queda entre la lectura válida anterior y la siguiente.</p>
+            {% elif t.km_estado == 'OBSERVADO' %}
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-amber-700">Km observado: revisar</h2>
+            <p class="text-xs text-slate-500">Vigilancia registró {{ t.km_entrada }} km porque no pasó los controles. <span class="font-bold">Validar</span>: el tablero sí marcaba ese valor (debe quedar entre la lectura anterior y la siguiente y caber en el tiempo fuera del CD). <span class="font-bold">Excluir</span>: el valor no es confiable. Si conoce el valor real, use «Corregir datos».</p>
+            {% else %}
+            <input type="hidden" name="accion" value="excluir">
+            <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-amber-700">Excluir lectura de km</h2>
+            <p class="text-xs text-slate-500">Si la lectura está errada y no se conoce el valor real: deja de sumar en el reporte y de servir de referencia en portería (sus copias automáticas también). Si conoce el valor real, use «Corregir datos».</p>
+            {% endif %}
+            {% include 'accesos/maestros/_campo.html' with campo=form_km.motivo %}
+            {% if t.km_estado == 'OBSERVADO' %}
+            <div class="grid grid-cols-2 gap-2">
+                <button type="submit" name="accion" value="validar" class="px-4 py-3 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-black uppercase tracking-widest">Validar</button>
+                <button type="submit" name="accion" value="excluir" class="px-4 py-3 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-black uppercase tracking-widest">Excluir</button>
+            </div>
+            {% else %}
+            <button type="submit" class="w-full px-5 py-3 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-black uppercase tracking-widest">{% if t.km_estado == 'EXCLUIDO' %}Restituir{% else %}Excluir lectura{% endif %}</button>
+            {% endif %}
+        </form>
+        {% endif %}
         {% if form_cierre %}
         <form method="post" action="{% url 'accesos:tramo_cierre' t.pk %}" class="bg-white rounded-3xl border border-sky-100 p-6 space-y-3">
             {% csrf_token %}

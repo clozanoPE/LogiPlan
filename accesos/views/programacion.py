@@ -155,7 +155,7 @@ def editar(request, pk):
 def _estado_jornada(jornada, ahora):
     abierto = jornada.transporte.tramos.filter(abierto=True).first()
     return jornadas.estado_visible(jornada, ahora, dentro=abierto is not None,
-                                   en_visita=bool(abierto and abierto.es_programado),
+                                   en_visita=bool(abierto and abierto.es_visita),
                                    no_disponible=jornadas.incidencia_abierta(jornada.transporte_id) is not None)
 
 

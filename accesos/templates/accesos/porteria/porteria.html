@@ -7,9 +7,9 @@
 
 {% if registrado %}
 <!-- Confirmación grande: se oculta sola a los 3 segundos -->
-<div id="confirmacion" class="mb-6 p-8 rounded-3xl text-center text-white {% if registrado == 'ENTRADA' or registrado == 'INICIO' %}bg-marca{% elif registrado == 'POST_RUTA' %}bg-emerald-600{% elif registrado == 'AVERIA' %}bg-rose-600{% else %}bg-sky-600{% endif %}">
+<div id="confirmacion" class="mb-6 p-8 rounded-3xl text-center text-white {% if registrado == 'ENTRADA' or registrado == 'INICIO' %}bg-marca{% elif registrado == 'POST_RUTA' %}bg-emerald-600{% elif registrado == 'AVERIA' %}bg-rose-600{% elif registrado == 'IMPREVISTO' %}bg-amber-600{% else %}bg-sky-600{% endif %}">
     <i class="fas fa-circle-check text-5xl"></i>
-    <p class="mt-3 text-3xl font-black">{% if registrado == 'ENTRADA' %}ENTRADA registrada{% elif registrado == 'SALIDA' %}SALIDA registrada{% elif registrado == 'PRE_RUTA' %}SALIDA A RUTA registrada{% elif registrado == 'INICIO' %}INICIO DE JORNADA registrado{% elif registrado == 'POST_RUTA' %}FIN DE JORNADA registrado{% elif registrado == 'AVERIA' %}INGRESO POR AVERÍA registrado{% else %}Registro guardado{% endif %}</p>
+    <p class="mt-3 text-3xl font-black">{% if registrado == 'ENTRADA' %}ENTRADA registrada{% elif registrado == 'SALIDA' %}SALIDA registrada{% elif registrado == 'PRE_RUTA' %}SALIDA A RUTA registrada{% elif registrado == 'INICIO' %}INICIO DE JORNADA registrado{% elif registrado == 'POST_RUTA' %}FIN DE JORNADA registrado{% elif registrado == 'AVERIA' %}INGRESO POR AVERÍA registrado{% elif registrado == 'IMPREVISTO' %}RETORNO IMPREVISTO registrado{% else %}Registro guardado{% endif %}</p>
     <p class="text-xl font-bold opacity-90">{{ registrado_placa }}</p>
 </div>
 {% endif %}
@@ -79,12 +79,7 @@
             </fieldset>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                    <label for="campo-km" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
-                    <input id="campo-km" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
-                           class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
-                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
-                </div>
+                {% include 'accesos/porteria/_km.html' with id_campo='campo-km' foco=True variacion='1' %}
                 <div>
                     <label for="campo-obs-entrada" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
                     <input id="campo-obs-entrada" type="text" name="obs" maxlength="500" placeholder="Ninguna"
@@ -108,7 +103,8 @@
             <!-- Unidad propia en ruta: en vez de una visita, puede cerrar su jornada o ingresar por avería -->
             <div class="pt-4 border-t border-slate-100">
                 <p class="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">¿No viene a esta ruta?</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% if resultado.permite_imprevisto %}<a href="?placa={{ texto|urlencode }}&modo=imprevisto" class="px-6 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-amber-800 bg-amber-50 border-2 border-amber-200 hover:bg-amber-100"><i class="fas fa-rotate-left mr-2"></i>Retorno imprevisto · vuelve a salir</a>{% endif %}
                     <a href="?placa={{ texto|urlencode }}&modo=post_ruta" class="px-6 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border-2 border-emerald-200 hover:bg-emerald-100"><i class="fas fa-flag-checkered mr-2"></i>Fin de jornada (Post-Ruta)</a>
                     <a href="?placa={{ texto|urlencode }}&modo=averia" class="px-6 py-4 rounded-2xl text-center font-black uppercase tracking-widest text-rose-700 bg-rose-50 border-2 border-rose-200 hover:bg-rose-100"><i class="fas fa-screwdriver-wrench mr-2"></i>Ingreso por avería</a>
                 </div>
@@ -132,6 +128,9 @@
             <i class="fas fa-flag-checkered text-6xl opacity-30"></i>
         </div>
         <div class="p-6 space-y-6">
+            {% if resultado.permite_imprevisto and modo != 'averia' %}
+            <a href="?placa={{ texto|urlencode }}&modo=imprevisto" id="enlace-imprevisto" class="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border-2 border-amber-200 text-amber-900 font-bold hover:bg-amber-100"><i class="fas fa-rotate-left text-2xl"></i><span><span class="font-black uppercase tracking-widest">¿Vuelve a salir? Retorno imprevisto</span><span class="block text-sm">Si la unidad volvió por algo fortuito (olvidó carga, recojo…) y sale otra vez, no cierre la jornada: registre un retorno imprevisto.</span></span></a>
+            {% endif %}
             {% if not resultado.reingreso %}
             <p class="p-4 rounded-2xl font-bold text-sm {% if fuera_de_horario %}bg-amber-50 text-amber-900{% else %}bg-emerald-50 text-emerald-900{% endif %}">
                 <i class="fas fa-clock mr-1"></i>
@@ -152,12 +151,7 @@
             {% endif %}
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                    <label for="campo-km-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
-                    <input id="campo-km-post" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required autofocus
-                           class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-600 focus:outline-none">
-                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
-                </div>
+                {% include 'accesos/porteria/_km.html' with id_campo='campo-km-post' foco=True variacion='1' borde='focus:border-emerald-600' %}
                 <div>
                     <label for="campo-obs-post" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Observación de entrada</label>
                     <input id="campo-obs-post" type="text" name="obs" maxlength="500" placeholder="Ninguna"
@@ -203,6 +197,54 @@
         </div>
     </form>
 
+    {% elif resultado.accion == 'IMPREVISTO' %}
+    <!-- RETORNO IMPREVISTO: la unidad en ruta vuelve por un hecho fortuito y va a volver a salir (la jornada sigue) -->
+    <form method="post" action="{% url 'accesos:porteria_imprevisto' %}" id="form-imprevisto" class="bg-white rounded-3xl border-4 border-amber-500 overflow-hidden">
+        {% csrf_token %}
+        <input type="hidden" name="transporte" value="{{ resultado.transporte.pk }}">
+        <input type="hidden" name="placa" value="{{ texto }}">
+        <div class="bg-amber-500 text-white p-6 action-row justify-between">
+            <div>
+                <p class="text-sm font-black uppercase tracking-[0.3em] opacity-90">Retorno imprevisto · vuelve a salir</p>
+                <p class="text-5xl font-black tracking-widest">{{ resultado.transporte.placa }}</p>
+                <p class="font-bold opacity-90">{{ resultado.transporte.tamano }} · flota propia{% if resultado.jornada.es_noche %} · <i class="fas fa-moon"></i> turno noche del {{ resultado.jornada.fecha|date:"d/m" }}{% endif %}</p>
+            </div>
+            <i class="fas fa-rotate-left text-6xl opacity-30"></i>
+        </div>
+        <div class="p-6 space-y-6">
+            <p class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold"><i class="fas fa-circle-info mr-1"></i> Solo para hechos fortuitos: la jornada <span class="font-black">sigue en ruta</span>, sus rutas pendientes no cambian y su salida se registra como una salida común. Despacho recibe un aviso.</p>
+            <fieldset>
+                <legend class="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">Motivo *</legend>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for valor, etiqueta in motivos_imprevisto %}
+                    <label class="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 cursor-pointer font-bold">
+                        <input type="radio" name="motivo" value="{{ valor }}" required class="w-6 h-6 accent-[#d97706]"> {{ etiqueta }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {% include 'accesos/porteria/_km.html' with id_campo='campo-km-imprevisto' variacion='1' borde='focus:border-amber-500' %}
+                <div>
+                    <label for="campo-obs-imprevisto" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">¿Qué pasó? *</label>
+                    <input id="campo-obs-imprevisto" type="text" name="obs" maxlength="500" required placeholder="Ej.: Olvidó las guías de la ruta"
+                           class="w-full text-xl font-bold px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <details class="rounded-2xl bg-slate-50 p-4">
+                <summary class="font-black text-slate-600 cursor-pointer">¿Llegó otro conductor?</summary>
+                <select name="conductor" class="campo-accesos mt-3">
+                    <option value="">El conductor de su última ruta</option>
+                    {% for conductor in conductores %}<option value="{{ conductor.pk }}">{{ conductor.nombre_completo }} · {{ conductor.tipo_documento }} {{ conductor.numero_documento }}</option>{% endfor %}
+                </select>
+            </details>
+            <div class="action-row">
+                <a href="?placa={{ texto|urlencode }}" class="px-8 py-5 rounded-2xl text-center text-lg font-black uppercase tracking-widest text-slate-500 bg-slate-100">Volver</a>
+                <button type="submit" class="flex-1 px-8 py-5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-2xl font-black uppercase tracking-widest">Registrar retorno imprevisto</button>
+            </div>
+        </div>
+    </form>
+
     {% elif resultado.accion == 'INICIO_JORNADA' %}
     <!-- INICIO DE JORNADA: unidad propia con jornada y sin registro dentro del CD -->
     <div class="bg-white rounded-3xl border-4 border-marca overflow-hidden">
@@ -224,12 +266,7 @@
                     <input type="hidden" name="sentido" value="ingresa">
                     <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-to-bracket text-marca mr-2"></i>Está ingresando</p>
                     <p class="text-sm text-slate-500">Viene de afuera del CD: su Pre-Ruta empieza ahora.</p>
-                    <div>
-                        <label for="campo-km-inicio" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
-                        <input id="campo-km-inicio" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
-                               class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-marca focus:outline-none">
-                    {% if ultimo_km is not None %}<p class="mt-1 text-xs font-bold text-slate-400">Último registrado: {{ ultimo_km }} km</p>{% endif %}
-                    </div>
+                    {% include 'accesos/porteria/_km.html' with id_campo='campo-km-inicio' variacion='1' %}
                     <input type="text" name="obs" maxlength="500" placeholder="Observación (opcional)" class="campo-accesos">
                     <select name="conductor" class="campo-accesos" aria-label="Conductor">
                         <option value="">El conductor previsto</option>
@@ -245,13 +282,7 @@
                     <p class="text-lg font-black text-daryza-dark"><i class="fas fa-right-from-bracket text-sky-600 mr-2"></i>Está saliendo</p>
                     <p class="text-sm text-slate-500">Estaba en el CD pero su ingreso no quedó registrado: se registra su salida a ruta con la Pre-Ruta desde las {{ resultado.jornada.hora_inicio|time:"H:i" }}.</p>
                     {% include 'accesos/porteria/_ruta_salida.html' %}
-                    <div>
-                        <label for="campo-km-sale" class="block text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Kilometraje *</label>
-                        <input id="campo-km-sale" type="number" name="km" min="0" max="9999999" step="1" inputmode="numeric" required
-                               {% if ultimo_km is not None %}value="{{ ultimo_km }}"{% endif %}
-                               class="w-full text-3xl font-black px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-sky-600 focus:outline-none">
-                        <p class="mt-1 text-xs font-bold text-slate-400">{% if ultimo_km is not None %}Último registrado: {{ ultimo_km }} km. Confírmelo o corríjalo con el tablero.{% else %}Lea el kilometraje del tablero (no hay uno registrado).{% endif %}</p>
-                    </div>
+                    {% include 'accesos/porteria/_km.html' with id_campo='campo-km-sale' variacion='' propuesto=True borde='focus:border-sky-600' %}
                     <input type="text" name="obs" maxlength="500" placeholder="Observación de salida (opcional)" class="campo-accesos">
                     <select name="conductor" class="campo-accesos" aria-label="Conductor">
                         <option value="">El conductor previsto</option>
@@ -342,6 +373,69 @@
         if (confirmacion) {
             setTimeout(() => { window.location.replace('{% url "accesos:porteria" %}'); }, 3000);
         }
+
+        // Kilometraje (kilometraje.py): no se acepta uno de relleno (0, 99999…), ni uno menor o igual al último válido en
+        // una entrada (en «Está saliendo» puede ser igual), ni uno que no quepa en el tiempo fuera del CD (data-tope).
+        // El vigilante no lo puede forzar: corrige el número o marca «km observado» (no cuenta hasta que lo revise el
+        // Administrador). «No se pudo leer el odómetro» lo deja vacío. Ambos exigen la observación. El servidor repite
+        // la validación.
+        const miles = (n) => Number(n).toLocaleString('es-PE').replace(/,/g, '.');
+        const esRelleno = (texto) => Number(texto) === 0 || (texto.length >= 5 && new Set(texto).size === 1);
+        document.querySelectorAll('.bloque-km').forEach(bloque => {
+            const campo = bloque.querySelector('.campo-km');
+            const error = bloque.querySelector('.km-error');
+            const recorrido = bloque.querySelector('.km-recorrido');
+            const observado = bloque.querySelector('.km-observado');
+            const casillaObservado = observado.querySelector('input');
+            const noLeido = bloque.querySelector('.km-no-leido');
+            const obs = bloque.closest('form').querySelector('input[name="obs"]');
+            const placeholderObs = obs ? obs.placeholder : '';
+            const obsObligatoria = obs ? obs.required : false;
+            const ultimo = bloque.dataset.ultimo === '' ? null : Number(bloque.dataset.ultimo);
+            const tope = bloque.dataset.tope === '' ? null : Number(bloque.dataset.tope);
+            const exigeMas = bloque.dataset.variacion === '1';
+            const revisar = () => {
+                let mensaje = '', observable = false, texto_recorrido = '';
+                const sinLectura = noLeido.checked;
+                campo.disabled = sinLectura;
+                campo.required = !sinLectura;
+                const texto = campo.value.trim();
+                if (!sinLectura && texto !== '') {
+                    const km = Number(texto);
+                    if (esRelleno(texto)) {
+                        mensaje = `${miles(km)} no es una lectura válida. Si no se puede leer el odómetro, marque la casilla de abajo.`;
+                    } else if (ultimo !== null && km < ultimo) {
+                        mensaje = `Es menor al último registrado (${miles(ultimo)} km). Corrija el número.`;
+                        observable = true;
+                    } else if (ultimo !== null && km === ultimo && exigeMas) {
+                        mensaje = `Es igual al último registrado (${miles(ultimo)} km): la unidad salió del CD, debe marcar más kilómetros.`;
+                        observable = true;
+                    } else if (ultimo !== null && tope !== null && km - ultimo > tope) {
+                        mensaje = `Son ${miles(km - ultimo)} km desde la última lectura: el máximo razonable es ${miles(tope)} km. Corrija el número.`;
+                        observable = true;
+                    } else if (ultimo !== null) {
+                        texto_recorrido = `Recorrido desde la última lectura: +${miles(km - ultimo)} km`;
+                    }
+                }
+                observado.classList.toggle('hidden', !observable);
+                if (!observable) casillaObservado.checked = false;
+                const aceptaObservado = observable && casillaObservado.checked;
+                campo.setCustomValidity(mensaje && !aceptaObservado ? mensaje : '');
+                error.textContent = mensaje;
+                error.classList.toggle('hidden', !mensaje);
+                recorrido.textContent = texto_recorrido;
+                recorrido.classList.toggle('hidden', !texto_recorrido);
+                if (obs) {
+                    obs.required = obsObligatoria || sinLectura || aceptaObservado;
+                    obs.placeholder = sinLectura ? '¿Por qué no se pudo leer el odómetro? (obligatorio)'
+                        : aceptaObservado ? '¿Qué marca el tablero y por qué? (obligatorio)' : placeholderObs;
+                }
+            };
+            campo.addEventListener('input', revisar);
+            noLeido.addEventListener('change', revisar);
+            casillaObservado.addEventListener('change', revisar);
+            revisar();
+        });
 
         // Selección de programación: pide confirmación si está fuera de la ventana.
         const formEntrada = document.getElementById('form-entrada');

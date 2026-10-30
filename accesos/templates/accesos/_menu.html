@@ -19,6 +19,9 @@
 <a href="{% url 'accesos:tramos_lista' %}" class="{{ base_clase }} {% if actual|slice:':5' == 'tramo' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-right-left w-4 text-center"></i> Tramos</a>
 <a href="{% url 'accesos:trazabilidad' %}" class="{{ base_clase }} {% if actual == 'trazabilidad' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-route w-4 text-center"></i> Trazabilidad</a>
 {% endif %}
+{% if accesos_lectura %}
+<a href="{% url 'accesos:reporte_jornadas' %}" class="{{ base_clase }} {% if actual|slice:':7' == 'reporte' %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-table-list w-4 text-center"></i> Reporte de jornadas</a>
+{% endif %}
 {% if accesos_puede_programar %}
 <a href="{% url 'accesos:transportes_lista' %}" class="{{ base_clase }} {% if 'transporte' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-truck w-4 text-center"></i> Transportes</a>
 <a href="{% url 'accesos:conductores_lista' %}" class="{{ base_clase }} {% if 'conductor' in actual %}{{ activo }}{% else %}{{ inactivo }}{% endif %}"><i class="fas fa-id-card w-4 text-center"></i> Conductores</a>

@@ -26,6 +26,10 @@
                 {% include 'accesos/maestros/_campo.html' with campo=form.km_entrada %}
                 {% include 'accesos/maestros/_campo.html' with campo=form.conductor %}
             </div>
+            <label class="flex items-start gap-3 text-sm font-bold text-slate-600">
+                {{ form.km_reinicio }}
+                <span>{{ form.km_reinicio.label }}<span class="block text-xs font-medium text-slate-400">El kilometraje no puede ser menor a la lectura válida anterior ni mayor a la siguiente. Solo un cambio de odómetro admite uno menor.</span></span>
+            </label>
             {% include 'accesos/maestros/_campo.html' with campo=form.obs_entrada %}
             {% if form.obs_salida %}{% include 'accesos/maestros/_campo.html' with campo=form.obs_salida %}{% endif %}
             {% include 'accesos/maestros/_campo.html' with campo=form.motivo %}

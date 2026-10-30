@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from .. import indicadores, indicadores_flota, jornadas, servicios, tiempo, trazabilidad
 from ..models import Programacion, Tramo, UsuarioCD
-from .test_jornada import JornadaBase
+from .test_jornada import AYER, JornadaBase
 from .test_programacion import HOY, MANANA
 
 TRAZABILIDAD = reverse('accesos:trazabilidad')
@@ -234,7 +234,12 @@ class KilometrajeTests(JornadaBase):
         self.entrar(self.vigilante)
         pagina = self.client.get(reverse('accesos:porteria'), {'placa': 'F7J-011'})
         self.assertContains(pagina, 'no hay uno registrado')  # sin lecturas previas: el campo aparece vacío
-        type(self.f7j).objects.filter(pk=self.f7j.pk).update(km_actual=123456)
+        # Una lectura real de un día anterior: es la referencia de la pantalla y de la validación del servidor.
+        self.mover_reloj(AYER, 5, 0)
+        self.interna(8, 0, fecha=AYER)
+        self.mover_reloj(AYER, 7, 50)
+        self.salida_sin_registro(km=123456)
+        self.mover_reloj(HOY, 7, 50)
         pagina = self.client.get(reverse('accesos:porteria'), {'placa': 'F7J-011'})
         self.assertContains(pagina, 'value="123456"')
         self.assertContains(pagina, 'Último registrado: 123456 km')

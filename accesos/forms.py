@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from . import jornadas, licencias, servicios, tiempo
 from .models import (CATEGORIAS_LICENCIA, CATEGORIAS_LICENCIA_ESPECIAL, CentroDistribucion, Conductor,
                      ConfiguracionAccesos, Programacion, TamanoVehiculo, TipoDocumentoIdentidad, TipoIncidencia,
-                     Transporte, normalizar_licencia)
+                     Tramo, Transporte, normalizar_licencia)
 
 CLASE_CAMPO = 'campo-accesos'
 
@@ -219,12 +219,34 @@ class CancelacionForm(forms.Form):
     )
 
 
-class EntradaForm(forms.Form):
+class KmPorteriaForm(forms.Form):
+    """Kilometraje de portería (30/10/2026): obligatorio, salvo que el vigilante marque «No se pudo leer el
+    odómetro» y explique por qué en la observación. Los candados están en kilometraje.validar_nueva; el vigilante
+    no los puede forzar: con `km_observado` (el tablero marca ese valor) la lectura se guarda como «observada»,
+    no cuenta y exige explicarlo en la observación."""
+    km = forms.IntegerField(required=False, min_value=0, max_value=9_999_999, label="Kilometraje")
+    km_no_leido = forms.BooleanField(required=False, label="No se pudo leer el odómetro")
+    km_observado = forms.BooleanField(required=False, label="El tablero marca este valor (km observado)")
+    obs = forms.CharField(required=False, max_length=500, label="Observación")
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get('km_no_leido'):
+            datos['km'] = None
+            datos['km_observado'] = False
+            if not (datos.get('obs') or '').strip():
+                self.add_error('obs', "Indique en la observación por qué no se pudo leer el odómetro.")
+        elif datos.get('km') is None and 'km' not in self.errors:
+            self.add_error('km', "Ingrese el kilometraje o marque «No se pudo leer el odómetro».")
+        elif datos.get('km_observado') and not (datos.get('obs') or '').strip():
+            self.add_error('obs', "Explique en la observación por qué registra un km observado.")
+        return datos
+
+
+class EntradaForm(KmPorteriaForm):
     """Confirmación de ENTRADA en portería. Las reglas se validan en servicios.registrar_entrada."""
     transporte = forms.IntegerField(widget=forms.HiddenInput)
     programacion = forms.IntegerField(error_messages={'required': 'Elija la programación.'})
-    km = forms.IntegerField(min_value=0, max_value=9_999_999, label="Kilometraje",
-                            error_messages={'required': 'Ingrese el kilometraje.'})
     obs = forms.CharField(required=False, max_length=500, label="Observación de entrada")
     conductor = forms.IntegerField(required=False)
     confirmar_fuera_de_ventana = forms.BooleanField(required=False)
@@ -236,24 +258,29 @@ class SalidaForm(forms.Form):
     obs = forms.CharField(required=False, max_length=500, label="Observación de salida")
 
 
-class InicioJornadaForm(forms.Form):
+class InicioJornadaForm(KmPorteriaForm):
     """Unidad propia con jornada y sin tramo abierto: el vigilante indica si ENTRA (viene de afuera) o
     SALE (durmió en el CD sin registro previo). En los dos casos se pide el kilometraje."""
     INGRESA = 'ingresa'
     SALE = 'sale'
     transporte = forms.IntegerField(widget=forms.HiddenInput)
     sentido = forms.ChoiceField(choices=[(INGRESA, 'Ingresa'), (SALE, 'Sale')])
-    km = forms.IntegerField(min_value=0, max_value=9_999_999, label="Kilometraje",
-                            error_messages={'required': 'Ingrese el kilometraje.'})
-    obs = forms.CharField(required=False, max_length=500, label="Observación")
     conductor = forms.IntegerField(required=False)
 
 
-class PostRutaForm(forms.Form):
+class ImprevistoForm(KmPorteriaForm):
+    """Retorno imprevisto de una unidad en ruta (30/10/2026): motivo de la lista y observación obligatorios."""
+    transporte = forms.IntegerField(widget=forms.HiddenInput)
+    motivo = forms.ChoiceField(choices=Tramo.MotivoImprevisto.choices,
+                               error_messages={'required': 'Elija el motivo del retorno imprevisto.'})
+    obs = forms.CharField(max_length=500, label="Observación",
+                          error_messages={'required': 'Describa qué pasó (retorno imprevisto).'})
+    conductor = forms.IntegerField(required=False)
+
+
+class PostRutaForm(KmPorteriaForm):
     """Entrada de fin de jornada (Post-Ruta). Con «avería», el vehículo queda no disponible."""
     transporte = forms.IntegerField(widget=forms.HiddenInput)
-    km = forms.IntegerField(min_value=0, max_value=9_999_999, label="Kilometraje",
-                            error_messages={'required': 'Ingrese el kilometraje.'})
     obs = forms.CharField(required=False, max_length=500, label="Observación de entrada")
     conductor = forms.IntegerField(required=False)
     averia = forms.BooleanField(required=False)
@@ -309,6 +336,14 @@ class CierreAdministrativoForm(MotivoForm):
     salida_en = CampoFechaHora(label="Hora de salida estimada")
 
 
+class CerrarJornadaForm(MotivoForm):
+    """El Administrador cierra una jornada en ruta cuyo retorno nunca se registró."""
+
+
+class KmExcluirForm(MotivoForm):
+    """El Administrador excluye (o restituye) una lectura de kilometraje."""
+
+
 class ConvertirPostRutaForm(MotivoForm):
     """La última visita de una unidad propia quedó abierta porque se quedó a dormir sin Post-Ruta."""
     fin_atencion = CampoFechaHora(label="Fin de la atención (inicio de la Post-Ruta)")
@@ -320,6 +355,8 @@ class CorreccionTramoForm(MotivoForm):
     salida_en = CampoFechaHora(label="Salida", required=False)
     km_entrada = forms.IntegerField(label="Kilometraje de entrada", min_value=0, max_value=9_999_999,
                                     widget=forms.NumberInput(attrs={'class': CLASE_CAMPO}))
+    km_reinicio = forms.BooleanField(label="Cambio de odómetro (el km es menor al anterior porque se cambió)",
+                                     required=False)
     obs_entrada = forms.CharField(label="Observación de entrada", required=False, max_length=500,
                                   widget=forms.TextInput(attrs={'class': CLASE_CAMPO}))
     obs_salida = forms.CharField(label="Observación de salida", required=False, max_length=500,
@@ -328,8 +365,8 @@ class CorreccionTramoForm(MotivoForm):
                                           widget=forms.Select(attrs={'class': CLASE_CAMPO}))
     conductor = forms.ModelChoiceField(queryset=Conductor.objects.none(), label="Conductor que ingresó",
                                        widget=forms.Select(attrs={'class': CLASE_CAMPO}))
-    field_order = ['programacion', 'entrada_en', 'salida_en', 'km_entrada', 'conductor', 'obs_entrada',
-                   'obs_salida', 'motivo']
+    field_order = ['programacion', 'entrada_en', 'salida_en', 'km_entrada', 'km_reinicio', 'conductor',
+                   'obs_entrada', 'obs_salida', 'motivo']
 
     def __init__(self, *args, tramo, **kwargs):
         super().__init__(*args, **kwargs)
@@ -346,3 +383,9 @@ class CorreccionTramoForm(MotivoForm):
             # Pre-Ruta y Post-Ruta no tienen programación; la Pre-Ruta puede no tener kilometraje.
             del self.fields['programacion']
             self.fields['km_entrada'].required = False
+        if tramo.km_estado != tramo.KmEstado.REGISTRADO:
+            # Lectura no leída o excluida: el Administrador puede dejarla así o escribir el valor real.
+            self.fields['km_entrada'].required = False
+            self.fields['km_entrada'].help_text = (f"Lectura {tramo.get_km_estado_display().lower()}"
+                                                   f"{': ' + tramo.km_motivo if tramo.km_motivo else ''}. "
+                                                   "Escriba el valor real para que vuelva a contar.")

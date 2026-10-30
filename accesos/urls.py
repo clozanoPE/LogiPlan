@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import carga, control, dashboard, flota, inicio, maestros, porteria, programacion, trazabilidad, tv
+from .views import carga, control, dashboard, flota, inicio, maestros, porteria, programacion, reporte, trazabilidad, tv
 
 app_name = 'accesos'
 
@@ -14,6 +14,7 @@ urlpatterns = [
     path('porteria/salida/', porteria.registrar_salida, name='porteria_salida'),
     path('porteria/inicio-jornada/', porteria.registrar_inicio_jornada, name='porteria_inicio_jornada'),
     path('porteria/post-ruta/', porteria.registrar_post_ruta, name='porteria_post_ruta'),
+    path('porteria/imprevisto/', porteria.registrar_imprevisto, name='porteria_imprevisto'),
     path('porteria/dentro/', porteria.dentro_ahora, name='porteria_dentro'),
     path('porteria/programaciones/', porteria.programaciones_hoy, name='porteria_programaciones'),
     path('porteria/programaciones/exportar/', porteria.programaciones_exportar, name='porteria_programaciones_exportar'),
@@ -33,12 +34,16 @@ urlpatterns = [
     path('tramos/<int:pk>/anular/', control.tramo_anular, name='tramo_anular'),
     path('tramos/<int:pk>/cierre/', control.tramo_cierre, name='tramo_cierre'),
     path('tramos/<int:pk>/convertir-post-ruta/', control.tramo_convertir_post_ruta, name='tramo_convertir_post_ruta'),
+    path('tramos/<int:pk>/km/', control.tramo_km, name='tramo_km'),
+    path('jornadas/<int:pk>/cerrar/', control.jornada_cerrar, name='jornada_cerrar'),
     path('auditoria/', control.auditoria_lista, name='auditoria_lista'),
     path('auditoria/exportar/', control.auditoria_exportar, name='auditoria_exportar'),
 
     # --- TRAZABILIDAD DE UNA PLACA EN UN DÍA ---
     path('trazabilidad/', trazabilidad.trazabilidad_placa, name='trazabilidad'),
     path('trazabilidad/exportar/', trazabilidad.trazabilidad_exportar, name='trazabilidad_exportar'),
+    path('reporte-jornadas/', reporte.reporte, name='reporte_jornadas'),
+    path('reporte-jornadas/exportar/', reporte.reporte_exportar, name='reporte_exportar'),
 
     # --- PROGRAMACIONES (F2) ---
     path('programaciones/', programacion.agenda, name='programacion_agenda'),

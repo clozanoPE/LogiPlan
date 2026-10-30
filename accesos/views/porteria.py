@@ -12,9 +12,10 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
-from .. import consultas, jornadas, servicios, tiempo
-from ..forms import EntradaForm, InicioJornadaForm, PostRutaForm, SalidaForm
-from ..models import CentroDistribucion, Conductor, ConfiguracionAccesos, TipoIncidencia, Tramo
+from .. import auditoria, consultas, jornadas, kilometraje, servicios, tiempo
+from ..forms import EntradaForm, ImprevistoForm, InicioJornadaForm, PostRutaForm, SalidaForm
+from ..models import (CentroDistribucion, Conductor, ConfiguracionAccesos, RegistroAuditoria, TipoIncidencia, Tramo,
+                      Transporte)
 from ..permisos import VIGILANCIA, rol_requerido
 from .programacion import respuesta_programaciones
 
@@ -80,14 +81,21 @@ def porteria(request, cd):
         modo = request.GET.get('modo', '')
         if resultado.accion == servicios.ENTRADA and resultado.permite_post_ruta and modo in ('post_ruta', 'averia'):
             resultado.accion = servicios.POST_RUTA
+        # Retorno imprevisto (30/10/2026): la unidad en ruta vuelve por un hecho fortuito y vuelve a salir.
+        if resultado.permite_imprevisto and modo == 'imprevisto':
+            resultado.accion = servicios.IMPREVISTO
         contexto.update({'texto': texto, 'resultado': resultado, 'modo': modo})
         if resultado.jornada is not None:
             contexto['jornada_limite_cierre'] = jornadas.limite_cierre(resultado.jornada)
         if resultado.transporte is not None:
-            # Último kilometraje de la placa: referencia junto a cada campo de km («Está saliendo» lo propone).
-            contexto['ultimo_km'] = resultado.transporte.km_actual
+            contexto.update(_contexto_km(resultado.transporte, ahora, config))
         if resultado.accion == servicios.INICIO_JORNADA:
             contexto['ruta_salida'] = _ruta_salida(resultado.ruta_salida, ahora, config)
+        if resultado.accion == servicios.IMPREVISTO:
+            contexto.update({
+                'conductores': Conductor.objects.filter(activo=True).select_related('tipo_documento'),
+                'motivos_imprevisto': Tramo.MotivoImprevisto.choices,
+            })
         if resultado.accion in (servicios.POST_RUTA, servicios.INICIO_JORNADA):
             contexto.update({
                 'conductores': Conductor.objects.filter(activo=True).select_related('tipo_documento'),
@@ -128,6 +136,20 @@ def porteria(request, cd):
     return render(request, 'accesos/porteria/porteria.html', contexto)
 
 
+def _contexto_km(transporte, ahora, config):
+    """Último kilometraje VÁLIDO de la placa (referencia junto a cada campo de km; «Está saliendo» lo propone) y
+    los límites de la validación en pantalla, que el servidor repite (kilometraje.validar_nueva): más que el
+    último y como máximo el tope por el tiempo fuera del CD."""
+    ultima = kilometraje.ultima_lectura(transporte.pk)
+    if ultima is None:
+        return {'ultimo_km': None}
+    desde = kilometraje.desde_cuando(ultima)
+    return {'ultimo_km': ultima.km_entrada, 'km_desde': tiempo.a_lima(desde),
+            'km_tope': kilometraje.tope_por_tiempo(desde, ahora, config.velocidad_maxima_kmh),
+            'km_fuera': kilometraje.duracion((ahora - desde).total_seconds() / 60),
+            'km_velocidad': config.velocidad_maxima_kmh}
+
+
 def _ruta_salida(programacion, ahora, config):
     """Datos para mostrar la ruta INTERNO que atiende una salida a ruta: hora programada (de salida) y cómo
     saldría si se registra ahora (a tiempo o con retraso, según la tolerancia)."""
@@ -143,6 +165,23 @@ def _volver(placa=None, **extra):
     parametros.update(extra)
     url = reverse('accesos:porteria')
     return redirect(f"{url}?{urlencode(parametros)}" if parametros else url)
+
+
+def _km(datos):
+    """Lo que el vigilante indicó sobre el kilometraje: odómetro no leído o km observado."""
+    return {'km_no_leido': datos['km_no_leido'], 'km_observado': datos['km_observado']}
+
+
+def _rechazo(request, cd, datos, error):
+    """Muestra el error y, si fue un km rechazado por los candados, deja el intento en la auditoría (quién, cuándo,
+    qué número y por qué): así se ve si alguien prueba números hasta que pase."""
+    messages.error(request, ' '.join(error.messages))
+    if isinstance(error, kilometraje.KmRechazado):
+        transporte = Transporte.objects.filter(pk=datos.get('transporte')).first()
+        if transporte is not None:
+            auditoria.registrar(request.user, RegistroAuditoria.Accion.KM_RECHAZADO, transporte, cd=cd,
+                                despues={'km': datos.get('km'), 'codigo': error.code},
+                                motivo=f"Km {datos.get('km')} rechazado en portería: {error.base}")
 
 
 def _errores_form(request, form):
@@ -166,9 +205,9 @@ def registrar_entrada(request, cd):
             transporte_id=datos['transporte'], programacion_id=datos['programacion'], cd=cd, km=datos['km'],
             obs=datos['obs'], conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora(),
             config=ConfiguracionAccesos.obtener(), confirmar_fuera_de_ventana=datos['confirmar_fuera_de_ventana'],
-        )
+            **_km(datos))
     except ValidationError as error:
-        messages.error(request, ' '.join(error.messages))
+        _rechazo(request, cd, datos, error)
         return _volver(placa)
     for aviso in avisos:
         messages.warning(request, aviso)
@@ -190,15 +229,15 @@ def registrar_inicio_jornada(request, cd):
         if datos['sentido'] == InicioJornadaForm.INGRESA:
             tramo, avisos = servicios.registrar_inicio_jornada(
                 transporte_id=datos['transporte'], cd=cd, km=datos['km'], obs=datos['obs'],
-                conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora())
+                conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora(), **_km(datos))
             registrado = 'INICIO'
         else:
             tramo, avisos = servicios.registrar_salida_sin_registro(
                 transporte_id=datos['transporte'], cd=cd, km=datos['km'], obs=datos['obs'],
-                conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora())
+                conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora(), **_km(datos))
             registrado = 'PRE_RUTA'
     except ValidationError as error:
-        messages.error(request, ' '.join(error.messages))
+        _rechazo(request, cd, datos, error)
         return _volver(placa)
     for aviso in avisos:
         messages.warning(request, aviso)
@@ -222,13 +261,36 @@ def registrar_post_ruta(request, cd):
             transporte_id=datos['transporte'], cd=cd, km=datos['km'], obs=datos['obs'],
             conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora(),
             averia_tipo_id=datos['averia_tipo'] if datos['averia'] else None,
-            averia_descripcion=datos['averia_descripcion'] if datos['averia'] else '')
+            averia_descripcion=datos['averia_descripcion'] if datos['averia'] else '', **_km(datos))
     except ValidationError as error:
-        messages.error(request, ' '.join(error.messages))
+        _rechazo(request, cd, datos, error)
         return _volver(placa, modo=modo)
     for aviso in avisos:
         messages.warning(request, aviso)
     return _volver(registrado='AVERIA' if datos['averia'] else 'POST_RUTA', registrado_placa=tramo.transporte.placa)
+
+
+@require_POST
+@rol_requerido(VIGILANCIA)
+@_requiere_cd
+def registrar_imprevisto(request, cd):
+    """Retorno imprevisto: la unidad en ruta vuelve al CD por un hecho fortuito y va a volver a salir."""
+    form = ImprevistoForm(request.POST)
+    placa = request.POST.get('placa', '')
+    if not form.is_valid():
+        _errores_form(request, form)
+        return _volver(placa, modo='imprevisto')
+    datos = form.cleaned_data
+    try:
+        tramo, avisos = servicios.registrar_imprevisto(
+            transporte_id=datos['transporte'], cd=cd, km=datos['km'], obs=datos['obs'], motivo=datos['motivo'],
+            conductor_id=datos['conductor'], usuario=request.user, ahora=tiempo.ahora(), **_km(datos))
+    except ValidationError as error:
+        _rechazo(request, cd, datos, error)
+        return _volver(placa, modo='imprevisto')
+    for aviso in avisos:
+        messages.warning(request, aviso)
+    return _volver(registrado='IMPREVISTO', registrado_placa=tramo.transporte.placa)
 
 
 @require_POST

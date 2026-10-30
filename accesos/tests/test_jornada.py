@@ -43,7 +43,9 @@ class JornadaBase(PorteriaBase):
     def jornada(self, fecha=HOY):
         return Jornada.objects.get(transporte=self.f7j, fecha=fecha)
 
-    def salida_sin_registro(self, obs='', km=129500, conductor_id=None):
+    def salida_sin_registro(self, obs='', km=None, conductor_id=None):
+        if km is None:
+            km = self.km_siguiente(self.f7j.pk, 129500, minimo_sobre_ultimo=0)
         tramo, _ = servicios.registrar_salida_sin_registro(transporte_id=self.f7j.pk, cd=self.lurin, km=km, obs=obs,
                                                            conductor_id=conductor_id, usuario=self.vigilante,
                                                            ahora=tiempo.ahora())
@@ -53,8 +55,10 @@ class JornadaBase(PorteriaBase):
         return servicios.registrar_salida(transporte_id=tramo.transporte_id, tramo_id=tramo.pk, cd=tramo.cd, obs=obs,
                                           usuario=self.vigilante, ahora=tiempo.ahora())
 
-    def post_ruta(self, km=130000, **extra):
-        tramo, avisos = servicios.registrar_post_ruta(transporte_id=self.f7j.pk, cd=self.lurin, km=km, obs='',
+    def post_ruta(self, km=None, **extra):
+        if km is None:
+            km = self.km_siguiente(self.f7j.pk, 130000)
+        tramo, avisos = servicios.registrar_post_ruta(transporte_id=self.f7j.pk, cd=self.lurin, km=km, obs=extra.pop('obs', ''),
                                                       conductor_id=None, usuario=self.vigilante,
                                                       ahora=tiempo.ahora(), **extra)
         return tramo, avisos
@@ -209,7 +213,8 @@ class DiaDeLaUnidadTests(JornadaBase):
         post.refresh_from_db()
         self.assertEqual(tiempo.a_lima(post.salida_en).time(), time(6, 30))
         self.assertTrue(post.cierre_automatico)
-        self.assertEqual((pre.clase, pre.minutos_permanencia, pre.km_entrada), (Tramo.Clase.PRE_RUTA, 50, 130000))
+        # La Pre-Ruta automática copia el km de la Post-Ruta (la pernocta).
+        self.assertEqual((pre.clase, pre.minutos_permanencia, pre.km_entrada), (Tramo.Clase.PRE_RUTA, 50, post.km_entrada))
         self.assertEqual((pre.programacion, pre.desviacion_salida_min), (diez, -160))
         self.assertEqual(self.jornada(MANANA).estado, Jornada.Estado.EN_RUTA)
 
@@ -260,7 +265,8 @@ class DiaDeLaUnidadTests(JornadaBase):
         self.interna(10, 0, fecha=MANANA)
         self.mover_reloj(MANANA, 6, 50)
         self.assertEqual(self.evaluar().accion, servicios.INICIO_JORNADA)
-        pre, _ = servicios.registrar_inicio_jornada(transporte_id=self.f7j.pk, cd=self.lurin, km=131000, obs='',
+        pre, _ = servicios.registrar_inicio_jornada(transporte_id=self.f7j.pk, cd=self.lurin,
+                                                    km=self.km_siguiente(self.f7j.pk, 131000, 40), obs='',
                                                     conductor_id=None, usuario=self.vigilante, ahora=tiempo.ahora())
         self.assertTrue(pre.esta_abierto)
         self.mover_reloj(MANANA, 7, 20)
@@ -436,7 +442,7 @@ class CorreccionesDeJornadaTests(JornadaBase):
         post = self.dia_completo(HOY, retorno=(16, 40))
         nueva = tiempo.combinar(HOY, time(16, 5))
         servicios.corregir_tramo(post, self.admin_accesos, motivo='Hora mal registrada', ahora=tiempo.ahora(),
-                                 entrada_en=nueva, salida_en=None, km_entrada=130000, obs_entrada='',
+                                 entrada_en=nueva, salida_en=None, km_entrada=post.km_entrada, obs_entrada='',
                                  obs_salida='', programacion=None, conductor=self.conductor)
         self.assertEqual(jornadas.calificacion_cierre(self.jornada()), jornadas.EN_HORARIO)
 

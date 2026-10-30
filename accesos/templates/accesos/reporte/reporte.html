@@ -1,0 +1,179 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Reporte de jornadas{% endblock %}
+
+{% block content %}
+<div class="action-row justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-black tracking-tight text-daryza-dark">Reporte de jornadas de la flota propia</h1>
+        <p class="text-slate-500 text-sm font-medium">Pre-Ruta, Post-Ruta y kilometraje por placa y turno · {% if desde == hasta %}{{ desde|date:"d/m/Y" }}{% else %}del {{ desde|date:"d/m/Y" }} al {{ hasta|date:"d/m/Y" }}{% endif %} · {{ kpis.jornadas }} jornada{{ kpis.jornadas|pluralize }}.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a href="{{ dashboard_url }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-slate-100 hover:bg-slate-800 hover:text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-chart-column"></i> Ver en el Dashboard</a>
+        <a href="{{ exportar_url }}" id="exportar-reporte" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest transition-all"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
+    </div>
+</div>
+
+{% if recortado %}<p class="mb-4 p-3 rounded-xl bg-amber-50 text-amber-800 text-sm font-bold">El rango se limitó a los últimos {{ max_rango }} días.</p>{% endif %}
+
+<!-- Rangos rápidos -->
+<div class="flex flex-wrap gap-2 mb-3">
+    {% for r in rangos %}<a href="{{ r.url }}" class="px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest {% if r.desde == desde and r.hasta == hasta %}bg-marca text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:border-marca hover:text-marca{% endif %}">{{ r.etiqueta }}</a>{% endfor %}
+</div>
+
+<!-- Filtros -->
+<form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-4 bg-white rounded-3xl border border-slate-100 p-4" id="filtros-reporte">
+    <input type="hidden" name="vista" value="{{ vista }}">
+    {% if orden != 'fecha' %}<input type="hidden" name="orden" value="{{ orden }}">{% endif %}
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Desde<input type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="campo-accesos mt-1"></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Hasta<input type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="campo-accesos mt-1"></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">CD
+        <select name="cd" class="campo-accesos mt-1"><option value="">Todos</option>{% for cd in cds %}<option value="{{ cd.pk }}" {% if filtros.cd == cd.pk %}selected{% endif %}>{{ cd }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Turno
+        <select name="turno" class="campo-accesos mt-1"><option value="">Día y noche</option>{% for valor, etiqueta in turnos.items %}<option value="{{ valor }}" {% if filtros.turno == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Placa<input type="search" name="placa" value="{{ filtros.placa|default:'' }}" placeholder="Todas" class="campo-accesos mt-1" autocomplete="off"></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tamaño
+        <select name="tamano" class="campo-accesos mt-1"><option value="">Todos</option>{% for t in tamanos %}<option value="{{ t.pk }}" {% if filtros.tamano == t.pk %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Conductor
+        <select name="conductor" class="campo-accesos mt-1"><option value="">Todos</option>{% for c in conductores %}<option value="{{ c.pk }}" {% if filtros.conductor == c.pk %}selected{% endif %}>{{ c.nombre_completo }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Estado
+        <select name="estado" class="campo-accesos mt-1"><option value="">Todos</option>{% for valor, etiqueta in estados.items %}<option value="{{ valor }}" {% if extra.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Pre-Ruta
+        <select name="pre" class="campo-accesos mt-1"><option value="">Todas</option>{% for valor, etiqueta in pres.items %}<option value="{{ valor }}" {% if extra.pre == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Retorno
+        <select name="retorno" class="campo-accesos mt-1"><option value="">Todos</option>{% for valor, etiqueta in retornos.items %}<option value="{{ valor }}" {% if extra.retorno == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></label>
+    <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Kilometraje
+        <select name="km" class="campo-accesos mt-1"><option value="">Todos</option>{% for valor, etiqueta in kms.items %}<option value="{{ valor }}" {% if extra.km == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></label>
+    <button type="submit" class="self-end px-5 py-3 rounded-full bg-slate-800 text-white text-xs font-black uppercase tracking-widest">Filtrar</button>
+</form>
+{% if chips %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    {% for c in chips %}<a href="{{ c.quitar }}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-marca-claro text-marca text-xs font-black">{{ c.texto }} <i class="fas fa-xmark"></i></a>{% endfor %}
+    <a href="{{ limpiar_url }}" class="text-xs font-black uppercase tracking-widest text-slate-400 hover:text-marca">Quitar filtros</a>
+</div>
+{% endif %}
+
+<!-- Resumen: las mismas cifras de Dashboard › Flota con estos filtros -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-2" id="resumen-reporte">
+    {% for t in tarjetas %}
+    <div class="bg-white rounded-3xl border border-slate-100 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400"><i class="fas {{ t.icono }} mr-1 text-marca"></i>{{ t.titulo }}</p>
+        <p class="mt-2 text-2xl font-black text-daryza-dark">{{ t.valor }}</p>
+        <p class="text-[11px] font-bold text-slate-400 leading-snug">{{ t.detalle }}</p>
+    </div>
+    {% endfor %}
+</div>
+<p class="mb-6 text-xs text-slate-500"><i class="fas fa-circle-info mr-1"></i>Pre-Ruta = salida a ruta − ingreso (06:30 / 20:00). Post-Ruta = fin del turno (16:00 / 06:15) − retorno real: «antes» si volvió antes. Km del turno = última − primera lectura; solo suman los turnos con lecturas válidas (los demás, en «Calidad del km»). {{ aviso }}</p>
+
+<!-- Vistas -->
+<div class="flex flex-wrap gap-2 mb-4" role="tablist">
+    {% for v in vistas %}<a href="{{ v.url }}" role="tab" aria-selected="{{ v.activo|yesno:'true,false' }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest {% if v.activo %}bg-daryza-dark text-white{% else %}bg-white border border-slate-200 text-slate-600 hover:border-marca hover:text-marca{% endif %}"><i class="fas {{ v.icono }}"></i>{{ v.etiqueta }}</a>{% endfor %}
+</div>
+
+<div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" id="tabla-reporte">
+    <div class="overflow-x-auto">
+    {% if vista == 'turno' %}
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr>
+                    <th class="text-left px-3 py-3"><a href="{% for o in ordenes %}{% if o.clave == 'fecha' %}{{ o.url }}{% endif %}{% endfor %}" class="hover:text-marca {% if orden == 'fecha' %}text-marca{% endif %}">Fecha</a></th>
+                    <th class="text-left px-3 py-3"><a href="{% for o in ordenes %}{% if o.clave == 'placa' %}{{ o.url }}{% endif %}{% endfor %}" class="hover:text-marca {% if orden == 'placa' %}text-marca{% endif %}">Placa</a></th>
+                    <th class="text-left px-3 py-3 hidden md:table-cell">Estado</th>
+                    <th class="text-left px-3 py-3">Ingreso → salida a ruta</th>
+                    <th class="text-right px-3 py-3"><a href="{% for o in ordenes %}{% if o.clave == 'pre_ruta' %}{{ o.url }}{% endif %}{% endfor %}" class="hover:text-marca {% if orden == 'pre_ruta' %}text-marca{% endif %}">Pre-Ruta</a></th>
+                    <th class="text-left px-3 py-3">Fin del turno → retorno</th>
+                    <th class="text-right px-3 py-3"><a href="{% for o in ordenes %}{% if o.clave == 'post_ruta' %}{{ o.url }}{% endif %}{% endfor %}" class="hover:text-marca {% if orden == 'post_ruta' %}text-marca{% endif %}">Post-Ruta</a></th>
+                    <th class="text-right px-3 py-3 hidden lg:table-cell">Rutas</th>
+                    <th class="text-right px-3 py-3"><a href="{% for o in ordenes %}{% if o.clave == 'km' %}{{ o.url }}{% endif %}{% endfor %}" class="hover:text-marca {% if orden == 'km' %}text-marca{% endif %}">Km</a></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in page_obj %}
+                <tr class="hover:bg-slate-50/60">
+                    <td class="px-3 py-3 whitespace-nowrap font-bold">{{ f.fecha|date:"d/m/Y" }}<span class="block text-[10px] font-black uppercase {% if f.turno == 'Noche' %}text-slate-700{% else %}text-slate-400{% endif %}">{% if f.turno == 'Noche' %}<i class="fas fa-moon mr-1"></i>{% endif %}Turno {{ f.turno|lower }}</span></td>
+                    <td class="px-3 py-3"><a href="{% url 'accesos:trazabilidad' %}?placa={{ f.placa_normalizada|urlencode }}&fecha={{ f.fecha|date:'Y-m-d' }}" class="font-black tracking-wider hover:text-marca">{{ f.placa }}</a><span class="block text-[11px] text-slate-400">{{ f.tamano }} · CD {{ f.cd }}</span><span class="block text-[11px] text-slate-400 truncate max-w-[12rem]">{{ f.conductor }}</span></td>
+                    <td class="px-3 py-3 hidden md:table-cell text-xs font-black uppercase {% if f.estado_clave in 'sin_post_ruta no_salio' %}text-amber-700{% elif f.estado_clave == 'averia' %}text-rose-600{% else %}text-slate-500{% endif %}">{{ f.estado }}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">{% if f.ingreso %}{{ f.ingreso|date:"H:i" }}{% else %}—{% endif %} → {% if f.salida_ruta %}<span class="font-bold">{{ f.salida_ruta|date:"H:i" }}</span>{% if f.salida_ruta|date:"Ymd" != f.fecha|date:"Ymd" %} <span class="text-[10px] text-slate-400">{{ f.salida_ruta|date:"d/m" }}</span>{% endif %}{% else %}—{% endif %}</td>
+                    <td class="px-3 py-3 text-right font-black whitespace-nowrap {% if f.pre_a_tiempo is False %}text-rose-600{% endif %}">{% if f.pre_ruta is not None %}{{ f.pre_ruta }} min{% else %}—{% endif %}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">{{ f.fin_turno|date:"H:i" }} → {% if f.retorno %}<span class="font-bold">{{ f.retorno|date:"H:i" }}</span>{% if f.retorno|date:"Ymd" != f.fin_turno|date:"Ymd" %} <span class="text-[10px] text-slate-400">{{ f.retorno|date:"d/m" }}</span>{% endif %}{% else %}—{% endif %}{% if f.calificacion %}<span class="block text-[10px] font-black uppercase {% if f.calificacion_clave == 'FUERA_DE_HORARIO' %}text-rose-600{% else %}text-slate-400{% endif %}">{{ f.calificacion }}</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right font-black whitespace-nowrap {% if f.calificacion_clave == 'FUERA_DE_HORARIO' %}text-rose-600{% endif %}">{% if f.post_ruta is not None %}{{ f.post_ruta }} min<span class="block text-[10px] font-bold text-slate-400">{{ f.post_ruta_texto }}</span>{% else %}—{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden lg:table-cell font-bold">{{ f.rutas_atendidas }}/{{ f.rutas_programadas }}{% if f.imprevistos %}<span class="block text-[10px] font-black uppercase text-amber-700">+{{ f.imprevistos }} imprevisto{{ f.imprevistos|pluralize }}</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right whitespace-nowrap">{% if f.km_valido %}<span class="font-black">{{ f.km_recorrido }} km</span><span class="block text-[10px] text-slate-400">{{ f.km_inicial }} → {{ f.km_final }}</span>{% else %}<span class="text-[11px] font-bold {% if f.km_por_revisar %}text-amber-700{% else %}text-slate-400{% endif %}">{{ f.km_motivo }}</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="px-6 py-10 text-center text-slate-400 font-bold">No hay jornadas con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif vista == 'placa_dia' %}
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-3 py-3">Fecha</th><th class="text-left px-3 py-3">Placa</th><th class="text-left px-3 py-3">Inicio</th><th class="text-left px-3 py-3">Fin</th><th class="text-right px-3 py-3">Km recorridos</th><th class="text-right px-3 py-3 hidden md:table-cell">En ruta</th><th class="text-right px-3 py-3 hidden lg:table-cell">Rutas</th><th class="text-left px-3 py-3 hidden xl:table-cell">Observación</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in page_obj %}
+                <tr class="hover:bg-slate-50/60 align-top">
+                    <td class="px-3 py-3 font-bold whitespace-nowrap">{{ f.fecha|date:"d/m/Y" }}{% if f.turno_noche %}<span class="block text-[10px] font-black uppercase text-slate-700"><i class="fas fa-moon mr-1"></i>con turno noche</span>{% endif %}</td>
+                    <td class="px-3 py-3"><a href="{% url 'accesos:trazabilidad' %}?placa={{ f.placa_normalizada|urlencode }}&fecha={{ f.fecha|date:'Y-m-d' }}" class="font-black tracking-wider hover:text-marca">{{ f.placa }}</a><span class="block text-[11px] text-slate-400">CD {{ f.cd }}</span><span class="block text-[11px] text-slate-400 truncate max-w-[12rem]">{{ f.conductores }}</span></td>
+                    <td class="px-3 py-3 whitespace-nowrap"><span class="font-black">{% if f.inicio %}{{ f.inicio|date:"H:i" }}{% else %}—{% endif %}</span><span class="block text-[11px] font-bold text-slate-500">{% if f.km_inicial is not None %}{{ f.km_inicial }} km{% else %}sin km{% endif %}</span>{% if f.pre_ruta is not None %}<span class="block text-[10px] text-slate-400">Pre-Ruta {{ f.pre_ruta }} min</span>{% endif %}</td>
+                    <td class="px-3 py-3 whitespace-nowrap"><span class="font-black">{% if f.fin %}{{ f.fin|date:"H:i" }}{% if f.fin|date:"Ymd" != f.fecha|date:"Ymd" %} <span class="text-[10px] text-slate-400">{{ f.fin|date:"d/m" }}</span>{% endif %}{% else %}—{% endif %}</span><span class="block text-[11px] font-bold text-slate-500">{% if f.km_final is not None %}{{ f.km_final }} km{% else %}sin km{% endif %}</span>{% if f.post_ruta_texto %}<span class="block text-[10px] text-slate-400">Post-Ruta {{ f.post_ruta_texto }}</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right whitespace-nowrap font-black {% if not f.completo %}text-amber-700{% endif %}">{% if f.km_turnos is not None %}{{ f.km_turnos }} km{% else %}—{% endif %}{% if f.km_fuera %}<span class="block text-[10px] font-bold text-slate-400">+{{ f.km_fuera }} fuera de jornada</span>{% endif %}{% if not f.completo %}<span class="block text-[10px] font-black uppercase">incompleto</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden md:table-cell whitespace-nowrap font-bold">{{ f.en_ruta_texto|default:"—" }}{% if f.imprevistos %}<span class="block text-[10px] font-black uppercase text-amber-700"><i class="fas fa-rotate-left mr-1"></i>{{ f.imprevistos }} imprevisto{{ f.imprevistos|pluralize }}</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden lg:table-cell font-bold">{{ f.rutas_atendidas }}/{{ f.rutas_programadas }}</td>
+                    <td class="px-3 py-3 text-xs text-slate-500 hidden xl:table-cell">{{ f.observacion }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-bold">No hay jornadas con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="px-4 py-3 text-xs text-slate-500 border-t border-slate-100">Inicio = ingreso o inicio de la Pre-Ruta con la primera lectura de km; fin = retorno (Post-Ruta) con la última. Km recorridos = turno día + turno noche que empieza ese día. «En ruta» = tiempo fuera del CD. El detalle de cada movimiento está en la Trazabilidad (clic en la placa) y en la hoja «Movimientos» del Excel.</p>
+    {% elif vista == 'mes' %}
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-3 py-3">Placa</th><th class="text-right px-3 py-3">Días</th><th class="text-right px-3 py-3">Km del periodo</th><th class="text-right px-3 py-3 hidden sm:table-cell">Km por día</th><th class="text-right px-3 py-3 hidden md:table-cell">Cobertura del km</th><th class="text-right px-3 py-3 hidden lg:table-cell">Odómetro</th><th class="text-right px-3 py-3 hidden md:table-cell">En ruta</th><th class="text-right px-3 py-3 hidden lg:table-cell">Imprevistos</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in page_obj %}
+                <tr class="hover:bg-slate-50/60 align-top">
+                    <td class="px-3 py-3"><span class="font-black tracking-wider">{{ f.placa }}</span><span class="block text-[11px] text-slate-400">{{ f.turnos }} turno{{ f.turnos|pluralize }}{% if f.turnos_noche %} · {{ f.turnos_noche }} de noche{% endif %}</span></td>
+                    <td class="px-3 py-3 text-right font-bold">{{ f.dias }}</td>
+                    <td class="px-3 py-3 text-right font-black whitespace-nowrap">{% if f.km_total is not None %}{{ f.km_total }} km{% else %}—{% endif %}{% if f.km_fuera %}<span class="block text-[10px] font-bold text-slate-400">incluye {{ f.km_fuera }} fuera de jornada</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden sm:table-cell font-bold">{{ f.km_por_dia|default_if_none:"—" }}</td>
+                    <td class="px-3 py-3 text-right hidden md:table-cell font-black {% if f.cobertura is not None and f.cobertura < 100 %}text-amber-700{% endif %}">{% if f.cobertura is not None %}{{ f.cobertura }} %{% else %}—{% endif %}{% if f.por_revisar %}<span class="block text-[10px] font-bold">{{ f.por_revisar }} turno{{ f.por_revisar|pluralize }} por revisar</span>{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden lg:table-cell whitespace-nowrap">{% if f.km_odometro is not None %}<span class="font-bold">{{ f.km_odometro }} km</span><span class="block text-[10px] text-slate-400">{{ f.km_primera }} → {{ f.km_ultima }}</span>{% if f.diferencia %}<span class="block text-[10px] font-black uppercase text-amber-700">diferencia {{ f.diferencia }} km</span>{% else %}<span class="block text-[10px] font-black uppercase text-emerald-700">cuadra</span>{% endif %}{% else %}—{% endif %}</td>
+                    <td class="px-3 py-3 text-right hidden md:table-cell font-bold whitespace-nowrap">{{ f.en_ruta_texto|default:"—" }}</td>
+                    <td class="px-3 py-3 text-right hidden lg:table-cell font-bold {% if f.imprevistos %}text-amber-700{% endif %}">{{ f.imprevistos }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="px-6 py-10 text-center text-slate-400 font-bold">No hay jornadas con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="px-4 py-3 text-xs text-slate-500 border-t border-slate-100">Elija el rango (p. ej. «Este mes»). Km del periodo = km de los turnos con lecturas válidas + km fuera de jornada. Odómetro = última − primera lectura válida del periodo: si no cuadra con el km del periodo, hay lecturas que no suman (cobertura menor a 100 %; ver «Calidad del km»). Para el consumo por km, cruce con el reporte de combustible.</p>
+    {% else %}
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
+                <tr><th class="text-left px-3 py-3">Fecha</th><th class="text-left px-3 py-3">Placa</th><th class="text-left px-3 py-3">Por qué no suma</th><th class="text-left px-3 py-3">Lecturas del turno</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in page_obj %}
+                <tr class="align-top">
+                    <td class="px-3 py-3 font-bold whitespace-nowrap">{{ f.fecha|date:"d/m/Y" }}<span class="block text-[10px] font-black uppercase text-slate-400">Turno {{ f.turno|lower }}</span></td>
+                    <td class="px-3 py-3"><a href="{% url 'accesos:trazabilidad' %}?placa={{ f.placa_normalizada|urlencode }}&fecha={{ f.fecha|date:'Y-m-d' }}" class="font-black tracking-wider hover:text-marca">{{ f.placa }}</a><span class="block text-[11px] text-slate-400">{{ f.codigo }}</span></td>
+                    <td class="px-3 py-3 font-bold text-amber-700">{{ f.motivo }}{% if f.sin_post_ruta and accesos_es_admin %}<a href="{% url 'accesos:jornada_cerrar' f.jornada.pk %}" class="block mt-1 text-[11px] font-black uppercase tracking-widest text-marca hover:underline">Cerrar sin retorno</a>{% endif %}</td>
+                    <td class="px-3 py-3 text-xs">
+                        {% for l in f.lecturas %}<a href="{% url 'accesos:tramo_detalle' l.tramo %}" class="block hover:text-marca {% if l.problema %}font-black text-amber-700{% else %}text-slate-600{% endif %}">{{ l.clase }}: {{ l.km|default_if_none:"—" }}{% if l.estado != 'Registrado' %} ({{ l.estado|lower }}){% endif %} <i class="fas fa-arrow-up-right-from-square text-[9px]"></i></a>{% empty %}<span class="text-slate-400">Sin registros</span>{% endfor %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-6 py-10 text-center text-slate-400 font-bold">No hay turnos con kilometraje por revisar con estos filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="px-4 py-3 text-xs text-slate-500 border-t border-slate-100">Abra cada lectura para corregirla (si conoce el valor real), validarla (si está observada y el tablero marcaba ese valor) o excluirla. Portería no acepta un kilometraje menor o igual al último válido, valores de relleno ni un recorrido que no quepa en el tiempo fuera del CD; si el tablero marca otro valor, queda como «km observado» y no suma hasta que se revise. Un turno de más de {{ tope_km }} km tampoco suma.</p>
+    {% endif %}
+    </div>
+    {% include 'accesos/_paginacion.html' %}
+</div>
+{% endblock %}

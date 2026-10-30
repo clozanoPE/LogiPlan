@@ -13,13 +13,16 @@ del día anterior y la que sigue al día siguiente, como contexto) y sus program
 
 Turno noche (15/10/2026): el día de una placa incluye su turno noche completo (de las 20:00 a la madrugada
 siguiente), con sus eventos marcados «Turno noche»; el resumen trae los datos de cada turno.
+
+Control del recorrido (30/10/2026): cada lectura válida muestra los km desde la lectura anterior y cada regreso al
+CD el tiempo que la unidad estuvo fuera; los retornos imprevistos aparecen como tales, con su motivo.
 """
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from django.db.models import Q
 
-from . import jornadas, servicios, tiempo
+from . import jornadas, kilometraje, servicios, tiempo
 from .models import Jornada, Programacion, Tramo
 
 Clase = Tramo.Clase
@@ -50,6 +53,8 @@ class Evento:
     otro_dia: bool = False
     turno_noche: bool = False   # evento del turno noche de la placa
     marcas: list = field(default_factory=list)
+    km_desde_anterior: int = None   # km recorridos desde la lectura válida anterior (en los regresos al CD)
+    fuera: str = ''                 # tiempo fuera del CD desde la salida anterior (en los regresos al CD)
 
     @property
     def hora(self):
@@ -73,10 +78,21 @@ def _calificar(desviacion, tolerancia, de_salida):
 
 
 def _marcas(tramo):
+    excluido = tramo.km_estado == Tramo.KmEstado.EXCLUIDO
+    observado = tramo.km_estado == Tramo.KmEstado.OBSERVADO
     return [texto for texto, activa in (('Corregido', tramo.corregido), ('Km menor al anterior', tramo.km_inconsistente),
+                                        ('Odómetro no leído', tramo.km_estado == Tramo.KmEstado.NO_LEIDO),
+                                        (f'Km excluido ({tramo.km_entrada})', excluido),
+                                        (f'Km observado ({tramo.km_entrada}): por validar', observado),
+                                        ('Cambio de odómetro', tramo.km_reinicio),
                                         ('Fuera de ventana', tramo.fuera_de_ventana),
                                         ('Cierre administrativo', tramo.cierre_administrativo),
                                         ('Día no laborable', tramo.dia_no_laborable)) if activa]
+
+
+def _km(tramo):
+    """Solo las lecturas válidas se muestran como kilometraje (las no leídas o excluidas van en las marcas)."""
+    return tramo.km_entrada if tramo.km_valido else None
 
 
 def _texto_programacion(p):
@@ -98,14 +114,14 @@ def _eventos_de_tramo(t, jornada, tolerancia):
             titulo='Ingreso al CD · inicio de la Pre-Ruta' if ingreso else 'Inicio de la Pre-Ruta',
             detalle=('Llegó desde afuera: la Pre-Ruta empieza al ingresar.' if ingreso else
                      f"Referencia {t.jornada.hora_inicio:%H:%M}: la unidad durmió en el CD." if t.jornada_id else ''),
-            km=t.km_entrada if ingreso else None, vigilante=vigilante_entrada,
+            km=_km(t) if ingreso else None, vigilante=vigilante_entrada,
             obs=t.obs_entrada if ingreso else '', **base))
         if t.salida_en:
             minutos = t.minutos_permanencia
             meta = t.jornada.meta_pre_ruta_min if t.jornada_id else None
             detalle = f"Pre-Ruta de {servicios.formato_duracion(minutos)}" + (f" (meta {meta} min)" if meta else '')
             evento = Evento(momento=t.salida_en, tipo='salida_ruta', icono='fa-truck-fast',
-                            titulo='Salida a ruta', detalle=detalle, km=None if ingreso else t.km_entrada,
+                            titulo='Salida a ruta', detalle=detalle, km=None if ingreso else _km(t),
                             vigilante=vigilante_salida, obs=t.obs_salida, **base)
             if p:
                 evento.titulo = f"Salida a ruta · ruta de las {p.hora:%H:%M}"
@@ -125,7 +141,7 @@ def _eventos_de_tramo(t, jornada, tolerancia):
         evento = Evento(momento=t.entrada_en, tipo='post_ruta', icono='fa-flag-checkered',
                         titulo='Ingreso por avería (Post-Ruta)' if averia else
                         ('Post-Ruta · fin de jornada' if es_cierre else 'Reingreso al CD (jornada ya cerrada)'),
-                        km=t.km_entrada, vigilante=vigilante_entrada, obs=t.obs_entrada, **base)
+                        km=_km(t), vigilante=vigilante_entrada, obs=t.obs_entrada, **base)
         if es_cierre and t.jornada_id:
             j = t.jornada
             limite = jornadas.limite_cierre(j)
@@ -154,10 +170,22 @@ def _eventos_de_tramo(t, jornada, tolerancia):
                                       vigilante=vigilante_salida, obs=t.obs_salida, **base))
         return eventos
 
+    if t.clase == Clase.IMPREVISTO:
+        eventos.append(Evento(momento=t.entrada_en, tipo='imprevisto', icono='fa-rotate-left',
+                              titulo=f"Retorno imprevisto · {t.get_motivo_imprevisto_display()}",
+                              detalle='Volvió al CD sin programación; la jornada siguió en ruta.', nivel=AVISO,
+                              etiqueta='Imprevisto', km=_km(t), vigilante=vigilante_entrada, obs=t.obs_entrada, **base))
+        if t.salida_en:
+            eventos.append(Evento(momento=t.salida_en, tipo='salida', icono='fa-truck-fast',
+                                  titulo='Vuelve a salir a ruta (tras el retorno imprevisto)',
+                                  detalle=f"En el CD {servicios.formato_duracion(t.minutos_permanencia)}",
+                                  vigilante=vigilante_salida, obs=t.obs_salida, **base))
+        return eventos
+
     # Visita programada (cliente, proveedor o ruta INTERNO).
     interno = t.califica_salida
     entrada = Evento(momento=t.entrada_en, tipo='entrada', icono='fa-right-to-bracket', titulo='Entrada al CD',
-                     detalle=_texto_programacion(p) if p else '', km=t.km_entrada, vigilante=vigilante_entrada,
+                     detalle=_texto_programacion(p) if p else '', km=_km(t), vigilante=vigilante_entrada,
                      obs=t.obs_entrada, **base)
     if p and not interno:
         entrada.programada, entrada.referencia = p.hora, 'llegada programada'
@@ -253,10 +281,31 @@ def del_dia(transporte, fecha, ahora, config, cd_ids=None):
     for e in eventos:
         # La madrugada del turno noche de este día es parte del día; lo demás de otro día es contexto.
         e.otro_dia = e.fecha != fecha and not (e.turno_noche and noche and e.fecha == jornadas.fecha_cierre(noche))
+    _recorrido(eventos)
     resumen = _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia)
     if noche:
         resumen['noche'] = _resumen_turno(noche, tramos, ahora)
     return {'eventos': eventos, 'jornada': jornada, 'noche': noche, 'resumen': resumen}
+
+
+REGRESOS = ('pre_inicio', 'entrada', 'imprevisto', 'post_ruta')
+SALIDAS = ('salida_ruta', 'salida', 'salida_tras_cierre')
+
+
+def _recorrido(eventos):
+    """En cada regreso al CD: km desde la lectura válida anterior y tiempo fuera desde la salida anterior."""
+    km_anterior, salida_anterior = None, None
+    for e in eventos:
+        if e.tipo in REGRESOS:
+            if salida_anterior is not None:
+                e.fuera = servicios.formato_duracion(round((e.momento - salida_anterior).total_seconds() / 60))
+            if e.km is not None and km_anterior is not None and e.km >= km_anterior:
+                e.km_desde_anterior = e.km - km_anterior
+            salida_anterior = None
+        elif e.tipo in SALIDAS:
+            salida_anterior = e.momento
+        if e.km is not None:
+            km_anterior = e.km
 
 
 def _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia):
@@ -279,6 +328,7 @@ def _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia)
         'km_inicial': lecturas[0].km if lecturas else None, 'km_final': lecturas[-1].km if lecturas else None,
         'km_recorridos': km_recorridos, 'minutos_en_cd': en_cd, 'tiempo_en_cd': servicios.formato_duracion(en_cd),
         'tolerancia': tolerancia,
+        'imprevistos': sum(1 for e in eventos if e.tipo == 'imprevisto' and not e.otro_dia),
     }
     if jornada:
         resumen.update(_resumen_turno(jornada, tramos, ahora))
@@ -286,14 +336,20 @@ def _resumen(eventos, programaciones, tramos, jornada, fecha, ahora, tolerancia)
 
 
 def _resumen_turno(jornada, tramos, ahora):
-    """Pre-Ruta, cierre y estado de un turno (día o noche) de la placa."""
+    """Pre-Ruta, Post-Ruta, km, cierre y estado de un turno (día o noche) de la placa: la misma cuenta del Reporte
+    de jornadas (kilometraje.km_de_jornadas)."""
+    km = kilometraje.km_de_jornadas([jornada], ahora)[jornada.pk]
+    post = jornadas.minutos_post_ruta(jornada)
     return {
+        'km_turno': km,
+        'en_ruta': servicios.formato_duracion(km.minutos_en_ruta) if km.minutos_en_ruta is not None else None, 'post_ruta_min': post, 'post_ruta_texto': jornadas.texto_post_ruta(post),
+        'cierre_operativo': jornadas.cierre(jornada), 'cierre_sin_retorno': jornada.cierre_sin_retorno,
         'pre_ruta_min': jornadas.minutos_pre_ruta(jornada), 'meta_pre_ruta': jornada.meta_pre_ruta_min,
         'calificacion_cierre': jornadas.ETIQUETAS_CIERRE.get(jornadas.calificacion_cierre(jornada)),
         'minutos_fuera': jornadas.minutos_sobre_cierre(jornada),
         'limite_cierre': jornadas.limite_cierre(jornada),
         'estado': jornadas.estado_visible(jornada, ahora, dentro=any(t.esta_abierto for t in tramos),
-                                          en_visita=any(t.esta_abierto and t.es_programado for t in tramos),
+                                          en_visita=any(t.esta_abierto and t.es_visita for t in tramos),
                                           no_disponible=jornadas.incidencia_abierta(jornada.transporte_id) is not None),
         'conductor': jornada.conductor.nombre_completo, 'hora_inicio': jornada.hora_inicio,
         'post_ruta_en': jornada.post_ruta_en,

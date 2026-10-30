@@ -184,6 +184,11 @@ class ConfiguracionAccesos(models.Model):
         default=15, verbose_name="Tolerancia del cierre del turno noche (min)",
         help_text="Un retorno del turno noche después del cierre más esta tolerancia es «fuera de horario».",
     )
+    velocidad_maxima_kmh = models.PositiveSmallIntegerField(
+        default=80, verbose_name="Velocidad máxima razonable (km/h)",
+        help_text="Tope del kilometraje en portería: el recorrido desde la última lectura no puede pasar de las horas "
+                  "fuera del CD por esta velocidad. Si el tablero marca más, se registra como «km observado».",
+    )
     modificado_en = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -197,6 +202,7 @@ class ConfiguracionAccesos(models.Model):
             models.CheckConstraint(condition=Q(meta_pre_ruta_min__gt=0), name='accesos_config_meta_pre_ruta_positiva'),
             models.CheckConstraint(condition=Q(meta_pre_ruta_noche_min__gt=0),
                                    name='accesos_config_meta_pre_ruta_noche_positiva'),
+            models.CheckConstraint(condition=Q(velocidad_maxima_kmh__gt=0), name='accesos_config_velocidad_positiva'),
         ]
 
     def __str__(self):
@@ -661,6 +667,8 @@ class Jornada(models.Model):
     salida_sin_pre_ruta = models.BooleanField(
         default=False, help_text="Su primera salida cerró un tramo programado que quedó abierto desde otro día.")
     pernocto_fuera = models.BooleanField(default=False, help_text="Salió del CD después de su Post-Ruta.")
+    cierre_sin_retorno = models.BooleanField(
+        default=False, help_text="El Administrador la cerró sin Post-Ruta: su retorno nunca se registró.")
 
     creado_en = models.DateTimeField(auto_now_add=True)
     modificado_en = models.DateTimeField(auto_now=True)
@@ -697,13 +705,29 @@ class Tramo(models.Model):
 
     Clases: PROGRAMADO (una visita programada; lo de siempre) y los de la jornada de la flota propia,
     que no tienen programación: PRE_RUTA (desde la hora de la Pre-Ruta hasta la primera salida) y
-    POST_RUTA (desde el retorno de fin de jornada; queda abierto mientras la unidad duerme en el CD).
+    POST_RUTA (desde el retorno de fin de jornada; queda abierto mientras la unidad duerme en el CD) e
+    IMPREVISTO (30/10/2026: la unidad en ruta vuelve al CD por un hecho fortuito —olvidó carga, recojo…— y vuelve
+    a salir; la jornada sigue en ruta).
     """
 
     class Clase(models.TextChoices):
         PROGRAMADO = 'PROGRAMADO', 'Programado'
         PRE_RUTA = 'PRE_RUTA', 'Pre-Ruta'
         POST_RUTA = 'POST_RUTA', 'Post-Ruta'
+        IMPREVISTO = 'IMPREVISTO', 'Retorno imprevisto'
+
+    class KmEstado(models.TextChoices):
+        REGISTRADO = 'REGISTRADO', 'Registrado'
+        NO_LEIDO = 'NO_LEIDO', 'No se pudo leer'
+        EXCLUIDO = 'EXCLUIDO', 'Excluido'
+        OBSERVADO = 'OBSERVADO', 'Observado (por validar)'
+
+    class MotivoImprevisto(models.TextChoices):
+        OLVIDO = 'OLVIDO', 'Olvidó carga o documentos'
+        RECOJO = 'RECOJO', 'Recojo adicional'
+        CAMBIO_CARGA = 'CAMBIO_CARGA', 'Cambio de carga'
+        PROBLEMA_MENOR = 'PROBLEMA_MENOR', 'Problema menor (sin avería)'
+        OTRO = 'OTRO', 'Otro'
 
     clase = models.CharField(max_length=10, choices=Clase.choices, default=Clase.PROGRAMADO, db_index=True)
     programacion = models.ForeignKey(Programacion, on_delete=models.PROTECT, related_name='tramos',
@@ -744,6 +768,16 @@ class Tramo(models.Model):
     tamano_snapshot = models.ForeignKey(TamanoVehiculo, on_delete=models.PROTECT, related_name='+')
     tipo_snapshot = models.CharField(max_length=10, choices=Programacion.Tipo.choices)
 
+    # Calidad del kilometraje (30/10/2026): desde entonces Portería no acepta un km menor al último válido;
+    # si el odómetro no se puede leer, se registra sin km («No leído»). El Administrador puede excluir una
+    # lectura errada (no suma en el reporte ni sirve de referencia) o marcar un cambio de odómetro.
+    km_estado = models.CharField(max_length=10, choices=KmEstado.choices, default=KmEstado.REGISTRADO,
+                                 verbose_name="Estado del kilometraje")
+    km_motivo = models.CharField(max_length=300, blank=True, verbose_name="Motivo (km no leído, observado o excluido)")
+    km_reinicio = models.BooleanField(default=False, verbose_name="Cambio de odómetro",
+                                      help_text="La lectura es menor a la anterior porque se cambió el odómetro.")
+    motivo_imprevisto = models.CharField(max_length=15, choices=MotivoImprevisto.choices, blank=True,
+                                         verbose_name="Motivo del retorno imprevisto")
     fuera_de_ventana = models.BooleanField(default=False)
     km_inconsistente = models.BooleanField(default=False)
     corregido = models.BooleanField(default=False)
@@ -788,8 +822,22 @@ class Tramo(models.Model):
         return bool(self.fecha_local_salida and self.fecha_local_salida != self.fecha_local_entrada)
 
     @property
+    def km_valido(self):
+        """Lectura que cuenta: registrada (no «No leído» ni excluida) y con valor."""
+        return self.km_entrada is not None and self.km_estado == self.KmEstado.REGISTRADO
+
+    @property
     def es_programado(self):
         return self.clase == self.Clase.PROGRAMADO
+
+    @property
+    def es_imprevisto(self):
+        return self.clase == self.Clase.IMPREVISTO
+
+    @property
+    def es_visita(self):
+        """Entrada y salida durante la ruta: una visita programada o un retorno imprevisto."""
+        return self.clase in (self.Clase.PROGRAMADO, self.Clase.IMPREVISTO)
 
     @property
     def es_de_jornada(self):
@@ -798,6 +846,8 @@ class Tramo(models.Model):
     @property
     def descripcion(self):
         """Texto corto para listas: la razón social y el motivo, o la clase si es de la jornada."""
+        if self.es_imprevisto:
+            return f"Retorno imprevisto · {self.get_motivo_imprevisto_display() or 'flota propia'}"
         if self.es_de_jornada:
             return f"{self.get_clase_display()} · flota propia"
         return self.programacion.razon_social if self.programacion_id else ''
@@ -839,6 +889,7 @@ class RegistroAuditoria(models.Model):
         CONFIG = 'CONFIG', 'Configuración'
         INCIDENCIA = 'INCIDENCIA', 'Incidencia (no disponible)'
         HABILITAR = 'HABILITAR', 'Habilitar vehículo'
+        KM_RECHAZADO = 'KM_RECHAZADO', 'Km rechazado en portería'
 
     fecha = models.DateTimeField(auto_now_add=True, db_index=True)
     # Vacío = acción automática del sistema (p. ej. la desactivación de avisos de licencias vencidas).

@@ -1,0 +1,39 @@
+{% extends 'accesos/base_accesos.html' %}
+
+{% block titulo %}Cerrar jornada sin retorno{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <a href="{{ volver }}" class="inline-flex items-center gap-2 text-slate-400 hover:text-marca font-bold text-xs uppercase tracking-widest mb-6">
+        <i class="fas fa-arrow-left"></i> Volver a la trazabilidad
+    </a>
+    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div class="bg-daryza-dark p-8 text-white">
+            <p class="text-[11px] font-black uppercase tracking-[0.3em] text-marca">{{ jornada.codigo }}</p>
+            <h1 class="text-2xl font-black tracking-tight">Cerrar jornada sin retorno · {{ jornada.transporte.placa }}</h1>
+            <p class="text-sm text-slate-300 mt-1">Turno {% if jornada.es_noche %}noche{% else %}día{% endif %} del {{ jornada.fecha|date:"d/m/Y" }} · CD {{ jornada.cd }} · {{ jornada.conductor.nombre_completo }}</p>
+        </div>
+        <form method="post" class="p-8 space-y-6">
+            {% csrf_token %}
+            <p class="p-4 rounded-2xl bg-amber-50 text-amber-900 text-sm font-bold">La unidad salió a ruta y su retorno al CD (Post-Ruta) nunca se registró. La jornada quedará <span class="font-black">cerrada sin retorno</span>: no cuenta en la Post-Ruta ni en el kilometraje del reporte{% if pendientes %}, y sus {{ pendientes|length }} ruta(s) pendiente(s) quedarán «No atendida»{% endif %}. Queda en la auditoría.</p>
+            {% if tramos %}
+            <div>
+                <h2 class="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 mb-2">Registros de la jornada</h2>
+                <ul class="text-sm space-y-1">
+                    {% for t in tramos %}<li><a href="{% url 'accesos:tramo_detalle' t.pk %}" class="font-bold text-marca hover:underline">{{ t.get_clase_display }}</a> · entrada {{ t.entrada_en|date:"d/m H:i" }}{% if t.salida_en %} · salida {{ t.salida_en|date:"d/m H:i" }}{% endif %}{% if t.km_entrada is not None %} · {{ t.km_entrada }} km{% endif %}</li>{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if not elegible %}<p class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold">Esta jornada no se puede cerrar así: solo una jornada en ruta cuyo turno ya terminó (hoy está «{{ jornada.get_estado_display }}»).</p>{% endif %}
+            {% for error in form.non_field_errors %}
+            <p class="p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-700 text-sm font-bold">{{ error }}</p>
+            {% endfor %}
+            {% include 'accesos/maestros/_campo.html' with campo=form.motivo %}
+            <div class="action-row justify-end pt-4 border-t border-slate-100">
+                <a href="{{ volver }}" class="px-6 py-3 rounded-full text-center text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100">Cancelar</a>
+                {% if elegible %}<button type="submit" class="px-6 py-3 rounded-full bg-marca hover:bg-marca-oscuro text-white text-xs font-black uppercase tracking-widest">Cerrar jornada</button>{% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

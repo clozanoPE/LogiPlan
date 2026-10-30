@@ -41,6 +41,8 @@ def accesos(request):
         'accesos_solo': solo_accesos(user) if user is not None else False,
         'accesos_puede_programar': bool(roles & {ADMINISTRADOR, DESPACHO}),
         'accesos_lectura': bool(roles & {ADMINISTRADOR, DESPACHO, CONSULTA}),
+        # Correcciones (km, jornadas sin retorno): solo el Administrador.
+        'accesos_es_admin': ADMINISTRADOR in roles,
         # Tablero «Hoy» y Dashboard: también para Vigilancia (solo lectura).
         'accesos_ve_indicadores': bool(roles & {ADMINISTRADOR, DESPACHO, CONSULTA, VIGILANCIA}),
         # Consulta de tramos: Vigilancia también, en solo lectura y limitada a sus CD.

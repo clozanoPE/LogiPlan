@@ -7,7 +7,7 @@ from django.db import connection
 from django.test import TransactionTestCase, skipUnlessDBFeature
 from django.urls import reverse
 
-from .. import servicios, tiempo
+from .. import kilometraje, servicios, tiempo
 from ..models import (CentroDistribucion, ConfiguracionAccesos, Conductor, Programacion, RegistroAuditoria,
                       TamanoVehiculo, TipoDocumentoIdentidad, Tramo, Transporte, UsuarioCD)
 from .test_programacion import HOY, MANANA, ProgramacionBase
@@ -22,7 +22,17 @@ class PorteriaBase(ProgramacionBase):
         UsuarioCD.objects.create(usuario=cls.vigilante, cd=cls.lurin)
         cls.config = ConfiguracionAccesos.obtener()
 
-    def entrar_en(self, programacion, km=125430, obs='', confirmar=False, conductor_id=None):
+    @staticmethod
+    def km_siguiente(transporte_id, base, minimo_sobre_ultimo=5):
+        """Kilometraje para una lectura nueva de las pruebas: `base` si la placa no tiene lecturas; si no, unos km más
+        que la última válida (desde el 30/10/2026 portería no acepta uno menor ni igual, ni uno que no quepa en el
+        tiempo fuera del CD)."""
+        ultima = kilometraje.ultima_lectura(transporte_id)
+        return base if ultima is None else ultima.km_entrada + minimo_sobre_ultimo
+
+    def entrar_en(self, programacion, km=None, obs='', confirmar=False, conductor_id=None):
+        if km is None:
+            km = self.km_siguiente(programacion.transporte_id, 125430)
         tramo, _ = servicios.registrar_entrada(
             transporte_id=programacion.transporte_id, programacion_id=programacion.pk, cd=programacion.cd, km=km,
             obs=obs, conductor_id=conductor_id, usuario=self.vigilante, ahora=tiempo.ahora(), config=self.config,
@@ -120,17 +130,19 @@ class FlujoDelDiaTests(PorteriaBase):
         self.assertTrue(tramo.fuera_de_ventana)
         self.assertEqual(tramo.desviacion_llegada_min, -240)  # llegó 4 horas antes
 
-    def test_kilometraje_menor_al_anterior_avisa_sin_bloquear(self):
+    def test_kilometraje_menor_al_anterior_se_bloquea(self):
+        """Desde el 30/10/2026 (antes avisaba sin bloquear): no se registra un km menor al último válido."""
         primera, segunda = self.programar(9, 0), self.programar(9, 30)
         tramo = self.entrar_en(primera, km=125430)
         self.mover_reloj(HOY, 9, 20)
         self.salir(tramo)
         self.mover_reloj(HOY, 9, 30)
-        tramo, avisos = servicios.registrar_entrada(
-            transporte_id=self.f7j.pk, programacion_id=segunda.pk, cd=self.lurin, km=125000, obs='',
-            conductor_id=None, usuario=self.vigilante, ahora=tiempo.ahora(), config=self.config)
-        self.assertTrue(tramo.km_inconsistente)
-        self.assertEqual(len(avisos), 1)
+        with self.assertRaises(ValidationError) as error:
+            servicios.registrar_entrada(
+                transporte_id=self.f7j.pk, programacion_id=segunda.pk, cd=self.lurin, km=125000, obs='',
+                conductor_id=None, usuario=self.vigilante, ahora=tiempo.ahora(), config=self.config)
+        self.assertEqual(error.exception.code, 'km_menor')
+        self.assertFalse(Tramo.objects.filter(programacion=segunda).exists())
 
     def test_conductor_distinto_al_programado(self):
         otro = Conductor.objects.create(tipo_documento=self.dni, numero_documento='99887766', apellido_paterno='LUNA',

@@ -46,17 +46,50 @@
         <div class="flex items-center gap-8">
             <div class="text-right">
                 <p id="tv-fecha" class="text-[1.3rem] font-bold text-slate-300">{{ datos.fecha }}</p>
+                <p id="tv-foco" class="text-[1rem] font-black text-marca">{{ datos.foco.texto }}</p>
                 <p id="tv-estado" class="text-[0.95rem] font-bold text-slate-400"><i class="fas fa-circle text-[0.6rem] text-[#0ca30c] align-middle"></i> Actualizado a las <span id="tv-actualizado">{{ datos.hora }}</span></p>
             </div>
             <p id="tv-reloj" class="text-[3.6rem] font-black tabular-nums leading-none text-white">{{ datos.hora }}</p>
         </div>
     </header>
 
-    <!-- Cifras -->
-    <section id="tv-cifras" class="grid grid-cols-6 gap-[1rem]" aria-label="Indicadores de hoy"></section>
+    <!-- Cifras: 8 indicadores del turno en foco (mismo cálculo que Dashboard › Flota y el Reporte de jornadas) -->
+    <section id="tv-cifras" class="grid grid-cols-8 gap-[0.8rem]" aria-label="Indicadores del turno"></section>
 
-    <!-- Cuerpo: flota propia (línea de tiempo) y vehículos en planta -->
-    <main class="flex-1 min-h-0 grid grid-cols-[1fr_28rem] gap-[1rem]">
+    <!-- Páginas que rotan: en vivo, indicadores del turno, últimos 7 días -->
+    <nav class="flex items-center justify-between -mb-[0.4rem]" aria-label="Páginas">
+        <ol id="tv-paginas" class="flex gap-[0.6rem] text-[1rem] font-black uppercase tracking-widest"></ol>
+        <p id="tv-cuadre" class="text-[0.85rem] font-semibold text-slate-500">{{ datos.foco.cuadre }}</p>
+    </nav>
+
+    <!-- Página 2: indicadores del turno por placa (vehículo) -->
+    <main id="tv-pagina-turno" class="hidden flex-1 min-h-0 grid grid-cols-3 gap-[1rem]">
+        <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
+            <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-road text-marca mr-2"></i>Km por placa</h2>
+            <p class="text-[0.95rem] font-semibold text-slate-500 mb-2">Última − primera lectura del turno (turnos cerrados)</p>
+            <ul id="tv-km-placas" class="flex-1 min-h-0 overflow-hidden space-y-[0.5rem]"></ul>
+        </section>
+        <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
+            <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-sun text-marca mr-2"></i>Pre-Ruta por placa</h2>
+            <p class="text-[0.95rem] font-semibold text-slate-500 mb-2">Salida a ruta − ingreso · la línea marca la meta</p>
+            <ul id="tv-pre-placas" class="flex-1 min-h-0 overflow-hidden space-y-[0.5rem]"></ul>
+        </section>
+        <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
+            <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-flag-checkered text-marca mr-2"></i>Retornos (Post-Ruta)</h2>
+            <p class="text-[0.95rem] font-semibold text-slate-500 mb-2">Frente al fin del turno (<span id="tv-fin-turno"></span>)</p>
+            <ul id="tv-retornos" class="flex-1 min-h-0 overflow-hidden space-y-[0.5rem]"></ul>
+        </section>
+    </main>
+
+    <!-- Página 3: últimos 7 días laborables -->
+    <main id="tv-pagina-semana" class="hidden flex-1 min-h-0 bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex-col">
+        <h2 class="text-[1.6rem] font-black leading-tight"><i class="fas fa-calendar-week text-marca mr-2"></i>Últimos 7 días laborables · <span id="tv-semana-turno"></span></h2>
+        <p class="text-[0.95rem] font-semibold text-slate-500 mb-3">Verde: en meta · ámbar: cerca · rojo: lejos. Metas: Pre-Ruta a tiempo y salidas a tiempo ≥ 90 %, retornos en horario ≥ 95 %.</p>
+        <div id="tv-semana" class="flex-1 min-h-0"></div>
+    </main>
+
+    <!-- Página 1 (en vivo): flota propia (línea de tiempo) y vehículos en planta -->
+    <main id="tv-pagina-vivo" class="flex-1 min-h-0 grid grid-cols-[1fr_28rem] gap-[1rem]">
         <section class="bg-white rounded-[1.5rem] shadow-sm p-[1.25rem] flex flex-col min-h-0">
             <div class="flex items-end justify-between mb-2">
                 <div>
@@ -85,13 +118,13 @@
     </footer>
 
     <!-- Clases que solo inserta el JavaScript: así Tailwind (CDN) las genera desde el primer dibujo. -->
-    <div class="hidden text-rose-400 text-amber-600 text-orange-600 text-rose-600 text-rose-700 bottom-[0.45rem] h-[2.4rem] h-[2.8rem] h-[3px] px-[1.25rem] py-[1rem] rounded-[1.5rem] rounded-[1rem] rounded-[5px] text-[#0a6b0a] text-[#0ca30c] text-[0.6rem] text-[0.85rem] text-[0.95rem] text-[0.9rem] text-[1.35rem] text-[1.3rem] text-[1.6rem] text-[2rem] text-[3rem] top-[0.45rem] w-[2px] w-[3px]" aria-hidden="true"></div>
+    <div class="hidden grid-cols-8 text-[2.3rem] text-[0.8rem] text-[1rem] text-[1.1rem] text-[1.2rem] text-[1.5rem] h-[1.6rem] h-[2rem] w-[9rem] w-[7rem] bg-marca bg-slate-200 bg-slate-100 text-marca text-emerald-700 text-white flex-col gap-[0.6rem] text-rose-400 text-amber-600 text-orange-600 text-rose-600 text-rose-700 bottom-[0.45rem] h-[2.4rem] h-[2.8rem] h-[3px] px-[1.25rem] py-[1rem] rounded-[1.5rem] rounded-[1rem] rounded-[5px] text-[#0a6b0a] text-[#0ca30c] text-[0.6rem] text-[0.85rem] text-[0.95rem] text-[0.9rem] text-[1.35rem] text-[1.3rem] text-[1.6rem] text-[2rem] text-[3rem] top-[0.45rem] w-[2px] w-[3px]" aria-hidden="true"></div>
     {{ datos|json_script:"tv-datos" }}
     <script>
     (() => {
         const URL_DATOS = '{% url "accesos:tv_datos" cd.codigo %}';
         const SEGUNDOS = {{ segundos }};
-        const ROTACION_MS = 20000;  // páginas de la línea de tiempo y de «En planta ahora»
+        const ROTACION_MS = 20000;  // cada página (y cada subpágina de «En vivo») dura 20 s
         const escapar = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
         const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
         let datos = JSON.parse(document.getElementById('tv-datos').textContent);
@@ -103,25 +136,77 @@
         const formatoHora = new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Lima' });
         setInterval(() => { reloj.textContent = formatoHora.format(new Date()); }, 1000);
 
+        // Semáforo siempre con ícono y texto (no solo color).
+        const SEMAFORO = { ok: ['fa-circle-check', 'En meta'], aviso: ['fa-triangle-exclamation', 'Atención'],
+                           critico: ['fa-circle-xmark', 'Lejos de la meta'], serio: ['fa-triangle-exclamation', 'Atención'] };
         function cifras(d) {
             const c = d.cifras;
             const ocupacion = c.dentro / d.capacidad;
-            const tarjeta = (titulo, valor, detalle, icono, nivel = '') => `<div class="bg-white rounded-[1.5rem] shadow-sm px-[1.25rem] py-[1rem] ${nivel ? 'estado-' + nivel : ''}">
-                <p class="text-[0.9rem] font-black uppercase tracking-widest ${nivel ? '' : 'text-slate-400'}"><i class="fas ${icono} mr-1 ${nivel ? '' : 'text-marca'}"></i>${titulo}</p>
-                <p class="text-[3rem] font-black leading-tight tabular-nums">${valor}</p>
-                <p class="text-[0.95rem] font-semibold ${nivel ? '' : 'text-slate-500'}">${detalle}</p></div>`;
-            const grupos = c.grupos.map(g => `${g.total} ${g.etiqueta.toLowerCase().replace('pre-ruta', 'Pre-Ruta')}`).join(' · ');
-            document.getElementById('tv-cifras').innerHTML = [
-                tarjeta('En planta', `${c.dentro}<span class="text-[1.6rem] text-slate-400"> / ${d.capacidad}</span>`,
-                        `${c.en_atencion} en atención · ${c.flota_dentro} flota propia`, 'fa-warehouse',
-                        ocupacion > 1 ? 'critico' : (ocupacion >= 0.9 ? 'aviso' : '')),
-                tarjeta('Citas de hoy', `${c.atendidas}<span class="text-[1.6rem] text-slate-400"> / ${c.programadas}</span>`,
-                        `atendidas · ${c.pendientes} pendientes`, 'fa-calendar-check'),
-                tarjeta('Flota propia', c.placas, (c.noche ? `${c.dia} en turno día · ${c.noche} en turno noche · ` : '') + (grupos || 'sin jornadas hoy'), 'fa-truck'),
-                tarjeta('En ruta', c.grupos[2].total, `${c.grupos[1].total} en Pre-Ruta · ${c.grupos[3].total} retornaron`, 'fa-route'),
-                tarjeta('Fuera de horario', c.fuera_de_horario, 'retornos después de la tolerancia', 'fa-clock', c.fuera_de_horario ? 'critico' : ''),
-                tarjeta('No disponibles', c.no_disponibles, 'vehículos en avería', 'fa-screwdriver-wrench', c.no_disponibles ? 'serio' : ''),
-            ].join('');
+            const tarjeta = (t) => {
+                const nivel = t.nivel || '';
+                const sello = nivel ? `<span class="text-[0.8rem] font-black uppercase"><i class="fas ${SEMAFORO[nivel][0]} mr-1"></i>${SEMAFORO[nivel][1]}</span>` : '';
+                const cambio = t.cambio ? `<p class="text-[0.8rem] font-black ${t.cambio.mejora === true ? 'text-emerald-700' : (t.cambio.mejora === false ? 'text-rose-700' : 'text-slate-500')}">${t.cambio.mejora === true ? '▲ ' : (t.cambio.mejora === false ? '▼ ' : '')}${escapar(t.cambio.texto)}</p>` : '';
+                return `<div class="bg-white rounded-[1.5rem] shadow-sm px-[1rem] py-[0.8rem] flex flex-col ${nivel ? 'estado-' + nivel : ''}">
+                    <p class="text-[0.8rem] font-black uppercase tracking-widest ${nivel ? '' : 'text-slate-400'}"><i class="fas ${t.icono} mr-1 ${nivel ? '' : 'text-marca'}"></i>${escapar(t.titulo)}</p>
+                    <p class="text-[2.3rem] font-black leading-tight tabular-nums">${t.valor}</p>
+                    <p class="text-[0.85rem] font-semibold leading-snug ${nivel ? '' : 'text-slate-500'}">${escapar(t.detalle)}</p>${sello}${cambio}</div>`;
+            };
+            const planta = { titulo: 'En planta ahora', icono: 'fa-warehouse',
+                valor: `${c.dentro}<span class="text-[1.2rem] text-slate-400"> / ${d.capacidad}</span>`,
+                detalle: `${c.en_atencion} en atención · ${c.flota_dentro} flota propia`,
+                nivel: ocupacion > 1 ? 'critico' : (ocupacion >= 0.9 ? 'aviso' : '') };
+            const disponibles = { titulo: 'No disponibles', icono: 'fa-screwdriver-wrench', valor: c.no_disponibles,
+                detalle: c.no_disponibles ? 'vehículos en avería' : 'toda la flota disponible', nivel: c.no_disponibles ? 'serio' : '' };
+            document.getElementById('tv-cifras').innerHTML = [...d.indicadores, planta, disponibles].map(tarjeta).join('');
+            document.getElementById('tv-foco').textContent = d.foco.texto;
+            document.getElementById('tv-cuadre').textContent = d.foco.cuadre;
+        }
+
+        function barras(lista, filas, vacio) {
+            lista.innerHTML = filas.length ? filas.join('') : `<li class="text-[1.2rem] font-bold text-slate-400">${vacio}</li>`;
+        }
+        function paginaTurno(d) {
+            const t = d.pagina_turno;
+            document.getElementById('tv-fin-turno').textContent = t.fin_turno;
+            const maximo = Math.max(t.km_max, 1);
+            barras(document.getElementById('tv-km-placas'), t.km.map(f => `<li class="flex items-center gap-3">
+                <span class="w-[7rem] shrink-0 text-[1.2rem] font-black tracking-wider">${escapar(f.placa)}</span>
+                ${f.km === null ? `<span class="text-[1rem] font-bold text-amber-700"><i class="fas fa-triangle-exclamation mr-1"></i>Por revisar: ${escapar(f.motivo)}</span>`
+                : `<span class="flex-1 h-[1.6rem] rounded bg-slate-100"><span class="block h-full rounded" style="width:${(f.km / maximo * 100).toFixed(1)}%;background:var(--pre-ruta)"></span></span>
+                   <span class="w-[7rem] text-right text-[1.2rem] font-black tabular-nums">${f.km} km</span>`}</li>`), 'Aún no hay turnos cerrados con kilometraje.');
+            const tope = Math.max(t.meta_pre_ruta * 2, ...t.pre_ruta.map(f => f.minutos), 1);
+            barras(document.getElementById('tv-pre-placas'), t.pre_ruta.map(f => `<li class="flex items-center gap-3">
+                <span class="w-[7rem] shrink-0 text-[1.2rem] font-black tracking-wider">${escapar(f.placa)}</span>
+                <span class="relative flex-1 h-[1.6rem] rounded bg-slate-100"><span class="block h-full rounded" style="width:${Math.min(100, f.minutos / tope * 100).toFixed(1)}%;background:${f.excedida ? '#d03b3b' : 'var(--post-ruta)'}"></span>
+                    <span class="absolute top-[-0.2rem] bottom-[-0.2rem] w-[3px] bg-tinta" style="left:${(t.meta_pre_ruta / tope * 100).toFixed(1)}%"></span></span>
+                <span class="w-[7rem] text-right text-[1.2rem] font-black tabular-nums ${f.excedida ? 'text-rose-700' : ''}">${f.excedida ? '<i class="fas fa-triangle-exclamation mr-1"></i>' : ''}${f.minutos} min</span></li>`), 'Aún no salió ninguna unidad a ruta.');
+            barras(document.getElementById('tv-retornos'), t.retornos.map(f => `<li class="flex items-center justify-between gap-3 rounded-[1rem] px-3 py-1 ${f.fuera ? 'estado-critico' : 'bg-slate-50'}">
+                <span class="text-[1.2rem] font-black tracking-wider">${escapar(f.placa)}</span>
+                <span class="text-[1.2rem] font-black tabular-nums">${escapar(f.hora)}</span>
+                <span class="text-[1rem] font-bold text-right">${f.fuera ? '<i class="fas fa-clock mr-1"></i>' : ''}${escapar(f.texto)}<span class="block text-[0.8rem] font-black uppercase">${escapar(f.calificacion)}</span></span></li>`), 'Aún no retornó ninguna unidad.');
+        }
+
+        function paginaSemana(d) {
+            document.getElementById('tv-semana-turno').textContent = d.foco.noche ? 'turno noche' : 'turno día';
+            const celda = (valor, sufijo, nivel) => valor === null || valor === undefined ? '<td class="px-3 text-slate-300">—</td>'
+                : `<td class="px-3"><span class="inline-block px-3 py-1 rounded-full tabular-nums ${nivel ? 'estado-' + nivel : ''}">${nivel ? `<i class="fas ${SEMAFORO[nivel][0]} mr-1"></i>` : ''}${valor}${sufijo}</span></td>`;
+            const nivel = (v, bueno, regular) => v === null ? '' : (v >= bueno ? 'ok' : (v >= regular ? 'aviso' : 'critico'));
+            const filas = d.semana.map(f => `<tr class="border-t border-slate-100 ${f.en_curso ? 'bg-marca-claro' : ''}">
+                <td class="px-3 py-[0.5rem] font-black">${escapar(f.fecha)}${f.en_curso ? ' <span class="text-[0.8rem] text-marca">(en curso)</span>' : ''}</td>
+                <td class="px-3 tabular-nums">${f.jornadas}</td>
+                ${celda(f.km === null ? null : f.km.toLocaleString('es-PE').replace(/,/g, '.'), ' km', '')}
+                ${celda(f.km_unidad, ' km', '')}
+                ${celda(f.pre_ruta, ' min', '')}
+                ${celda(f.pct_pre, ' %', nivel(f.pct_pre, 90, 75))}
+                ${celda(f.pct_salidas, ' %', nivel(f.pct_salidas, 90, 75))}
+                ${celda(f.pct_retornos, ' %', nivel(f.pct_retornos, 95, 80))}
+                ${celda(f.post_ruta, '', '')}</tr>`).join('');
+            document.getElementById('tv-semana').innerHTML = `<table class="w-full text-left text-[1.35rem] font-bold">
+                <thead class="text-[0.85rem] font-black uppercase tracking-widest text-slate-400"><tr>
+                    <th class="px-3 pb-2">Día</th><th class="px-3 pb-2">Jornadas</th><th class="px-3 pb-2">Km</th><th class="px-3 pb-2">Km por unidad</th>
+                    <th class="px-3 pb-2">Pre-Ruta prom.</th><th class="px-3 pb-2">Pre-Ruta a tiempo</th><th class="px-3 pb-2">Salidas a tiempo</th>
+                    <th class="px-3 pb-2">Retornos en horario</th><th class="px-3 pb-2">Post-Ruta prom.</th></tr></thead><tbody>${filas}</tbody></table>
+                <p class="mt-3 text-[0.95rem] font-semibold text-slate-500">Post-Ruta = fin del turno − retorno real: positivo, volvió antes; negativo, después. Indicador operativo del vehículo (no es asistencia).</p>`;
         }
 
         function gantt(d, numeroPagina) {
@@ -193,12 +278,32 @@
             cinta.style.animationDuration = d.alertas.length > 1 ? `${Math.max(25, largo / 12)}s` : '0s';
         }
 
+        // Páginas: «En vivo» (con sus propias subpáginas si hay muchas unidades), «Indicadores del turno» y
+        // «Últimos 7 días». Cada una dura ROTACION_MS.
+        const PAGINAS = [['vivo', 'En vivo'], ['turno', 'Indicadores del turno'], ['semana', 'Últimos 7 días']];
+        // ?pagina=turno o ?pagina=semana: empieza en esa página (la rotación sigue igual).
+        let vista = Math.max(0, PAGINAS.findIndex(([c]) => c === new URLSearchParams(location.search).get('pagina'))), subpaginasVivo = 1;
         function dibujar() {
             document.getElementById('tv-fecha').textContent = datos.fecha;
             cifras(datos);
-            const paginas = Math.max(gantt(datos, pagina), dentro(datos, pagina));
+            const clave = PAGINAS[vista][0];
+            document.getElementById('tv-pagina-vivo').classList.toggle('hidden', clave !== 'vivo');
+            ['turno', 'semana'].forEach(p => {
+                const el = document.getElementById('tv-pagina-' + p);
+                el.classList.toggle('hidden', clave !== p);
+                el.classList.toggle(p === 'turno' ? 'grid' : 'flex', clave === p);
+            });
+            document.getElementById('tv-paginas').innerHTML = PAGINAS.map(([c, nombre], i) =>
+                `<li class="px-3 py-1 rounded-full ${i === vista ? 'bg-marca text-white' : 'bg-slate-200 text-slate-500'}">${nombre}</li>`).join('');
+            if (clave === 'vivo') subpaginasVivo = Math.max(gantt(datos, pagina), dentro(datos, pagina));
+            else if (clave === 'turno') paginaTurno(datos);
+            else paginaSemana(datos);
             alertas(datos);
-            return paginas;
+        }
+        function avanzar() {
+            if (PAGINAS[vista][0] === 'vivo' && pagina + 1 < subpaginasVivo) { pagina += 1; }
+            else { vista = (vista + 1) % PAGINAS.length; pagina = 0; }
+            dibujar();
         }
 
         // Actualización sin recargar. Si falla, se mantiene lo último y se avisa.
@@ -222,7 +327,7 @@
 
         dibujar();
         setInterval(actualizar, SEGUNDOS * 1000);
-        setInterval(() => { pagina += 1; dibujar(); }, ROTACION_MS);
+        setInterval(avanzar, ROTACION_MS);
         window.addEventListener('resize', dibujar);
     })();
     </script>

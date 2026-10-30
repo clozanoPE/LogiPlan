@@ -258,7 +258,7 @@ tr:last-child td { border-bottom: 0; }
             <a class="boton primario" href="#bienvenida">Empezar a leer</a>
             <button class="boton secundario" onclick="window.print()">Imprimir o guardar en PDF</button>
         </div>
-        <p class="meta">Versión 1.4 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta) con <b>turno día y turno noche</b>, la hora de salida de las rutas propias, el kilometraje en el maestro, la trazabilidad por placa, averías, el modo TV y la descarga a Excel de todas las listas · Las pantallas usan datos ficticios de demostración.</p>
+        <p class="meta">Versión 1.6 · Octubre 2026 · Incluye la jornada de la flota propia (Pre-Ruta y Post-Ruta) con <b>turno día y turno noche</b>, la hora de salida de las rutas propias, el kilometraje en el maestro, la trazabilidad por placa, averías, el modo TV, la descarga a Excel de todas las listas y, desde la versión 1.5, la <b>validación del kilometraje</b>, el <b>Reporte de jornadas</b> (Pre-Ruta, Post-Ruta y km) y los <b>indicadores gerenciales del modo TV</b>; desde la 1.6, el <b>retorno imprevisto</b>, los <b>controles estrictos del kilometraje</b> y el <b>control por placa</b> (tiempo y km por día y por mes) · Las pantallas usan datos ficticios de demostración.</p>
     </div>
 </header>
 
@@ -618,6 +618,28 @@ tr:last-child td { border-bottom: 0; }
         <figure><div class="marco"><img src="img/a15-programaciones-vigilancia.jpg" alt="Programaciones vistas por Vigilancia" loading="lazy"></div><figcaption>«Programaciones»: consulta de solo lectura del CD con filtros de fecha, placa, conductor y estado. «Exportar a Excel» descarga el día o un rango de hasta 31 días, siempre solo de su CD.</figcaption></figure>
     </div>
     <div class="nota info"><div>Con los <b>camiones propios</b> la portería también registra el <b>inicio de jornada</b>, el <b>fin de jornada (Post-Ruta)</b> y el <b>ingreso por avería</b>: ver los capítulos 15 y 16.</div></div>
+    <h3 id="a-porteria-km">El kilometraje</h3>
+    <figure class="media"><div class="marco"><img src="img/a54-porteria-km.jpg" alt="Validación del kilometraje en portería" loading="lazy"></div><figcaption>Si el kilometraje no pasa los controles, la pantalla lo marca en rojo y no deja registrar. Debajo aparecen «km observado» y «No se pudo leer el odómetro».</figcaption></figure>
+    <p>Cada ingreso pide el kilometraje del tablero. Debajo del campo se ve el <b>último registrado</b> de la placa, desde cuándo está fuera del CD y el <b>máximo</b> razonable; al escribir, la pantalla muestra el recorrido («+45 km»). Controles:</p>
+    <ul>
+        <li><b>Debe ser mayor al último registrado.</b> Si a las 8:00 registró 200 km, a las 10:00 no se acepta 190 ni 200. Solo en «Está saliendo» puede ser igual, porque la unidad durmió en el CD.</li>
+        <li><b>El recorrido debe caber en el tiempo fuera del CD</b>: horas fuera × 80 km/h (se cambia en Configuración). Si estuvo 2 horas fuera, como máximo 160 km. Así se atrapa un dígito de más.</li>
+        <li><b>No se aceptan valores de relleno</b> (0, 99999, 999999).</li>
+        <li><b>El vigilante no puede forzar un valor.</b> Corrija el número. Si el tablero de verdad marca ese valor, marque <b>«km observado»</b> y explíquelo en la observación: el vehículo pasa, la lectura se guarda pero <b>no cuenta</b> hasta que el Administrador la revise.</li>
+        <li>Cada intento rechazado queda en la <b>auditoría</b> con la hora, el usuario y el número escrito.</li>
+        <li>Si el odómetro <b>no se puede leer</b> (tablero apagado, dañado, sin luz), marque <b>«No se pudo leer el odómetro»</b> y explique el porqué en la observación: el vehículo pasa igual, el registro queda sin km y el Administrador recibe el aviso para resolverlo. <b>No invente un número</b>: un valor inventado arruina el kilometraje de toda la semana.</li>
+        <li>No escriba el kilometraje en la observación: va en su campo.</li>
+    </ul>
+    <h3 id="a-porteria-imprevisto">Retorno imprevisto</h3>
+    <figure class="media"><div class="marco"><img src="img/a61-porteria-imprevisto.jpg" alt="Retorno imprevisto en portería" loading="lazy"></div><figcaption>Retorno imprevisto: motivo, kilometraje con los mismos controles y qué pasó.</figcaption></figure>
+    <p>Es para un <b>hecho fortuito</b> de un camión propio que está en ruta: sale a las 8:00, olvidó algo, vuelve a las 10:00 y sale de nuevo a las 11:00. <b>No registre un fin de jornada</b> en ese caso, porque cerraría el turno a las 10:00.</p>
+    <ol>
+        <li>Escanee la placa y pulse <b>«Retorno imprevisto · vuelve a salir»</b>.</li>
+        <li>Elija el <b>motivo</b>: olvidó carga o documentos, recojo adicional, cambio de carga, problema menor (sin avería) u otro.</li>
+        <li>Escriba el <b>kilometraje</b> y <b>qué pasó</b>, y registre. Despacho y el Administrador reciben un aviso en la campanita.</li>
+        <li>Cuando salga, escanee la placa: es una <b>salida común</b>. El retorno final sigue siendo la <b>Post-Ruta</b>.</li>
+    </ol>
+    <div class="nota info"><div>La jornada sigue en ruta y las rutas pendientes no cambian. No afecta la puntualidad, las rutas cumplidas, la Pre-Ruta ni la Post-Ruta. Si el vehículo viene con una falla que lo deja fuera de servicio, use <b>Ingreso por avería</b>. Los vehículos externos sin programación siguen sin poder ingresar.</div></div>
 </section>
 
 <section class="capitulo naranja-cap" id="a-jornada">
@@ -751,9 +773,9 @@ tr:last-child td { border-bottom: 0; }
     <div class="tabla"><table>
         <thead><tr><th>Pestaña</th><th>Qué responde</th></tr></thead>
         <tbody>
-            <tr><td><b>Resumen ejecutivo</b></td><td>Lo que Gerencia lee en 30 segundos: 8 indicadores (ocupación ahora, rutas cumplidas, permanencia, puntualidad, Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario y disponibilidad), cada uno con su variación frente al periodo anterior y una mini tendencia de 14 días; alertas en vivo; conclusiones; y un calendario de 5 semanas con el % de retornos en horario por día. Toque una tarjeta para ver el detalle.</td></tr>
+            <tr><td><b>Resumen ejecutivo</b></td><td>Lo que Gerencia lee en 30 segundos: 8 indicadores (ocupación ahora, rutas cumplidas, permanencia, puntualidad, Pre-Ruta a tiempo, cierre en horario —con los retornos fuera de horario y la Post-Ruta promedio—, <b>km recorridos</b> y disponibilidad), cada uno con su variación frente al periodo anterior y una mini tendencia de 14 días; alertas en vivo; conclusiones; y un calendario de 5 semanas con el % de retornos en horario por día. Toque una tarjeta para ver el detalle.</td></tr>
             <tr><td><b>Operación en planta</b></td><td>Dónde, cuándo y por qué se demoran los camiones en sus visitas programadas: permanencia, demoras, puntualidad (clientes y proveedores por su <b>llegada</b>; rutas propias por su <b>salida</b>), mapa de calor, rankings y mayores demoras.</td></tr>
-            <tr><td><b>Flota propia</b></td><td>La jornada de los camiones propios: Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario, rutas cumplidas, <b>salidas a tiempo</b> (cada salida a ruta frente a su hora programada; con 15 min tarde ya es retraso) y jornada efectiva; la <b>línea de tiempo del día</b> (un día) o la <b>matriz placa × día</b> (varios días); a qué hora vuelven, cuánto tardan en salir, tendencia y ranking por placa o conductor.</td></tr>
+            <tr><td><b>Flota propia</b></td><td>La jornada de los camiones propios: Pre-Ruta a tiempo, cierre en horario, retornos fuera de horario, rutas cumplidas, <b>salidas a tiempo</b> (cada salida a ruta frente a su hora programada; con 15 min tarde ya es retraso), <b>Post-Ruta promedio</b> y <b>km recorridos</b> (con km por unidad y día); el botón <b>Ver reporte detallado</b> abre el Reporte de jornadas con los mismos filtros; la <b>línea de tiempo del día</b> (un día) o la <b>matriz placa × día</b> (varios días); a qué hora vuelven, cuánto tardan en salir, tendencia y ranking por placa o conductor.</td></tr>
             <tr><td><b>Disponibilidad</b></td><td>% de la flota sin avería, vehículos no disponibles, averías y su tipo, tiempo de reparación, días fuera de servicio y las averías del periodo.</td></tr>
         </tbody>
     </table></div>
@@ -777,16 +799,46 @@ tr:last-child td { border-bottom: 0; }
         <li>Si el rango incluye hoy, el Dashboard se actualiza solo cada 2 minutos sin perder los filtros (ver «Actualización automática» en el capítulo 17). El botón <b>Modo TV</b> abre la pantalla para el televisor.</li>
     </ul>
     <div class="nota info"><div>Solo los tramos con salida aportan permanencia y solo las jornadas cerradas se califican. Por eso, temprano en la mañana, varios gráficos de «Hoy» muestran «Todavía no hay…».</div></div>
+    <h3 id="a-reporte">Reporte de jornadas (detalle y Excel)</h3>
+    <p>Menú <b>Reporte de jornadas</b> (Administrador, Despacho y Consulta) o el botón <b>Ver reporte detallado</b> de la pestaña Flota propia. Es el control fila por fila de cada placa y turno, con <b>las mismas cifras</b> del Dashboard y del modo TV: el resumen de arriba es igual a las tarjetas de Flota propia con los mismos filtros, y el Excel trae exactamente lo mismo.</p>
+    <figure><div class="marco"><img src="img/a58-reporte-placa-dia.jpg" alt="Reporte de jornadas por placa y día" loading="lazy"></div><figcaption>Reporte de jornadas: rangos, filtros, el resumen (mismas cifras que el Dashboard) y la vista «Por placa y día»: cómo inició y terminó cada placa, con su hora y su km.</figcaption></figure>
+    <figure><div class="marco"><img src="img/a59-reporte-resumen-placa.jpg" alt="Resumen por placa del periodo" loading="lazy"></div><figcaption>«Resumen por placa»: km del periodo, km por día, cobertura y control contra el odómetro.</figcaption></figure>
+    <div class="tabla"><table>
+        <thead><tr><th>Indicador</th><th>Cómo se calcula</th></tr></thead>
+        <tbody>
+            <tr><td><b>Tiempo de Pre-Ruta</b></td><td>Salida a ruta − hora de ingreso: 06:30 en el turno día y 20:00 en el turno noche (o la entrada real, si la unidad llegó después). Meta: 60 min.</td></tr>
+            <tr><td><b>Tiempo de Post-Ruta</b></td><td>Fin del turno (16:00; 06:15 del día siguiente en el turno noche) − hora real de retorno al CD. <b>Positivo</b>: volvió antes del fin del turno; <b>negativo</b>: después. Ejemplo: volvió a las 16:50 → −50 min («50 min después»).</td></tr>
+            <tr><td><b>Km del turno</b></td><td>Última lectura (Post-Ruta) − primera lectura del turno. Ejemplo: sale con 90, vuelve a las 11:00 con 95, sale con 95 y retorna con 110 → <b>20 km</b>.</td></tr>
+            <tr><td><b>Km del día</b></td><td>Km del turno día + km del turno noche que empieza ese día.</td></tr>
+            <tr><td><b>Km fuera de jornada</b></td><td>Lo recorrido entre la lectura anterior de la placa y el inicio del turno (por ejemplo, si durmió fuera del CD). <b>Km total para combustible</b> = km del día + km fuera de jornada.</td></tr>
+        </tbody>
+    </table></div>
+    <ul>
+        <li><b>Filtros</b>: rango (hoy por defecto; hasta 180 días), CD, turno, placa, tamaño y conductor (los mismos del Dashboard) y, propios del reporte, estado de la jornada, Pre-Ruta (a tiempo / excedida), retorno (anticipado / en horario / fuera de horario) y kilometraje (válido / por revisar / no leído / excluido). El resumen se recalcula con todo lo filtrado.</li>
+        <li><b>Por placa y día</b> (la vista principal): en una sola fila, cómo inició (hora y km), cómo terminó (hora y km), los km recorridos, el tiempo en ruta, las rutas y los retornos imprevistos. Cada placa abre su trazabilidad del día.</li>
+        <li><b>Por turno</b>: una fila por placa y turno; ordenable por fecha, placa, Pre-Ruta, Post-Ruta o km.</li>
+        <li><b>Resumen por placa</b>: elija el rango (por ejemplo, «Este mes») y vea por placa los días trabajados, el km del periodo, el km por día, el tiempo en ruta y los imprevistos. Es la base para medir el combustible. La <b>cobertura</b> dice qué porcentaje de turnos tiene km válido, y el <b>odómetro</b> (última − primera lectura válida) sirve de control: si dice «cuadra», los turnos explican todo el recorrido; si muestra una diferencia, hay lecturas que no suman.</li>
+        <li><b>Calidad del km</b>: los turnos cuyo km no suma, con el motivo y un enlace a cada lectura.</li>
+        <li><b>Exportar a Excel</b> descarga todo lo filtrado (no solo la página) en las hojas Resumen, Por placa y día, Por turno, <b>Movimientos</b> (cada entrada y salida con su km, los km desde la lectura anterior y los minutos en el CD y fuera), Resumen por placa, Calidad del km, Por tipo de unidad y Notas (fórmulas y filtros aplicados).</li>
+        <li>Un turno <b>solo suma km si sus lecturas son válidas</b>. No suman: el odómetro no leído, las lecturas observadas o excluidas, los valores de relleno, un km que baja, más de 800 km en el turno o 0 km habiendo salido a ruta. Esos turnos aparecen en <b>Calidad del km</b> con el motivo y un enlace a cada lectura para corregirla.</li>
+    </ul>
+    <div class="nota cuidado"><div>Los tiempos de Pre-Ruta y Post-Ruta son un <b>indicador operativo del vehículo</b>: no son un registro de asistencia ni sustentan horas extra. Por eso se muestran por placa; el conductor de la fila es solo un dato de contexto y nunca se suman minutos por conductor.</div></div>
 </section>
 
 <section class="capitulo naranja-cap" id="a-tv">
     <h2><span class="num">19</span>Modo TV</h2>
     <p class="entrada">Una pantalla por CD para un televisor grande: se lee a distancia, no se toca y se actualiza sola cada minuto.</p>
-    <figure><div class="marco"><img src="img/a48-modo-tv.jpg" alt="Modo TV del CD Lurín" loading="lazy"></div><figcaption>Modo TV (1920×1080): reloj, seis cifras del día, la línea de tiempo de la flota propia con placa y conductor, los vehículos en planta y la cinta de alertas.</figcaption></figure>
+    <figure><div class="marco"><img src="img/a48-modo-tv.jpg" alt="Modo TV del CD Lurín" loading="lazy"></div><figcaption>Modo TV (1920×1080), página «En vivo»: las 8 cifras del turno, la línea de tiempo de la flota propia con placa y conductor, los vehículos en planta y la cinta de alertas.</figcaption></figure>
+    <p>Arriba, <b>8 cifras del turno</b> (las mismas del Dashboard › Flota y del Reporte de jornadas para ese día, turno y CD; el pie lo recuerda): <b>flota en operación</b>, <b>Pre-Ruta</b> promedio y % a tiempo, <b>salidas a tiempo</b>, <b>rutas del turno</b>, <b>retornos en horario</b> con la Post-Ruta promedio, <b>km recorridos</b> (de los turnos ya cerrados) con km por unidad, <b>en planta ahora</b> y <b>no disponibles</b>. Cada una lleva su semáforo con ícono y texto («En meta», «Atención», «Lejos de la meta») y la comparación con el mismo día de la semana pasada.</p>
+    <div class="duo">
+        <figure><div class="marco"><img src="img/a56-tv-indicadores.jpg" alt="Modo TV: indicadores del turno por placa" loading="lazy"></div><figcaption>«Indicadores del turno»: km por placa, Pre-Ruta por placa frente a la meta y retornos frente al fin del turno.</figcaption></figure>
+        <figure><div class="marco"><img src="img/a57-tv-semana.jpg" alt="Modo TV: últimos 7 días laborables" loading="lazy"></div><figcaption>«Últimos 7 días laborables»: km, Pre-Ruta, salidas y retornos de cada día con su semáforo.</figcaption></figure>
+    </div>
     <ul>
         <li>Se abre desde <b>Inicio → Modo TV</b> o desde el botón <b>Modo TV</b> del Dashboard, eligiendo el CD. Use pantalla completa (F11).</li>
         <li>Para dejar un televisor encendido, TI crea un <b>usuario propio de la pantalla</b> (grupo «Accesos - Pantalla») con su <b>CD autorizado</b>. Su sesión dura 30 días y entra directo a su pantalla; no ve nada más.</li>
-        <li>Si hay más unidades o vehículos de los que caben, la pantalla <b>pasa de página cada 20 segundos</b>.</li>
+        <li>Rota cada <b>20 segundos</b> entre tres páginas: <b>En vivo</b> (si hay más unidades de las que caben, muestra todas sus páginas antes de seguir), <b>Indicadores del turno</b> y <b>Últimos 7 días</b>. Las cifras de arriba quedan fijas.</li>
+        <li>En «Indicadores del turno» los minutos y los km se muestran <b>por placa</b>, nunca por conductor (indicador operativo del vehículo).</li>
         <li><b>Turno noche</b>: desde una hora antes de las 20:00 y hasta las 07:30 del día siguiente, la línea de tiempo muestra el turno noche («Flota propia · turno noche del dd/mm»); el resto del día, el turno día. «Flota propia» cuenta placas, con el detalle por turno.</li>
         <li>Si se corta la red, la pantalla <b>conserva los últimos datos</b> y muestra «Sin conexión desde…»; se recupera sola. Si la sesión vence, lo indica para volver a ingresar.</li>
         <li>Se ajusta a cualquier televisor (720p, Full HD o 4K). Recomendado: un mini PC o un stick con Chrome en modo kiosco.</li>
@@ -805,7 +857,12 @@ tr:last-child td { border-bottom: 0; }
         <li><b>Corregir datos</b>: horas, kilometraje, programación (de la misma placa), conductor u observaciones.</li>
         <li><b>Cierre administrativo</b>: registra una salida que Vigilancia olvidó, con hora estimada.</li>
         <li><b>Anular</b>: para una entrada equivocada. El tramo no se borra, deja de contar en los indicadores y la programación vuelve a quedar pendiente.</li>
+        <li><b>Excluir lectura de km</b>: para un kilometraje errado cuyo valor real no se conoce (por ejemplo, 99999). Deja de sumar en el reporte y de servir de referencia en portería; <b>Restituir</b> lo vuelve a contar. Si conoce el valor real, use <b>Corregir datos</b>: el km debe quedar entre la lectura válida anterior y la siguiente.</li>
+        <li><b>Km observado</b>: Vigilancia registró un valor que no pasó los controles. Desde el detalle del tramo, <b>Validar</b> si el tablero sí marcaba ese valor (debe quedar entre las lecturas vecinas y caber en el tiempo fuera), <b>Corregir datos</b> si conoce el valor real o <b>Excluir</b> si no es confiable. Hasta entonces no cuenta.</li>
+        <li><b>Cambio de odómetro</b> (casilla al corregir): la única forma de aceptar un km menor al anterior; ese turno no suma km.</li>
+        <li><b>Cerrar sin retorno</b> (desde la Trazabilidad o desde «Calidad del km»): para una jornada que salió a ruta y cuyo retorno nunca se registró, con el turno ya terminado. Queda «Cerrada sin retorno», no cuenta en la Post-Ruta ni en el km, y sus rutas pendientes quedan «No atendida».</li>
     </ul>
+    <p>Las copias automáticas del kilometraje (la Pre-Ruta que empieza con el km de la pernocta) siguen solas a su lectura de origen cuando se corrige o se excluye.</p>
     <p>En la lista y el detalle, la columna <b>Puntualidad</b> califica la <b>llegada</b> de clientes y proveedores y la <b>salida</b> de las rutas propias (incluida la primera, que atiende la Pre-Ruta). La exportación a Excel trae las dos desviaciones (llegada y salida) y qué se calificó.</p>
     <h3>Trazabilidad de una placa en un día</h3>
     <figure><div class="marco"><img src="img/a49-trazabilidad.jpg" alt="Trazabilidad de una placa en un día" loading="lazy"></div><figcaption>Trazabilidad: resumen del día (programaciones atendidas, salidas a tiempo, Pre-Ruta, retorno y kilómetros recorridos) y la línea de tiempo con la lectura de cada movimiento.</figcaption></figure>
@@ -814,10 +871,12 @@ tr:last-child td { border-bottom: 0; }
         <li>Menú <b>Trazabilidad</b>: escriba la placa (con o sin guion) y elija el día. Las flechas pasan al día anterior o siguiente. También se abre desde el detalle de un tramo o de una programación, desde el bloque «Flota propia» y desde la lista de Transportes.</li>
         <li>La <b>línea de tiempo</b> muestra en orden la Pre-Ruta, cada <b>salida a ruta</b> con su hora programada y la lectura («10 min antes · a tiempo», «15 min tarde · retraso»), las entradas al CD, la Post-Ruta con su horario de referencia y los minutos fuera de horario, el kilometraje de cada lectura, quién registró y las observaciones.</li>
         <li>Lo que quedó <b>sin atender</b> (pendiente, «No atendida» o cancelada) aparece a su hora. La pernocta que venía del día anterior o que sigue al día siguiente se muestra atenuada, como contexto.</li>
-        <li><b>Kilómetros recorridos</b> = última lectura del día menos la primera (normalmente, la Post-Ruta menos la salida de la mañana).</li>
+        <li><b>Kilometraje</b>: el del turno (inició con… y terminó con…), igual que en el Reporte de jornadas, más el tiempo en ruta y los retornos imprevistos; si no suma, dice por qué (por ejemplo, «Lectura final: odómetro no leído»). El recuadro del Retorno muestra también la <b>Post-Ruta</b> («50 min después del fin del turno»).</li>
+        <li><b>Línea de tiempo</b>: lo programado y los <b>retornos imprevistos</b> con su motivo; en cada regreso al CD, los <b>km desde la lectura anterior</b> («+45 km») y el <b>tiempo fuera del CD</b>.</li>
         <li>Si la placa tuvo <b>turno noche</b>, el día incluye su turno completo (también la madrugada siguiente): un recuadro negro resume su Pre-Ruta y su retorno, y sus movimientos llevan la marca «Turno noche». La exportación suma la columna «Turno».</li>
         <li><b>Exportar a Excel</b> descarga la misma línea de tiempo. Vigilancia ve solo lo de su CD.</li>
     </ul>
+    <figure><div class="marco"><img src="img/a60-trazabilidad-imprevisto.jpg" alt="Trazabilidad con un retorno imprevisto" loading="lazy"></div><figcaption>Trazabilidad con un retorno imprevisto: motivo, km desde la lectura anterior y tiempo fuera del CD.</figcaption></figure>
     <figure class="media"><div class="marco"><img src="img/a31-tramos-vigilancia.jpg" alt="Consulta de tramos vista por Vigilancia en la tablet" loading="lazy"></div><figcaption>Vigilancia también consulta y exporta los tramos, pero solo los de su CD y sin las acciones de corrección.</figcaption></figure>
 </section>
 
@@ -829,6 +888,7 @@ tr:last-child td { border-bottom: 0; }
         <thead><tr><th>Parámetro</th><th>Valor inicial</th><th>Para qué sirve</th></tr></thead>
         <tbody>
             <tr><td>Ventana de sugerencia</td><td>± 60 min</td><td>Programación sugerida en portería.</td></tr>
+            <tr><td>Velocidad máxima razonable</td><td>80 km/h</td><td>Tope del kilometraje en portería: horas fuera del CD × esta velocidad.</td></tr>
             <tr><td>Tolerancia de puntualidad</td><td>15 min</td><td>Desde estos minutos tarde es «Retrasado»: la llegada en clientes y proveedores, la salida en las rutas propias. Más de 15 min antes es «Adelantado».</td></tr>
             <tr><td>Umbral de permanencia prolongada</td><td>240 min (4 h)</td><td>Marca de permanencia prolongada.</td></tr>
             <tr><td>Meta de permanencia</td><td>Por definir (Gerencia)</td><td>Define qué es una «demora».</td></tr>
@@ -906,7 +966,10 @@ tr:last-child td { border-bottom: 0; }
     <details><summary>El vehículo llegó, pero el sistema dice «no programado».</summary><p>Revise en «Programaciones» si existe una programación de hoy para esa placa y ese CD. Si no existe, si es de otro CD o ya fue usada, Despacho debe registrar una nueva. Revise también que la placa esté bien digitada.</p></details>
     <details><summary>Se registró una entrada por error.</summary><p>Avise al Administrador: puede <b>anular</b> el tramo (con motivo). La programación vuelve a quedar pendiente y se puede registrar de nuevo.</p></details>
     <details><summary>Vigilancia olvidó registrar una salida.</summary><p>Al escanear la placa aparecerá como SALIDA. Si el vehículo ya se fue, el Administrador hace un <b>cierre administrativo</b> con la hora estimada.</p></details>
-    <details><summary>El kilometraje se digitó mal.</summary><p>El Administrador lo corrige desde el detalle del tramo, con motivo.</p></details>
+    <details><summary>El kilometraje se digitó mal.</summary><p>El Administrador lo corrige desde el detalle del tramo, con motivo (debe quedar entre la lectura anterior y la siguiente). Si no se conoce el valor real, lo <b>excluye</b>: deja de sumar en el reporte y de ser la referencia en portería.</p></details>
+    <details><summary>Portería no me deja registrar el kilometraje.</summary><p>Es menor o igual al último registrado, no cabe en el tiempo que estuvo fuera del CD o es un valor de relleno como 0 o 99999. Verifique el odómetro. Si el tablero de verdad marca ese valor, márquelo como «km observado»; si no se puede leer, marque «No se pudo leer el odómetro». En los dos casos explíquelo en la observación: el vehículo pasa igual y el Administrador lo resuelve.</p></details>
+    <details><summary>Un camión propio volvió por algo que olvidó y va a salir de nuevo. ¿Qué registro?</summary><p>Un «Retorno imprevisto». No registre el fin de jornada: cerraría el turno. Ver el capítulo 14.</p></details>
+    <details><summary>¿Por qué el Reporte de jornadas no suma el km de un turno?</summary><p>Porque alguna de sus lecturas no es válida (no leída, observada, excluida, de relleno, menor a la anterior, más de 800 km o 0 km habiendo salido a ruta) o porque el turno sigue en curso. La vista «Calidad del km» dice el motivo y enlaza a cada lectura.</p></details>
     <details><summary>El camión necesita volver a entrar el mismo día.</summary><p>Despacho registra otra programación en otro horario. La forma más rápida es «Nueva en otro horario» desde el detalle de la anterior.</p></details>
     <details><summary>¿Por qué el dashboard de «Hoy» aparece vacío temprano?</summary><p>La permanencia solo se calcula cuando el vehículo sale. Use «Ayer» o «7 días» para ver tendencias.</p></details>
     <details><summary>La cámara de la tablet no abre.</summary><p>Acepte el permiso de cámara del navegador, o digite la placa: el resultado es el mismo. Con un lector QR físico no se necesita la cámara.</p></details>
@@ -930,6 +993,12 @@ tr:last-child td { border-bottom: 0; }
         <dt>CD</dt><dd>Centro de Distribución: Lurín o Punta Negra.</dd>
         <dt>Programación</dt><dd>Ingreso esperado de una placa en una fecha y hora, en un CD.</dd>
         <dt>Tramo</dt><dd>Una entrada y su salida reales en portería.</dd>
+        <dt>Tiempo de Post-Ruta</dt><dd>Fin del turno (16:00; 06:15 en el turno noche) menos la hora real de retorno al CD: positivo si volvió antes, negativo si volvió después. Indicador operativo del vehículo.</dd>
+        <dt>Km del turno</dt><dd>Última lectura del turno (Post-Ruta) menos la primera. Solo suma si sus lecturas son válidas.</dd>
+        <dt>Lectura excluida / no leída</dt><dd>Kilometraje que no cuenta: excluido por el Administrador (valor errado sin dato real) o que Vigilancia no pudo leer.</dd>
+        <dt>Km observado</dt><dd>Valor que Vigilancia registró aunque no pasó los controles, porque el tablero lo marca. No cuenta hasta que el Administrador lo valide, lo corrija o lo excluya.</dd>
+        <dt>Retorno imprevisto</dt><dd>Un camión propio en ruta vuelve al CD por un hecho fortuito y vuelve a salir. La jornada sigue en ruta.</dd>
+        <dt>Tiempo en ruta</dt><dd>Tiempo fuera del CD entre la salida a ruta y la Post-Ruta (sin la Pre-Ruta, las visitas ni los retornos imprevistos).</dd>
         <dt>Permanencia</dt><dd>Tiempo desde la entrada hasta la salida de un tramo.</dd>
         <dt>Permanencia prolongada</dt><dd>Más de 4 horas dentro del CD (configurable).</dd>
         <dt>Demora</dt><dd>Permanencia por encima de la meta de Gerencia (o de 4 horas mientras no haya meta).</dd>

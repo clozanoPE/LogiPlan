@@ -16,6 +16,7 @@ barra de puntualidad o un punto de la tendencia filtra el dashboard completo.
 from datetime import date, timedelta
 
 from django.shortcuts import render
+from django.urls import reverse
 
 from .. import indicadores, indicadores_flota, jornadas, servicios, tiempo
 from ..models import (CentroDistribucion, Conductor, ConfiguracionAccesos, Programacion, TamanoVehiculo, Tramo,
@@ -238,11 +239,11 @@ def _por_turno(lista, ahora, internas):
 def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora, params):
     """Indicadores de la flota propia y de la disponibilidad (pestañas «Flota propia» y «Disponibilidad»)."""
     un_dia = desde == hasta
-    lista = indicadores_flota.jornadas_del_periodo(desde, hasta, filtros)
+    lista = indicadores_flota.jornadas_del_periodo(desde, hasta, filtros, ahora)
     internas = indicadores_flota.programaciones_internas(desde, hasta, filtros)
     hay_noche = any(j.es_noche for j in lista)
     actuales = indicadores_flota.kpis(lista, ahora, internas)
-    anterior = indicadores_flota.jornadas_del_periodo(desde_anterior, hasta_anterior, filtros)
+    anterior = indicadores_flota.jornadas_del_periodo(desde_anterior, hasta_anterior, filtros, ahora)
     anteriores = indicadores_flota.kpis(anterior, ahora,
                                         indicadores_flota.programaciones_internas(desde_anterior, hasta_anterior, filtros))
     disp = indicadores_flota.disponibilidad(desde, hasta, filtros, ahora)
@@ -259,13 +260,19 @@ def _contexto_flota(desde, hasta, desde_anterior, hasta_anterior, filtros, ahora
         'cambios': _cambios(indicadores.variacion(actuales, anteriores), 'el día anterior' if un_dia else 'el periodo anterior',
                             {'pct_pre_ruta_a_tiempo': (' pts', False), 'pct_cierre_en_horario': (' pts', False),
                              'fuera_de_horario': ('', True), 'pct_rutas_cumplidas': (' pts', False),
-                             'pct_salidas_a_tiempo': (' pts', False)}),
+                             'pct_salidas_a_tiempo': (' pts', False), 'post_ruta_promedio_dia': (' min', False),
+                             'km_total': (' km', None)}),
         'cambios_disp': _cambios(
             indicadores.variacion({k: disp[k] for k in ('pct_disponibilidad', 'averias', 'dias_unidad_fuera')},
                                   {k: disp_anterior[k] for k in ('pct_disponibilidad', 'averias', 'dias_unidad_fuera')}),
             'el día anterior' if un_dia else 'el periodo anterior',
             {'pct_disponibilidad': (' pts', False), 'averias': ('', True), 'dias_unidad_fuera': ('', True)}),
         'referencia': 'el día anterior' if desde == hasta else 'el periodo anterior',
+        # Reporte de jornadas con los mismos filtros (las mismas cifras, fila por fila, y su Excel).
+        'reporte_url': reverse('accesos:reporte_jornadas') + _url(params, vista=None, desde=desde.isoformat(),
+                                                                 hasta=hasta.isoformat()),
+        'calidad_url': reverse('accesos:reporte_jornadas') + _url(params, vista='calidad', desde=desde.isoformat(),
+                                                                  hasta=hasta.isoformat()),
         'gantt_disponible': un_dia,
         # Selector de turno (Todos / Día / Noche) y comparativo de los dos turnos si en el periodo hubo turno noche.
         'turnos': [{'etiqueta': 'Todos', 'url': _url(params, turno=None), 'activo': not filtros.get('turno')}]
@@ -358,14 +365,20 @@ def _resumen(desde, hasta, hoy, ahora, filtros, config, params, k_planta, v_plan
                 f"{servicios.formato_duracion(kf['pre_ruta_promedio'])}", 'fa-sun', vf.get('pct_pre_ruta_a_tiempo'), ' pts',
                 serie=_serie(dias, lambda d: f_dia[d]['pct_pre_ruta_a_tiempo']), vista='flota'),
         tarjeta('Cierre en horario', _formato(kf['pct_cierre_en_horario'], ' %'),
-                f"retornos (Post-Ruta) hasta el cierre + tolerancia · {kf['cierres']} retornos", 'fa-flag-checkered',
+                f"{kf['fuera_de_horario']} de {kf['cierres']} retornos fuera de horario"
+                + (f" · Post-Ruta {jornadas.texto_post_ruta(kf['post_ruta_promedio_dia'])} del fin del turno"
+                   if kf['post_ruta_promedio_dia'] is not None else ''), 'fa-flag-checkered',
                 vf.get('pct_cierre_en_horario'), ' pts', serie=_serie(dias, lambda d: f_dia[d]['pct_cierre_en_horario']),
-                vista='flota'),
-        tarjeta('Retornos fuera de horario', str(kf['fuera_de_horario']),
-                f"{servicios.formato_duracion(kf['minutos_sobre_cierre'])} sobre el horario de referencia en total",
-                'fa-clock',
-                vf.get('fuera_de_horario'), '', menor_es_mejor=True,
-                serie=_serie(dias, lambda d: f_dia[d]['fuera_de_horario']), vista='flota', alerta=kf['fuera_de_horario'] > 0),
+                vista='flota', alerta=kf['fuera_de_horario'] > 0),
+        # 30/10/2026: «Km recorridos» reemplaza a «Retornos fuera de horario» (su cifra pasó al detalle de «Cierre en
+        # horario»), para mantener 8 tarjetas.
+        tarjeta('Km recorridos', f"{kf['km_total']:,} km".replace(',', '.') if kf['km_turnos'] else '—',
+                (f"{kf['km_por_unidad_dia']:g} km por unidad y día · " if kf['km_por_unidad_dia'] is not None else '')
+                + f"{kf['km_turnos']} turno(s) con km válido"
+                + (f" · {kf['km_por_revisar']} por revisar" if kf['km_por_revisar'] else ''), 'fa-road',
+                vf.get('km_total'), ' km', menor_es_mejor=None,
+                serie=_serie(dias, lambda d: f_dia[d]['km_total'] if f_dia[d]['km_turnos'] else None), vista='flota',
+                alerta=kf['km_por_revisar'] > 0),
         tarjeta('Disponibilidad de flota', _formato(disp['pct_disponibilidad'], ' %'),
                 f"{disp['no_disponibles_ahora']} no disponible{'s' if disp['no_disponibles_ahora'] != 1 else ''} ahora · "
                 f"{disp['averias']} avería{'s' if disp['averias'] != 1 else ''}", 'fa-screwdriver-wrench',
@@ -432,7 +445,8 @@ def _cambio(valor, unidad, menor_es_mejor, referencia):
     if valor == 0:
         return f"Igual que {referencia}", None
     signo = '+' if valor > 0 else '−'
-    return f"{signo}{abs(valor):g}{unidad} vs. {referencia}", (valor < 0) == menor_es_mejor
+    # menor_es_mejor None: indicador neutro (p. ej. km recorridos): se informa sin calificarlo.
+    return f"{signo}{abs(valor):g}{unidad} vs. {referencia}", None if menor_es_mejor is None else (valor < 0) == menor_es_mejor
 
 
 def _tarjetas(k, v, config, dentro_ahora, capacidad, un_dia):

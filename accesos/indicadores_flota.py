@@ -12,6 +12,12 @@ extra del personal. Por eso se muestran por placa y nunca se suman por conductor
 
 En las rutas INTERNO la hora programada es la de SALIDA del CD: «salidas a tiempo» compara cada salida a ruta
 (la de la Pre-Ruta, que atiende la primera ruta, y la de cada visita) con su hora programada.
+
+MOTOR ÚNICO (30/10/2026): `jornadas_del_periodo` + `kpis` son la única cuenta de la flota propia. La usan el
+Dashboard (pestañas Flota y Resumen), el Reporte de jornadas (pantalla y Excel) y el modo TV; con los mismos filtros
+dan los mismos números (lo verifican las pruebas de cuadre). Cada jornada lleva sus minutos de Pre-Ruta y de
+Post-Ruta (fin del turno − retorno real) y su km (kilometraje.km_de_jornadas: última − primera lectura del turno,
+solo si las lecturas son válidas).
 """
 from collections import Counter, defaultdict
 from datetime import time, timedelta
@@ -19,7 +25,7 @@ from statistics import mean
 
 from django.db.models import Q
 
-from . import jornadas, servicios, tiempo
+from . import jornadas, kilometraje, servicios, tiempo
 from .indicadores import _p90, _porcentaje, _promedio
 from .models import ConfiguracionAccesos, Incidencia, Jornada, Programacion, Tramo, Transporte
 
@@ -30,9 +36,11 @@ AVISO_OPERATIVO = ("Indicador operativo del retorno del vehículo al CD. No es u
 
 # --- DATOS DEL PERIODO ---
 
-def jornadas_del_periodo(desde, hasta, filtros):
+def jornadas_del_periodo(desde, hasta, filtros, ahora=None):
     """Jornadas no anuladas que empiezan en el rango, con los filtros que aplican a la flota (CD, placa, conductor,
-    tamaño y turno). Un filtro de tipo distinto de INTERNO deja la flota vacía."""
+    tamaño y turno). Un filtro de tipo distinto de INTERNO deja la flota vacía. Cada jornada lleva `calificacion`,
+    `minutos_pre_ruta`, `minutos_post_ruta`, `minutos_sobre_cierre`, sus salidas a ruta y su `km` (KmJornada)."""
+    ahora = ahora or tiempo.ahora()
     if filtros.get('tipo') and filtros['tipo'] != Programacion.Tipo.INTERNO:
         return []
     qs = (Jornada.objects.filter(fecha__range=(desde, hasta)).exclude(estado=Estado.ANULADA)
@@ -49,11 +57,14 @@ def jornadas_del_periodo(desde, hasta, filtros):
         qs = qs.filter(transporte__tamano_id=filtros['tamano'])
     lista = list(qs.order_by('fecha', 'transporte__placa_normalizada', 'turno'))
     salidas = _salidas_por_jornada(desde, hasta, {j.pk for j in lista})
+    km = kilometraje.km_de_jornadas(lista, ahora)
     for j in lista:
         j.calificacion = jornadas.calificacion_cierre(j)
         j.minutos_pre_ruta = jornadas.minutos_pre_ruta(j)
+        j.minutos_post_ruta = jornadas.minutos_post_ruta(j)
         j.minutos_sobre_cierre = jornadas.minutos_sobre_cierre(j)
         j.salidas, j.retrasos = salidas.get(j.pk, ([], []))
+        j.km = km[j.pk]
     return lista
 
 
@@ -93,6 +104,15 @@ def kpis(lista, ahora, programaciones_internas=None):
                 if j.inicio_real and j.post_ruta_en]
     salidas = [d for j in lista for d in getattr(j, 'salidas', [])]
     retrasos = [d for j in lista for d in getattr(j, 'retrasos', [])]
+    # Post-Ruta (fin del turno − retorno real), siempre por turno: volver de madrugada es lo normal en la noche.
+    post_dia = [m for j in lista if not j.es_noche and (m := jornadas.minutos_post_ruta(j)) is not None]
+    post_noche = [m for j in lista if j.es_noche and (m := jornadas.minutos_post_ruta(j)) is not None]
+    # Kilometraje: solo los turnos con km válido suman; los demás se cuentan «por revisar» (o en curso).
+    con_km = [j for j in lista if getattr(j, 'km', None) is not None]
+    validos = [j for j in con_km if j.km.valido]
+    por_revisar = [j for j in con_km if j.km.por_revisar]
+    km_total = sum(j.km.recorrido for j in validos)
+    unidades_dia = {(j.transporte_id, j.fecha) for j in validos}
     resultado = {
         'jornadas': len(lista),
         'con_salida': len(con_salida),
@@ -112,6 +132,19 @@ def kpis(lista, ahora, programaciones_internas=None):
         'salidas_retrasadas': len(retrasos),
         'pct_salidas_a_tiempo': _porcentaje(len(salidas) - len(retrasos), len(salidas)),
         'retraso_salida_promedio': _promedio(retrasos),
+        'post_ruta_promedio_dia': _promedio(post_dia), 'post_ruta_dia': len(post_dia),
+        'post_ruta_promedio_noche': _promedio(post_noche), 'post_ruta_noche': len(post_noche),
+        'km_total': km_total, 'km_turnos': len(validos), 'km_por_revisar': len(por_revisar),
+        'km_unidades_dia': len(unidades_dia),
+        'km_por_unidad_dia': round(km_total / len(unidades_dia), 1) if unidades_dia else None,
+        'km_por_turno': round(km_total / len(validos), 1) if validos else None,
+        'pct_km_valido': _porcentaje(len(validos), len(validos) + len(por_revisar)),
+        'km_fuera_jornada': sum(j.km.fuera or 0 for j in con_km),
+        # Retornos imprevistos (30/10/2026) y horas en ruta (fuera del CD entre la salida a ruta y la Post-Ruta).
+        'imprevistos': sum(j.km.imprevistos for j in con_km),
+        'minutos_imprevistos': sum(j.km.minutos_imprevistos for j in con_km),
+        'placas_con_imprevistos': len({j.transporte_id for j in con_km if j.km.imprevistos}),
+        'minutos_en_ruta': sum(j.km.minutos_en_ruta for j in con_km if j.km.minutos_en_ruta is not None),
     }
     if programaciones_internas is not None:
         resultado.update(rutas_cumplidas(programaciones_internas, hoy))
@@ -193,8 +226,9 @@ def gantt(fecha, ahora, filtros, turno=jornadas.DIA):
                 fin = min(ahora, fin_dia) if es_hoy else fin_dia
             if fin <= medianoche or t.entrada_en >= fin_dia:
                 continue
-            tipo = {'PRE_RUTA': 'pre', 'PROGRAMADO': 'visita', 'POST_RUTA': 'post'}[t.clase]
-            etiqueta = {'pre': 'Pre-Ruta', 'visita': f"Ruta {t.programacion.hora:%H:%M}" if t.programacion_id else 'Visita',
+            tipo = {'PRE_RUTA': 'pre', 'PROGRAMADO': 'visita', 'IMPREVISTO': 'visita', 'POST_RUTA': 'post'}[t.clase]
+            etiqueta = {'pre': 'Pre-Ruta', 'visita': f"Ruta {t.programacion.hora:%H:%M}" if t.programacion_id else
+                        ('Retorno imprevisto' if t.clase == Tramo.Clase.IMPREVISTO else 'Visita'),
                         'post': 'Post-Ruta (pernocta)'}[tipo]
             # Ruta INTERNO que atiende la salida (hora programada = salida) y cómo salió frente a ella.
             ruta = ''
@@ -363,16 +397,17 @@ def tendencia(lista, desde, hasta, ahora):
         puntos = [inicio + timedelta(weeks=i) for i in range((hasta - inicio).days // 7 + 1)]
     else:
         puntos = [desde + timedelta(days=i) for i in range((hasta - desde).days + 1) if desde + timedelta(days=i) not in no_laborables]
-    pre, cierre, fuera, salidas = [], [], [], []
+    pre, cierre, fuera, salidas, km = [], [], [], [], []
     for p in puntos:
         k = kpis(grupos.get(p, []), ahora)
         pre.append(k['pct_pre_ruta_a_tiempo'])
         cierre.append(k['pct_cierre_en_horario'])
         fuera.append(k['fuera_de_horario'])
         salidas.append(k['pct_salidas_a_tiempo'])
+        km.append(k['km_total'] if k['km_turnos'] else None)
     return {'semanal': semanal, 'etiquetas': [(f"Sem. {p:%d/%m}" if semanal else f"{p:%d/%m}") for p in puntos],
             'valores': [p.isoformat() for p in puntos], 'pre_ruta': pre, 'cierre': cierre, 'fuera': fuera,
-            'salidas': salidas}
+            'salidas': salidas, 'km': km}
 
 
 # --- RANKINGS ---
@@ -392,7 +427,13 @@ def ranking(lista, dimension):
                 'pct_cierre_en_horario': k['pct_cierre_en_horario'], 'fuera_de_horario': k['fuera_de_horario'],
                 'por_averia': k['por_averia'], 'pct_salidas_a_tiempo': k['pct_salidas_a_tiempo']}
         if dimension == 'placa':
+            # Minutos y km solo por placa (vehículo): nunca por conductor (criterio laboral del 14/10/2026).
             fila['minutos_sobre_cierre'] = k['minutos_sobre_cierre']
+            fila['post_ruta_promedio'] = k['post_ruta_promedio_dia']
+            fila['km_total'] = k['km_total'] if k['km_turnos'] else None
+            fila['km_por_turno'] = k['km_por_turno']
+            fila['km_por_revisar'] = k['km_por_revisar']
+            fila['imprevistos'] = k['imprevistos']
         filas.append(fila)
     return sorted(filas, key=lambda f: (-f['fuera_de_horario'], -(f['pre_ruta_promedio'] or 0), f['nombre']))
 
